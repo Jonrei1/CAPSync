@@ -35,14 +35,13 @@ function memberInitials(name: string) {
 }
 
 export default function DashboardPage() {
-  const { activeCircle, members } = useCircle();
+  const { activeCircle, members, dialogOpen, setDialogOpen, dialogTab, setDialogTab, openJoinCreateDialog } = useCircle();
   const [stats, setStats] = useState<DashboardStats>({
     doneCount: 0,
     overdueCount: 0,
     fundBalance: 0,
     membersOnline: 0,
   });
-  const [openJoinCreate, setOpenJoinCreate] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -152,15 +151,20 @@ export default function DashboardPage() {
               Create a new circle for your group, or ask your PM for an invite code.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-              <Button onClick={() => setOpenJoinCreate(true)}>Create a circle</Button>
-              <Button variant="outline" onClick={() => setOpenJoinCreate(true)}>
+              <Button className="cursor-pointer" onClick={() => openJoinCreateDialog("create")}>Create a circle</Button>
+              <Button variant="outline" className="cursor-pointer" onClick={() => openJoinCreateDialog("join")}>
                 Join with code
               </Button>
             </div>
           </div>
         </div>
 
-        <JoinCreateDialog open={openJoinCreate} onOpenChange={setOpenJoinCreate} existingGroupCount={0} />
+        <JoinCreateDialog 
+          open={dialogOpen} 
+          onOpenChange={setDialogOpen} 
+          existingGroupCount={0}
+          initialTab={dialogTab}
+        />
       </>
     );
   }
@@ -188,7 +192,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={handleCopyInviteCode}
-                  className="inline-flex items-center gap-1 text-zinc-600 hover:text-zinc-900"
+                  className="inline-flex cursor-pointer items-center gap-1 text-zinc-600 hover:text-zinc-900"
                 >
                   <Copy className="size-3" />
                   {copied ? "Copied" : "Copy"}
@@ -282,7 +286,7 @@ export default function DashboardPage() {
             <CardDescription>Plan meetings and deadlines in one timeline.</CardDescription>
           </CardHeader>
           <CardContent className="px-5">
-            <Link href="/calendar" className="text-sm font-medium text-zinc-700 hover:text-zinc-900">
+            <Link href="/calendar" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Calendar →
             </Link>
           </CardContent>
@@ -297,7 +301,7 @@ export default function DashboardPage() {
             <CardDescription>Track tasks and sprint status for the whole team.</CardDescription>
           </CardHeader>
           <CardContent className="px-5">
-            <Link href="/tracker" className="text-sm font-medium text-zinc-700 hover:text-zinc-900">
+            <Link href="/tracker" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Tracker →
             </Link>
           </CardContent>
@@ -312,7 +316,7 @@ export default function DashboardPage() {
             <CardDescription>Monitor contributions, expenses, and balances.</CardDescription>
           </CardHeader>
           <CardContent className="px-5">
-            <Link href="/fund" className="text-sm font-medium text-zinc-700 hover:text-zinc-900">
+            <Link href="/fund" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Fund →
             </Link>
           </CardContent>

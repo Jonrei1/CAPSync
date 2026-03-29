@@ -34,6 +34,11 @@ type CircleContextValue = {
   activeCircle: Group | null;
   setActiveCircle: Dispatch<SetStateAction<Group | null>>;
   members: Profile[];
+  dialogOpen: boolean;
+  setDialogOpen: Dispatch<SetStateAction<boolean>>;
+  dialogTab: "join" | "create";
+  setDialogTab: Dispatch<SetStateAction<"join" | "create">>;
+  openJoinCreateDialog: (tab: "join" | "create") => void;
 };
 
 const CircleContext = createContext<CircleContextValue | null>(null);
@@ -45,6 +50,13 @@ type CircleProviderProps = {
 export function CircleProvider({ children }: CircleProviderProps) {
   const [activeCircle, setActiveCircle] = useState<Group | null>(null);
   const [members, setMembers] = useState<Profile[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTab, setDialogTab] = useState<"join" | "create">("join");
+
+  const openJoinCreateDialog = (tab: "join" | "create") => {
+    setDialogTab(tab);
+    setDialogOpen(true);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -72,7 +84,7 @@ export function CircleProvider({ children }: CircleProviderProps) {
         return;
       }
 
-      const mappedMembers = (data as Array<{ role: string; profiles: Profile | null }>)
+      const mappedMembers = (data as unknown as Array<{ role: string; profiles: Profile | null }>)
         .filter((row) => row.profiles)
         .map((row) => ({
           ...row.profiles,
@@ -90,8 +102,17 @@ export function CircleProvider({ children }: CircleProviderProps) {
   }, [activeCircle]);
 
   const value = useMemo(
-    () => ({ activeCircle, setActiveCircle, members }),
-    [activeCircle, members],
+    () => ({ 
+      activeCircle, 
+      setActiveCircle, 
+      members,
+      dialogOpen,
+      setDialogOpen,
+      dialogTab,
+      setDialogTab,
+      openJoinCreateDialog,
+    }),
+    [activeCircle, members, dialogOpen, dialogTab],
   );
 
   return <CircleContext.Provider value={value}>{children}</CircleContext.Provider>;

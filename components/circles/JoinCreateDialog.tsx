@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ type JoinCreateDialogProps = {
   onOpenChange: (open: boolean) => void;
   existingGroupCount?: number;
   onCompleted?: () => void;
+  initialTab?: "join" | "create";
 };
 
 type TabMode = "join" | "create";
@@ -23,15 +24,23 @@ export default function JoinCreateDialog({
   onOpenChange,
   existingGroupCount = 0,
   onCompleted,
+  initialTab = "join",
 }: JoinCreateDialogProps) {
   const { setActiveCircle } = useCircle();
-  const [tab, setTab] = useState<TabMode>("join");
+  const [tab, setTab] = useState<TabMode>(initialTab);
   const [inviteCode, setInviteCode] = useState("");
   const [circleName, setCircleName] = useState("");
   const [subject, setSubject] = useState("");
   const [methodology, setMethodology] = useState("Scrum (2-week sprints)");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Update tab when initialTab or open changes
+  useEffect(() => {
+    if (open) {
+      setTab(initialTab);
+    }
+  }, [open, initialTab]);
 
   const buttonLabel = useMemo(() => (tab === "join" ? "Join circle" : "Create circle"), [tab]);
 
@@ -42,7 +51,7 @@ export default function JoinCreateDialog({
     setMethodology("Scrum (2-week sprints)");
     setError("");
     setLoading(false);
-    setTab("join");
+    setTab(initialTab);
   }
 
   function closeDialog() {
@@ -153,14 +162,14 @@ export default function JoinCreateDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 md:items-center"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           closeDialog();
         }
       }}
     >
-      <div className="w-full max-w-110 rounded-t-xl border bg-card shadow-xl md:rounded-xl">
+      <div className="w-full max-w-110 rounded-xl border bg-card shadow-xl">
         <div className="px-6 pt-5 pb-3">
           <h2 className="text-[15px] font-semibold">Join or create a circle</h2>
           <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
@@ -174,7 +183,7 @@ export default function JoinCreateDialog({
               type="button"
               size="sm"
               variant={tab === "join" ? "outline" : "ghost"}
-              className="h-7 justify-center text-xs"
+              className="h-7 justify-center text-xs cursor-pointer"
               onClick={() => {
                 setTab("join");
                 setError("");
@@ -186,7 +195,7 @@ export default function JoinCreateDialog({
               type="button"
               size="sm"
               variant={tab === "create" ? "outline" : "ghost"}
-              className="h-7 justify-center text-xs"
+              className="h-7 justify-center text-xs cursor-pointer"
               onClick={() => {
                 setTab("create");
                 setError("");
@@ -222,10 +231,10 @@ export default function JoinCreateDialog({
               ) : null}
 
               <div className="flex justify-end gap-2 border-t pt-3">
-                <Button type="button" variant="outline" onClick={closeDialog} disabled={loading}>
+                <Button type="button" variant="outline" onClick={closeDialog} disabled={loading} className="cursor-pointer">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={loading} className="cursor-pointer">
                   {loading ? (
                     <span className="inline-flex items-center gap-1.5">
                       <Loader2 className="size-3.5 animate-spin" />
@@ -275,7 +284,7 @@ export default function JoinCreateDialog({
                   id="methodology"
                   value={methodology}
                   onChange={(event) => setMethodology(event.target.value)}
-                  className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
+                  className="h-9 w-full cursor-pointer rounded-lg border bg-background px-3 text-sm"
                   disabled={loading}
                 >
                   <option>Scrum (2-week sprints)</option>
@@ -292,10 +301,10 @@ export default function JoinCreateDialog({
               ) : null}
 
               <div className="flex justify-end gap-2 border-t pt-3">
-                <Button type="button" variant="outline" onClick={closeDialog} disabled={loading}>
+                <Button type="button" variant="outline" onClick={closeDialog} disabled={loading} className="cursor-pointer">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={loading} className="cursor-pointer">
                   {loading ? (
                     <span className="inline-flex items-center gap-1.5">
                       <Loader2 className="size-3.5 animate-spin" />

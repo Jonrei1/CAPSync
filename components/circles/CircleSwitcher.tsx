@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCircle, type Group } from "@/contexts/CircleContext";
-import JoinCreateDialog from "@/components/circles/JoinCreateDialog";
 import supabase from "@/lib/supabaseClient";
 
 type GroupWithMeta = Group & {
@@ -12,9 +11,8 @@ type GroupWithMeta = Group & {
 };
 
 export default function CircleSwitcher() {
-  const { activeCircle, setActiveCircle } = useCircle();
+  const { activeCircle, setActiveCircle, openJoinCreateDialog } = useCircle();
   const [groups, setGroups] = useState<GroupWithMeta[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function loadGroups() {
@@ -104,7 +102,7 @@ export default function CircleSwitcher() {
               type="button"
               onClick={() => setActiveCircle(group)}
               className={[
-                "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+                "group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
                 isActive ? "bg-accent" : "hover:bg-zinc-100",
               ].join(" ")}
             >
@@ -132,21 +130,12 @@ export default function CircleSwitcher() {
       <Button
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 w-full justify-start text-[12px] font-normal text-zinc-600 hover:text-zinc-900"
-        onClick={() => setDialogOpen(true)}
+        className="mt-1 h-7 w-full cursor-pointer justify-start text-[12px] font-normal text-zinc-600 hover:text-zinc-900"
+        onClick={() => openJoinCreateDialog("join")}
       >
         <Plus className="size-3" />
         Join or create circle
       </Button>
-
-      <JoinCreateDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        existingGroupCount={groups.length}
-        onCompleted={() => {
-          void loadGroups();
-        }}
-      />
     </div>
   );
 }
