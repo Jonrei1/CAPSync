@@ -162,7 +162,7 @@ export default function JoinCreateDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
+      className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 px-4"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           closeDialog();

@@ -44,6 +44,7 @@ export default function DashboardPage() {
   });
   const [statsLoading, setStatsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [accountName, setAccountName] = useState("Account");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -51,8 +52,37 @@ export default function DashboardPage() {
 
     async function loadUser() {
       const { data } = await supabase.auth.getUser();
+      const authUser = data.user;
+      const fallbackName =
+        ((authUser?.user_metadata?.full_name as string | undefined) ??
+          (authUser?.user_metadata?.name as string | undefined) ??
+          authUser?.email?.split("@")[0] ??
+          "Account").trim();
+
+      try {
+        const response = await fetch("/api/profile/me");
+        if (response.ok) {
+          const payload = (await response.json()) as {
+            profile?: { full_name?: string | null; email?: string | null };
+          };
+          const profileName =
+            payload.profile?.full_name?.trim() ||
+            payload.profile?.email?.split("@")[0] ||
+            fallbackName;
+
+          if (mounted) {
+            setAccountName(profileName);
+          }
+        }
+      } catch {
+        if (mounted) {
+          setAccountName(fallbackName);
+        }
+      }
+
       if (mounted) {
-        setUserId(data.user?.id ?? null);
+        setUserId(authUser?.id ?? null);
+        setAccountName((name) => name || fallbackName);
       }
     }
 
@@ -171,6 +201,15 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+      <section className="rounded-xl border bg-white p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <p className="text-xs font-medium tracking-[0.08em] text-zinc-500 uppercase">Signed in as</p>
+            <p className="mt-1 text-base font-semibold text-zinc-900">{accountName}</p>
+          </div>
+        </div>
+      </section>
+
       <section className="rounded-xl border bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

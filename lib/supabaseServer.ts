@@ -3,8 +3,8 @@ import { cookies } from "next/headers";
 
 export async function createClient() {
   const cookieStore = await cookies();
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Missing Supabase environment variables.");
@@ -12,26 +12,17 @@ export async function createClient() {
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
+      getAll() {
+        return cookieStore.getAll();
       },
-      set(name: string, value: string, options: Record<string, unknown>) {
+      setAll(cookiesToSet) {
         try {
-          (cookieStore as unknown as { set: (args: unknown) => void }).set({
-            name,
-            value,
-            ...options,
-          });
-        } catch {
-          // Ignore cookie writes in contexts where they are not supported.
-        }
-      },
-      remove(name: string, options: Record<string, unknown>) {
-        try {
-          (cookieStore as unknown as { set: (args: unknown) => void }).set({
-            name,
-            value: "",
-            ...options,
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set({
+              name,
+              value,
+              ...options,
+            });
           });
         } catch {
           // Ignore cookie writes in contexts where they are not supported.

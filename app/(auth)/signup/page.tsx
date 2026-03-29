@@ -24,17 +24,25 @@ function Spinner() {
   );
 }
 
-export default function LoginPage() {
+function fallbackAccountName(email: string) {
+  const [username] = email.split("@");
+  return username || "CAPSync User";
+}
+
+export default function SignupPage() {
   const router = useRouter();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState<LoadingState>(null);
 
   const isBusy = loading !== null;
 
   async function handleGoogleSignIn() {
     setError("");
+    setInfo("");
     setLoading("google");
 
     const response = await fetch("/api/auth/google", {
@@ -55,12 +63,15 @@ export default function LoginPage() {
     window.location.href = payload.url;
   }
 
-  async function handleEmailSignIn(event: FormEvent<HTMLFormElement>) {
+  async function handleEmailSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setInfo("");
     setLoading("email");
 
-    const response = await fetch("/api/auth/login", {
+    const cleanedFullName = fullName.trim();
+
+    const response = await fetch("/api/auth/signup", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -68,19 +79,29 @@ export default function LoginPage() {
       body: JSON.stringify({
         email,
         password,
+        fullName: cleanedFullName || fallbackAccountName(email),
       }),
     });
 
-    const payload = (await response.json()) as { error?: string };
+    const payload = (await response.json()) as {
+      error?: string;
+      requiresEmailConfirmation?: boolean;
+    };
 
     if (!response.ok) {
-      setError(payload.error ?? "Unable to sign in.");
+      setError(payload.error ?? "Unable to create account.");
       setLoading(null);
       return;
     }
 
-    router.replace("/dashboard");
-    router.refresh();
+    if (!payload.requiresEmailConfirmation) {
+      router.replace("/dashboard");
+      router.refresh();
+      return;
+    }
+
+    setInfo("Account created. Check your email to confirm your account, then sign in.");
+    setLoading(null);
   }
 
   return (
@@ -93,16 +114,31 @@ export default function LoginPage() {
                 <RefreshCw className="h-6 w-6" aria-hidden="true" />
               </div>
             </div>
-            <CardTitle className=" text-3xl tracking-tight">Welcome back</CardTitle>
+            <CardTitle className="text-3xl tracking-tight">Create your account</CardTitle>
             <CardDescription className="text-sm leading-relaxed">
-              Enter your credentials to access your account
+              Start collaborating with your circle in minutes
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-7 px-7 md:px-8">
-            <form className="grid gap-6" onSubmit={handleEmailSignIn}>
+            <form className="grid gap-6" onSubmit={handleEmailSignUp}>
               <div className="grid gap-3 text-left">
-                <label htmlFor="email" className="text-sm font-medium mt-3">
+                <label htmlFor="fullName" className="text-sm font-medium mt-3">
+                  Full name
+                </label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="Juan Dela Cruz"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  autoComplete="name"
+                  disabled={isBusy}
+                />
+              </div>
+
+              <div className="grid gap-3 text-left">
+                <label htmlFor="email" className="text-sm font-medium">
                   Email address
                 </label>
                 <Input
@@ -118,24 +154,17 @@ export default function LoginPage() {
               </div>
 
               <div className="grid gap-3 text-left">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="text-sm font-medium">
-                    Password
-                  </label>
-                  <button
-                    type="button"
-                    className="cursor-pointer text-xs font-medium text-primary hover:underline"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
+                <label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="At least 12 chars with upper/lower/number/symbol"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
+                  minLength={12}
                   required
                   disabled={isBusy}
                 />
@@ -149,15 +178,16 @@ export default function LoginPage() {
                 {loading === "email" ? (
                   <span className="inline-flex items-center gap-2">
                     <Spinner />
-                    Signing in...
+                    Creating account...
                   </span>
                 ) : (
-                  "Sign in"
+                  "Create account"
                 )}
               </Button>
             </form>
 
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {info ? <p className="text-sm text-green-700">{info}</p> : null}
 
             <div className="relative py-2">
               <div className="absolute inset-0 flex items-center">
@@ -193,34 +223,13 @@ export default function LoginPage() {
           </CardContent>
 
           <CardFooter className="flex-wrap justify-center gap-1 px-7 pb-8 pt-2 text-center text-sm text-muted-foreground md:px-8">
-            Don&apos;t have an account?
-            <Link href="/signup" className="font-semibold text-primary hover:underline">
-              Create an account
+            Already have an account?
+            <Link href="/login" className="font-semibold text-primary hover:underline">
+              Sign in
             </Link>
           </CardFooter>
         </Card>
       </main>
-
-      <footer className="w-full px-5 py-8 md:px-8">
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-5 text-xs text-muted-foreground md:flex-row">
-          <div className="font-bold text-foreground/80">CAPSync</div>
-          <nav className="flex flex-wrap justify-center gap-5">
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Terms of Service
-            </Link>
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Cookie Settings
-            </Link>
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Security
-            </Link>
-          </nav>
-          <div>© 2024 CAPSync. All rights reserved.</div>
-        </div>
-      </footer>
     </div>
   );
 }
