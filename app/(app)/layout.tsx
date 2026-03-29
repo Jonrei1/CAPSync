@@ -86,7 +86,7 @@ function AppShell({ children }: AppLayoutProps) {
         <Button
           variant="outline"
           size="icon-sm"
-          className="absolute top-3 right-3 md:hidden"
+          className="absolute top-3 right-3 cursor-pointer md:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-label="Close sidebar"
         >
@@ -108,7 +108,7 @@ function AppShell({ children }: AppLayoutProps) {
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
                   className={[
-                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors",
+                    "flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors",
                     isActive ? "bg-zinc-100 font-medium text-zinc-900" : "hover:bg-zinc-100 hover:text-zinc-900",
                   ].join(" ")}
                 >
@@ -133,7 +133,7 @@ function AppShell({ children }: AppLayoutProps) {
             <Button
               variant="outline"
               size="icon"
-              className="md:hidden"
+              className="cursor-pointer md:hidden"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open sidebar"
             >
