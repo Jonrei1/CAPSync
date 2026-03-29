@@ -1,3 +1,5 @@
+import { PagePlaceholder } from "@/components/ui/page-placeholder";
+
 export default function FundContributePage() {
-  return null;
+  return <PagePlaceholder title="Fund Contribute" />;
 }

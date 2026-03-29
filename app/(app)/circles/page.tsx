@@ -1,3 +1,5 @@
+import { PagePlaceholder } from "@/components/ui/page-placeholder";
+
 export default function CirclesPage() {
-  return null;
+  return <PagePlaceholder title="Circles" />;
 }

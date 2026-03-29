@@ -1,3 +1,5 @@
+import { PagePlaceholder } from "@/components/ui/page-placeholder";
+
 export default function FundExpensesPage() {
-  return null;
+  return <PagePlaceholder title="Fund Expenses" />;
 }

@@ -1,3 +1,5 @@
+import { PagePlaceholder } from "@/components/ui/page-placeholder";
+
 export default function TrackerBoardPage() {
-  return null;
+  return <PagePlaceholder title="Tracker Board" />;
 }
