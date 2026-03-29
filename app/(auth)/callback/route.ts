@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  return NextResponse.json({ ok: true });
+// Legacy route shim: redirects /callback to /auth/callback.
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const target = new URL(`/auth/callback${url.search}`, url.origin);
+  return NextResponse.redirect(target);
 }
