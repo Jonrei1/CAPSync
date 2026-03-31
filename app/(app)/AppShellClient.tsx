@@ -39,6 +39,8 @@ function AppShell({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { activeCircle, dialogOpen, setDialogOpen, dialogTab } = useCircle();
+  const isPersonalCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/");
+  const showCircleChrome = Boolean(activeCircle) && !isPersonalCalendarRoute;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [accountName, setAccountName] = useState("Account");
@@ -159,7 +161,7 @@ function AppShell({ children }: AppLayoutProps) {
         <CircleSwitcher />
 
         <div className="mt-auto">
-          {activeCircle ? <MemberList /> : null}
+          {showCircleChrome ? <MemberList /> : null}
 
           <div className="mt-2 border-t px-2 pt-3 pb-1">
             <div className="mb-2 px-1">
@@ -197,11 +199,15 @@ function AppShell({ children }: AppLayoutProps) {
             </Button>
 
             <div className="flex items-center gap-2">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: activeCircle?.color ?? "#4f46e5" }}
-              />
-              <span className="text-sm font-medium text-zinc-900">{activeCircle?.name ?? "No active circle"}</span>
+              {showCircleChrome ? (
+                <>
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: activeCircle?.color ?? "#4f46e5" }}
+                  />
+                  <span className="text-sm font-medium text-zinc-900">{activeCircle?.name}</span>
+                </>
+              ) : null}
             </div>
           </div>
 

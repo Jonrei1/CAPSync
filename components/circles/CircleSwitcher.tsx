@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useCircle, type Group } from "@/contexts/CircleContext";
 import supabase from "@/lib/supabaseClient";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 type GroupWithMeta = Group & {
   memberCount: number;
@@ -19,6 +19,7 @@ type MembershipRow = {
 
 export default function CircleSwitcher() {
   const { activeCircle, setActiveCircle, openJoinCreateDialog } = useCircle();
+  const router = useRouter();
   const [groups, setGroups] = useState<GroupWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
@@ -94,6 +95,16 @@ export default function CircleSwitcher() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!activeCircle) {
+      return;
+    }
+
+    setGroups((current) =>
+      current.map((group) => (group.id === activeCircle.id ? { ...group, color: activeCircle.color } : group)),
+    );
+  }, [activeCircle]);
+
   const groupItems = useMemo(() => groups, [groups]);
 
   return (
@@ -127,36 +138,51 @@ export default function CircleSwitcher() {
 
           return (
             <div key={group.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveCircle(group);
-                  setExpandedGroupId(isExpanded ? null : group.id);
-                }}
+              <div
                 className={[
-                  "group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+                  "group flex w-full items-center gap-1 rounded-md px-1 py-1 transition-colors",
                   isActive ? "bg-accent" : "hover:bg-zinc-100",
                 ].join(" ")}
               >
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: group.color ?? "#4f46e5" }}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12px] font-medium text-zinc-900">{group.name}</span>
-                  <span className="block truncate text-[10px] text-zinc-500">
-                    {group.memberCount} {group.memberCount === 1 ? "member" : "members"}
-                    {group.subject ? ` · ${group.subject}` : ""}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveCircle(group);
+                    void router.push("/dashboard");
+                  }}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-1 py-0.5 text-left"
+                >
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: group.color ?? "#4f46e5" }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12px] font-medium text-zinc-900">{group.name}</span>
+                    <span className="block truncate text-[10px] text-zinc-500">
+                      {group.memberCount} {group.memberCount === 1 ? "member" : "members"}
+                      {group.subject ? ` · ${group.subject}` : ""}
+                    </span>
                   </span>
-                </span>
-                <ChevronDown
-                  className={[
-                    "h-3.5 w-3.5 shrink-0 text-zinc-400 transition-transform",
-                    isExpanded ? "rotate-180" : "",
-                  ].join(" ")}
-                />
-                <span className="ml-0.5 mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" />
-              </button>
+                  <span className="ml-0.5 mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveCircle(group);
+                    setExpandedGroupId(isExpanded ? null : group.id);
+                  }}
+                  className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-zinc-400 hover:bg-white hover:text-zinc-700"
+                  aria-label={isExpanded ? `Collapse ${group.name} menu` : `Expand ${group.name} menu`}
+                >
+                  <ChevronDown
+                    className={[
+                      "h-3.5 w-3.5 shrink-0 transition-transform",
+                      isExpanded ? "rotate-180" : "",
+                    ].join(" ")}
+                  />
+                </button>
+              </div>
 
               {isExpanded && isActive && (
                 <div className="flex flex-col gap-px bg-zinc-50 py-1 pl-4">

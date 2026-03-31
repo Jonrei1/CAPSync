@@ -34,7 +34,7 @@ function memberInitials(name: string) {
 }
 
 export default function DashboardPage() {
-  const { activeCircle, members, openJoinCreateDialog, updateMemberColor } = useCircle();
+  const { activeCircle, setActiveCircle, members, openJoinCreateDialog, updateMemberColor } = useCircle();
   const [stats, setStats] = useState<DashboardStats>({
     doneCount: 0,
     overdueCount: 0,
@@ -46,8 +46,11 @@ export default function DashboardPage() {
   const [accountName, setAccountName] = useState("Account");
   const [copied, setCopied] = useState(false);
   const [memberColorDraftByCircle, setMemberColorDraftByCircle] = useState<Record<string, string>>({});
+  const [circleColorDraftByCircle, setCircleColorDraftByCircle] = useState<Record<string, string>>({});
   const [savingMemberColor, setSavingMemberColor] = useState(false);
+  const [savingCircleColor, setSavingCircleColor] = useState(false);
   const [memberColorError, setMemberColorError] = useState("");
+  const [circleColorError, setCircleColorError] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -165,6 +168,11 @@ export default function DashboardPage() {
 
   const isPm = (yourMembership?.memberRole ?? "").toLowerCase() === "pm";
 
+  const currentCircleColor =
+    activeCircle
+      ? (circleColorDraftByCircle[activeCircle.id] ?? activeCircle.color ?? MEMBER_COLORS[0])
+      : MEMBER_COLORS[0];
+
   async function handleCopyInviteCode() {
     if (!activeCircle?.invite_code) {
       return;
@@ -197,6 +205,29 @@ export default function DashboardPage() {
 
     updateMemberColor(userId, currentMemberColor);
     setSavingMemberColor(false);
+  }
+
+  async function handleSaveCircleColor() {
+    if (!activeCircle) {
+      return;
+    }
+
+    setSavingCircleColor(true);
+    setCircleColorError("");
+
+    const { error } = await supabase
+      .from("groups")
+      .update({ color: currentCircleColor })
+      .eq("id", activeCircle.id);
+
+    if (error) {
+      setCircleColorError(error.message);
+      setSavingCircleColor(false);
+      return;
+    }
+
+    setActiveCircle((current) => (current ? { ...current, color: currentCircleColor } : current));
+    setSavingCircleColor(false);
   }
 
   if (!activeCircle) {
@@ -262,7 +293,10 @@ export default function DashboardPage() {
 
                   setMemberColorDraftByCircle((current) => ({ ...current, [activeCircle.id]: color }));
                 }}
-                className="h-6 w-6 cursor-pointer rounded-full border"
+                className={[
+                  "h-6 w-6 cursor-pointer rounded-full border transition-shadow",
+                  currentMemberColor === color ? "ring-2 ring-zinc-900 ring-offset-1" : "",
+                ].join(" ")}
                 style={{ backgroundColor: color }}
                 aria-label={`Pick color ${color}`}
               />
@@ -311,6 +345,59 @@ export default function DashboardPage() {
             ) : null}
           </div>
         </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
+          <label htmlFor="circle-color" className="text-xs font-medium text-zinc-600">
+            Circle color
+          </label>
+          <input
+            id="circle-color"
+            type="color"
+            value={currentCircleColor}
+            onChange={(event) => {
+              if (!activeCircle) {
+                return;
+              }
+
+              const nextColor = event.target.value;
+              setCircleColorDraftByCircle((current) => ({ ...current, [activeCircle.id]: nextColor }));
+            }}
+            className="h-8 w-10 cursor-pointer rounded border p-1"
+            aria-label="Choose circle color"
+            disabled={!isPm}
+          />
+          {MEMBER_COLORS.map((color) => (
+            <button
+              key={`circle-${color}`}
+              type="button"
+              onClick={() => {
+                if (!activeCircle) {
+                  return;
+                }
+
+                setCircleColorDraftByCircle((current) => ({ ...current, [activeCircle.id]: color }));
+              }}
+              className={[
+                "h-6 w-6 cursor-pointer rounded-full border transition-shadow",
+                currentCircleColor === color ? "ring-2 ring-zinc-900 ring-offset-1" : "",
+              ].join(" ")}
+              style={{ backgroundColor: color }}
+              aria-label={`Pick circle color ${color}`}
+              disabled={!isPm}
+            />
+          ))}
+          <Button
+            type="button"
+            size="sm"
+            className="cursor-pointer"
+            onClick={handleSaveCircleColor}
+            disabled={!isPm || savingCircleColor}
+          >
+            {savingCircleColor ? "Saving..." : "Save circle color"}
+          </Button>
+          {!isPm ? <span className="text-xs text-zinc-500">Only PM can change circle color.</span> : null}
+        </div>
+        {circleColorError ? <p className="mt-2 text-xs text-red-600">{circleColorError}</p> : null}
       </section>
 
       <section>

@@ -235,3 +235,50 @@ create policy "users can view their group fund"
 on group_fund
 for select
 using (public.is_group_member(group_id, auth.uid()));
+
+-- Calendar data model extensions
+alter table tasks add column if not exists starts_at timestamptz;
+alter table tasks add column if not exists ends_at timestamptz;
+alter table tasks add column if not exists is_all_day boolean default false;
+
+create table if not exists personal_routines (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  label text not null,
+  details text,
+  color text default '#374151',
+  days_of_week smallint[] not null,
+  start_time time not null,
+  end_time time not null,
+  is_active boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table personal_routines enable row level security;
+
+drop policy if exists "users can view own routines" on personal_routines;
+drop policy if exists "users can create own routines" on personal_routines;
+drop policy if exists "users can update own routines" on personal_routines;
+drop policy if exists "users can delete own routines" on personal_routines;
+
+create policy "users can view own routines"
+on personal_routines
+for select
+using (user_id = auth.uid());
+
+create policy "users can create own routines"
+on personal_routines
+for insert
+with check (user_id = auth.uid());
+
+create policy "users can update own routines"
+on personal_routines
+for update
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+create policy "users can delete own routines"
+on personal_routines
+for delete
+using (user_id = auth.uid());
