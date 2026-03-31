@@ -33,27 +33,6 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
-  {
-    label: "Tracker",
-    href: "/tracker",
-    icon: (
-      <svg className="h-3.75 w-3.75 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path d="M9 11l3 3L22 4" />
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-  },
-  {
-    label: "Fund",
-    href: "/fund",
-    icon: (
-      <svg className="h-3.75 w-3.75 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-    ),
-  },
 ];
 
 function AppShell({ children }: AppLayoutProps) {

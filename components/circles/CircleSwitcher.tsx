@@ -1,19 +1,28 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ChevronDown, Calendar, CheckSquare2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCircle, type Group } from "@/contexts/CircleContext";
 import supabase from "@/lib/supabaseClient";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 type GroupWithMeta = Group & {
   memberCount: number;
+};
+
+type MembershipRow = {
+  group_id: string;
+  groups: Group | Group[] | null;
 };
 
 export default function CircleSwitcher() {
   const { activeCircle, setActiveCircle, openJoinCreateDialog } = useCircle();
   const [groups, setGroups] = useState<GroupWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const pathname = usePathname();
 
   async function loadGroups() {
     setLoading(true);
@@ -37,8 +46,8 @@ export default function CircleSwitcher() {
       return;
     }
 
-    const fetchedGroups = membershipData
-      .map((row) => row.groups as Group | null)
+    const fetchedGroups = (membershipData as MembershipRow[])
+      .map((row) => (Array.isArray(row.groups) ? (row.groups[0] ?? null) : row.groups))
       .filter((group): group is Group => Boolean(group));
 
     if (fetchedGroups.length === 0) {
@@ -96,29 +105,83 @@ export default function CircleSwitcher() {
       <div className="flex flex-col gap-px">
         {groupItems.map((group) => {
           const isActive = activeCircle?.id === group.id;
+          const isExpanded = expandedGroupId === group.id;
+          
+          const circleSubNav = [
+            {
+              label: "Calendar",
+              href: `/app/${group.id}/calendar`,
+              icon: Calendar,
+            },
+            {
+              label: "Tracker",
+              href: `/app/${group.id}/tracker`,
+              icon: CheckSquare2,
+            },
+            {
+              label: "Fund",
+              href: `/app/${group.id}/fund`,
+              icon: Wallet,
+            },
+          ];
+
           return (
-            <button
-              key={group.id}
-              type="button"
-              onClick={() => setActiveCircle(group)}
-              className={[
-                "group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
-                isActive ? "bg-accent" : "hover:bg-zinc-100",
-              ].join(" ")}
-            >
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: group.color ?? "#4f46e5" }}
-              />
-              <span className="min-w-0">
-                <span className="block truncate text-[12px] font-medium text-zinc-900">{group.name}</span>
-                <span className="block truncate text-[10px] text-zinc-500">
-                  {group.memberCount} {group.memberCount === 1 ? "member" : "members"}
-                  {group.subject ? ` · ${group.subject}` : ""}
+            <div key={group.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveCircle(group);
+                  setExpandedGroupId(isExpanded ? null : group.id);
+                }}
+                className={[
+                  "group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+                  isActive ? "bg-accent" : "hover:bg-zinc-100",
+                ].join(" ")}
+              >
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: group.color ?? "#4f46e5" }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12px] font-medium text-zinc-900">{group.name}</span>
+                  <span className="block truncate text-[10px] text-zinc-500">
+                    {group.memberCount} {group.memberCount === 1 ? "member" : "members"}
+                    {group.subject ? ` · ${group.subject}` : ""}
+                  </span>
                 </span>
-              </span>
-              <span className="ml-auto mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" />
-            </button>
+                <ChevronDown
+                  className={[
+                    "h-3.5 w-3.5 shrink-0 text-zinc-400 transition-transform",
+                    isExpanded ? "rotate-180" : "",
+                  ].join(" ")}
+                />
+                <span className="ml-0.5 mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" />
+              </button>
+
+              {isExpanded && isActive && (
+                <div className="flex flex-col gap-px bg-zinc-50 py-1 pl-4">
+                  {circleSubNav.map((item) => {
+                    const isSubActive =
+                      pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    return (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        className={[
+                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors",
+                          isSubActive
+                            ? "bg-white font-medium text-zinc-900"
+                            : "text-zinc-600 hover:bg-white hover:text-zinc-900",
+                        ].join(" ")}
+                      >
+                        <item.icon className="h-3.5 w-3.5 shrink-0" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
 
