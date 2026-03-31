@@ -180,7 +180,7 @@ function AppShell({ children }: AppLayoutProps) {
         <CircleSwitcher />
 
         <div className="mt-auto">
-          <MemberList />
+          {activeCircle ? <MemberList /> : null}
 
           <div className="mt-2 border-t px-2 pt-3 pb-1">
             <div className="mb-2 px-1">

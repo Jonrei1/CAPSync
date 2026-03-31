@@ -22,7 +22,7 @@ function getInitials(name: string) {
 }
 
 export default function MemberList() {
-  const { members } = useCircle();
+  const { activeCircle, members } = useCircle();
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,6 +41,10 @@ export default function MemberList() {
       mounted = false;
     };
   }, []);
+
+  if (!activeCircle) {
+    return null;
+  }
 
   return (
     <div className="px-2 pb-2">

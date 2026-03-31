@@ -22,6 +22,7 @@ export type GroupMember = {
 	id: string;
 	group_id: string;
 	member_id: string;
+	color: string | null;
 	role: string;
 	joined_at: string;
 };

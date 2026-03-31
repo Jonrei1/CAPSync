@@ -34,7 +34,7 @@ function memberInitials(name: string) {
 }
 
 export default function DashboardPage() {
-  const { activeCircle, members, openJoinCreateDialog } = useCircle();
+  const { activeCircle, members, openJoinCreateDialog, updateMemberColor } = useCircle();
   const [stats, setStats] = useState<DashboardStats>({
     doneCount: 0,
     overdueCount: 0,
@@ -45,6 +45,9 @@ export default function DashboardPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [accountName, setAccountName] = useState("Account");
   const [copied, setCopied] = useState(false);
+  const [memberColorDraftByCircle, setMemberColorDraftByCircle] = useState<Record<string, string>>({});
+  const [savingMemberColor, setSavingMemberColor] = useState(false);
+  const [memberColorError, setMemberColorError] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -155,6 +158,11 @@ export default function DashboardPage() {
     [members, userId],
   );
 
+  const currentMemberColor =
+    activeCircle && yourMembership
+      ? (memberColorDraftByCircle[activeCircle.id] ?? yourMembership.color ?? MEMBER_COLORS[0])
+      : MEMBER_COLORS[0];
+
   const isPm = (yourMembership?.memberRole ?? "").toLowerCase() === "pm";
 
   async function handleCopyInviteCode() {
@@ -165,6 +173,30 @@ export default function DashboardPage() {
     await navigator.clipboard.writeText(activeCircle.invite_code);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
+  }
+
+  async function handleSaveMemberColor() {
+    if (!activeCircle || !userId) {
+      return;
+    }
+
+    setSavingMemberColor(true);
+    setMemberColorError("");
+
+    const { error } = await supabase
+      .from("group_members")
+      .update({ color: currentMemberColor })
+      .eq("group_id", activeCircle.id)
+      .eq("member_id", userId);
+
+    if (error) {
+      setMemberColorError(error.message);
+      setSavingMemberColor(false);
+      return;
+    }
+
+    updateMemberColor(userId, currentMemberColor);
+    setSavingMemberColor(false);
   }
 
   if (!activeCircle) {
@@ -199,7 +231,54 @@ export default function DashboardPage() {
             <p className="text-xs font-medium tracking-[0.08em] text-zinc-500 uppercase">Signed in as</p>
             <p className="mt-1 text-base font-semibold text-zinc-900">{accountName}</p>
           </div>
+
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <label htmlFor="member-color" className="text-xs font-medium text-zinc-600">
+              Your color
+            </label>
+            <input
+              id="member-color"
+              type="color"
+              value={currentMemberColor}
+              onChange={(event) => {
+                if (!activeCircle) {
+                  return;
+                }
+
+                const nextColor = event.target.value;
+                setMemberColorDraftByCircle((current) => ({ ...current, [activeCircle.id]: nextColor }));
+              }}
+              className="h-8 w-10 cursor-pointer rounded border p-1"
+              aria-label="Choose your member color"
+            />
+            {MEMBER_COLORS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => {
+                  if (!activeCircle) {
+                    return;
+                  }
+
+                  setMemberColorDraftByCircle((current) => ({ ...current, [activeCircle.id]: color }));
+                }}
+                className="h-6 w-6 cursor-pointer rounded-full border"
+                style={{ backgroundColor: color }}
+                aria-label={`Pick color ${color}`}
+              />
+            ))}
+            <Button
+              type="button"
+              size="sm"
+              className="cursor-pointer"
+              onClick={handleSaveMemberColor}
+              disabled={!activeCircle || !userId || savingMemberColor}
+            >
+              {savingMemberColor ? "Saving..." : "Save color"}
+            </Button>
+          </div>
         </div>
+        {memberColorError ? <p className="mt-2 text-xs text-red-600">{memberColorError}</p> : null}
       </section>
 
       <section className="rounded-xl border bg-white p-5">
@@ -235,7 +314,7 @@ export default function DashboardPage() {
       </section>
 
       <section>
-        <div className="responsive-grid-4">
+        <div className="grid grid-cols-4 gap-3">
           {members.map((member, index) => {
             const name = memberName(member.full_name, member.email);
             const role = (member.memberRole ?? "member").toLowerCase() === "pm" ? "PM" : "Member";
@@ -259,7 +338,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="responsive-grid-4">
+      <section className="grid grid-cols-4 gap-3">
         <Card className="gap-3 bg-zinc-100 py-4">
           <CardHeader className="px-4 pb-0">
             <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
@@ -307,16 +386,16 @@ export default function DashboardPage() {
         </Card>
       </section>
 
-      <section className="responsive-grid-3">
+      <section className="grid grid-cols-3 gap-3">
         <Card className="py-5">
-          <CardHeader className="responsive-card-padding">
+          <CardHeader className="px-5">
             <div className="mb-1 text-zinc-700">
               <CalendarDays className="size-4" />
             </div>
             <CardTitle className="text-sm">Calendar</CardTitle>
             <CardDescription>Plan meetings and deadlines in one timeline.</CardDescription>
           </CardHeader>
-          <CardContent className="responsive-card-padding">
+          <CardContent className="px-5">
             <Link href="/calendar" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Calendar →
             </Link>
@@ -324,14 +403,14 @@ export default function DashboardPage() {
         </Card>
 
         <Card className="py-5">
-          <CardHeader className="responsive-card-padding">
+          <CardHeader className="px-5">
             <div className="mb-1 text-zinc-700">
               <FolderKanban className="size-4" />
             </div>
             <CardTitle className="text-sm">Progress Tracker</CardTitle>
             <CardDescription>Track tasks and sprint status for the whole team.</CardDescription>
           </CardHeader>
-          <CardContent className="responsive-card-padding">
+          <CardContent className="px-5">
             <Link href="/tracker" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Tracker →
             </Link>
@@ -339,14 +418,14 @@ export default function DashboardPage() {
         </Card>
 
         <Card className="py-5">
-          <CardHeader className="responsive-card-padding">
+          <CardHeader className="px-5">
             <div className="mb-1 text-zinc-700">
               <WalletCards className="size-4" />
             </div>
             <CardTitle className="text-sm">Shared Fund</CardTitle>
             <CardDescription>Monitor contributions, expenses, and balances.</CardDescription>
           </CardHeader>
-          <CardContent className="responsive-card-padding">
+          <CardContent className="px-5">
             <Link href="/fund" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Fund →
             </Link>

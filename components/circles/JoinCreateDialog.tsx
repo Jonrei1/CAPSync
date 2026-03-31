@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,10 @@ type JoinCreateDialogProps = {
 type TabMode = "join" | "create";
 
 const COLOR_POOL = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "#ca8a04"];
+
+function randomMemberColor() {
+  return COLOR_POOL[Math.floor(Math.random() * COLOR_POOL.length)];
+}
 
 const METHODOLOGY_OPTIONS = [
   {
@@ -74,13 +78,6 @@ export default function JoinCreateDialog({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Update tab when initialTab or open changes
-  useEffect(() => {
-    if (open) {
-      setTab(initialTab);
-    }
-  }, [open, initialTab]);
-
   const buttonLabel = useMemo(() => (tab === "join" ? "Join circle" : "Create circle"), [tab]);
   const selectedMethodology = useMemo(
     () => METHODOLOGY_OPTIONS.find((option) => option.value === methodology),
@@ -133,6 +130,7 @@ export default function JoinCreateDialog({
       group_id: groupData.id,
       member_id: userId,
       role: "member",
+      color: randomMemberColor(),
     });
 
     if (memberError) {
@@ -186,6 +184,7 @@ export default function JoinCreateDialog({
       group_id: newGroup.id,
       member_id: userId,
       role: "pm",
+      color: randomMemberColor(),
     });
 
     if (memberError) {
