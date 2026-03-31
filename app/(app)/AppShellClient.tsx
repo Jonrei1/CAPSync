@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
+import JoinCreateDialog from "@/components/circles/JoinCreateDialog";
 import CircleSwitcher from "@/components/circles/CircleSwitcher";
 import MemberList from "@/components/circles/MemberList";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ const NAV_ITEMS: NavItem[] = [
 function AppShell({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { activeCircle } = useCircle();
+  const { activeCircle, dialogOpen, setDialogOpen, dialogTab } = useCircle();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [accountName, setAccountName] = useState("Account");
@@ -116,7 +117,15 @@ function AppShell({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <>
+      <JoinCreateDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        existingGroupCount={0}
+        initialTab={dialogTab}
+      />
+
+      <div className="min-h-screen bg-zinc-50">
       <div
         className={[
           "fixed inset-0 z-40 bg-black/40 transition-opacity md:hidden",
@@ -222,7 +231,8 @@ function AppShell({ children }: AppLayoutProps) {
 
         <main className="p-4 md:p-6">{children}</main>
       </div>
-    </div>
+      </div>
+  </>
   );
 }
 

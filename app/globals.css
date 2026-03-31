@@ -128,3 +128,17 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  .responsive-grid-4 {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .responsive-grid-3 {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .responsive-card-padding {
+    @apply px-4 sm:px-5;
+  }
+}

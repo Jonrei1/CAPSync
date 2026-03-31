@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Copy, FolderKanban, Users, WalletCards, CalendarDays, Loader2 } from "lucide-react";
-import JoinCreateDialog from "@/components/circles/JoinCreateDialog";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ function memberInitials(name: string) {
 }
 
 export default function DashboardPage() {
-  const { activeCircle, members, dialogOpen, setDialogOpen, dialogTab, setDialogTab, openJoinCreateDialog } = useCircle();
+  const { activeCircle, members, openJoinCreateDialog } = useCircle();
   const [stats, setStats] = useState<DashboardStats>({
     doneCount: 0,
     overdueCount: 0,
@@ -188,13 +187,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-
-        <JoinCreateDialog 
-          open={dialogOpen} 
-          onOpenChange={setDialogOpen} 
-          existingGroupCount={0}
-          initialTab={dialogTab}
-        />
       </>
     );
   }
@@ -243,7 +235,7 @@ export default function DashboardPage() {
       </section>
 
       <section>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="responsive-grid-4">
           {members.map((member, index) => {
             const name = memberName(member.full_name, member.email);
             const role = (member.memberRole ?? "member").toLowerCase() === "pm" ? "PM" : "Member";
@@ -267,7 +259,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="responsive-grid-4">
         <Card className="gap-3 bg-zinc-100 py-4">
           <CardHeader className="px-4 pb-0">
             <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
@@ -315,16 +307,16 @@ export default function DashboardPage() {
         </Card>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="responsive-grid-3">
         <Card className="py-5">
-          <CardHeader className="px-5">
+          <CardHeader className="responsive-card-padding">
             <div className="mb-1 text-zinc-700">
               <CalendarDays className="size-4" />
             </div>
             <CardTitle className="text-sm">Calendar</CardTitle>
             <CardDescription>Plan meetings and deadlines in one timeline.</CardDescription>
           </CardHeader>
-          <CardContent className="px-5">
+          <CardContent className="responsive-card-padding">
             <Link href="/calendar" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Calendar →
             </Link>
@@ -332,14 +324,14 @@ export default function DashboardPage() {
         </Card>
 
         <Card className="py-5">
-          <CardHeader className="px-5">
+          <CardHeader className="responsive-card-padding">
             <div className="mb-1 text-zinc-700">
               <FolderKanban className="size-4" />
             </div>
             <CardTitle className="text-sm">Progress Tracker</CardTitle>
             <CardDescription>Track tasks and sprint status for the whole team.</CardDescription>
           </CardHeader>
-          <CardContent className="px-5">
+          <CardContent className="responsive-card-padding">
             <Link href="/tracker" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Tracker →
             </Link>
@@ -347,14 +339,14 @@ export default function DashboardPage() {
         </Card>
 
         <Card className="py-5">
-          <CardHeader className="px-5">
+          <CardHeader className="responsive-card-padding">
             <div className="mb-1 text-zinc-700">
               <WalletCards className="size-4" />
             </div>
             <CardTitle className="text-sm">Shared Fund</CardTitle>
             <CardDescription>Monitor contributions, expenses, and balances.</CardDescription>
           </CardHeader>
-          <CardContent className="px-5">
+          <CardContent className="responsive-card-padding">
             <Link href="/fund" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Fund →
             </Link>
