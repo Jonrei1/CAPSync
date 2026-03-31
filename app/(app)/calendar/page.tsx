@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import styles from "./page.module.css";
 
 type CircleRow = {
@@ -1085,12 +1086,12 @@ export default function MainCalendarPage() {
             </div>
 
             <div className={styles.modalActions}>
-              <button type="button" className={`${styles.btn} ${styles.btnOutline}`} onClick={() => setShowRoutineDialog(false)}>
+              <Button type="button" variant="outline" onClick={() => setShowRoutineDialog(false)} className="cursor-pointer">
                 Cancel
-              </button>
-              <button type="button" className={`${styles.btn} ${styles.btnSolid}`} onClick={() => void saveRoutine()}>
+              </Button>
+              <Button type="button" onClick={() => void saveRoutine()} className="cursor-pointer">
                 Save routine
-              </button>
+              </Button>
             </div>
           </div>
         </div>
