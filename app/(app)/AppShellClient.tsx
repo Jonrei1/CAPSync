@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, Menu } from "lucide-react";
+import { CalendarDays, LogOut, Menu } from "lucide-react";
 import JoinCreateDialog from "@/components/circles/JoinCreateDialog";
 import CircleSwitcher from "@/components/circles/CircleSwitcher";
 import MemberList from "@/components/circles/MemberList";
@@ -41,6 +41,7 @@ function AppShell({ children }: AppLayoutProps) {
   const { activeCircle, dialogOpen, setDialogOpen, dialogTab } = useCircle();
   const isPersonalCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const showCircleChrome = Boolean(activeCircle) && !isPersonalCalendarRoute;
+  const headerTitle = isPersonalCalendarRoute ? "My Calendar" : activeCircle?.name ?? "";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [accountName, setAccountName] = useState("Account");
@@ -199,13 +200,15 @@ function AppShell({ children }: AppLayoutProps) {
             </Button>
 
             <div className="flex min-h-5 items-center gap-2">
-              {showCircleChrome ? (
+              {headerTitle ? (
                 <>
                   <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: activeCircle?.color ?? "#4f46e5" }}
-                  />
-                  <span className="text-sm font-medium text-zinc-900">{activeCircle?.name}</span>
+                    aria-hidden="true"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-zinc-900 text-[10px] font-bold text-white"
+                  >
+                    <CalendarDays className="size-3" />
+                  </span>
+                  <span className="text-sm font-medium text-zinc-900">{headerTitle}</span>
                 </>
               ) : null}
             </div>

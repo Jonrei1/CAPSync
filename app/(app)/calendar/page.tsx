@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import supabase from "@/lib/supabaseClient";
 import {
   Select,
@@ -10,6 +10,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import FloatingTooltip, {
+  type FloatingTooltipContent,
+} from "@/components/calendar/FloatingTooltip";
 import styles from "./page.module.css";
 
 type CircleRow = {
@@ -40,13 +43,6 @@ type RoutineRow = {
 
 type Density = "all" | "tasks" | "routines";
 type Layout = "week" | "focus";
-
-type HoverTooltip = {
-  x: number;
-  y: number;
-  title: string;
-  rows: Array<{ text: string; dot?: string }>;
-};
 
 const SLOT = 52;
 const START_HOUR = 6;
@@ -171,7 +167,11 @@ export default function MainCalendarPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [routines, setRoutines] = useState<RoutineRow[]>([]);
   const [visibleCircleIds, setVisibleCircleIds] = useState<string[]>([]);
-  const [hoverTooltip, setHoverTooltip] = useState<HoverTooltip | null>(null);
+  const [hoverTooltip, setHoverTooltip] = useState<FloatingTooltipContent | null>(null);
+  const tooltipElementRef = useRef<HTMLDivElement | null>(null);
+  const tooltipRafRef = useRef<number | null>(null);
+  const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const tooltipVisibleRef = useRef(false);
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [newRoutineLabel, setNewRoutineLabel] = useState("");
   const [newRoutineStart, setNewRoutineStart] = useState("09:00");
@@ -202,6 +202,69 @@ export default function MainCalendarPage() {
     () => Array.from({ length: getDaysInMonth(activeYear, activeMonth) }, (_, i) => i + 1),
     [activeYear, activeMonth],
   );
+
+  useEffect(() => {
+    return () => {
+      if (tooltipRafRef.current) {
+        cancelAnimationFrame(tooltipRafRef.current);
+      }
+    };
+  }, []);
+
+  function getTooltipPoint(clientX: number, clientY: number) {
+    return {
+      x: Math.min(clientX + 14, window.innerWidth - 240),
+      y: Math.max(clientY - 8, 8),
+    };
+  }
+
+  function applyTooltipPosition(point: { x: number; y: number }) {
+    const element = tooltipElementRef.current;
+    if (!element) {
+      return;
+    }
+
+    element.style.transform = `translate3d(${point.x}px, ${point.y}px, 0)`;
+  }
+
+  function openTooltip(
+    event: { clientX: number; clientY: number },
+    nextTooltip: FloatingTooltipContent,
+  ) {
+    const point = getTooltipPoint(event.clientX, event.clientY);
+    tooltipPointRef.current = point;
+    tooltipVisibleRef.current = true;
+    setHoverTooltip(nextTooltip);
+    window.requestAnimationFrame(() => {
+      applyTooltipPosition(point);
+    });
+  }
+
+  function trackTooltip(event: { clientX: number; clientY: number }) {
+    if (!tooltipVisibleRef.current) {
+      return;
+    }
+
+    tooltipPointRef.current = getTooltipPoint(event.clientX, event.clientY);
+
+    if (tooltipRafRef.current) {
+      return;
+    }
+
+    tooltipRafRef.current = window.requestAnimationFrame(() => {
+      tooltipRafRef.current = null;
+      applyTooltipPosition(tooltipPointRef.current);
+    });
+  }
+
+  function closeTooltip() {
+    tooltipVisibleRef.current = false;
+    if (tooltipRafRef.current) {
+      cancelAnimationFrame(tooltipRafRef.current);
+      tooltipRafRef.current = null;
+    }
+    setHoverTooltip(null);
+  }
 
   const tasksByDay = useMemo(() => {
     const map = new Map<string, TaskRow[]>();
@@ -470,16 +533,13 @@ export default function MainCalendarPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.appBar}>
+      <header className={styles.appBar}>
         <div className={styles.appId}>
           <div>
-            <div className={styles.appName}>My Calendar</div>
             <div className={styles.appSub}>Personal view - Week of {weekLabel}</div>
           </div>
         </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }} />
-      </div>
+      </header>
 
       <div className={styles.card}>
         <div className={styles.toolbar}>
@@ -799,9 +859,7 @@ export default function MainCalendarPage() {
                             borderColor: toRgba(event.color, 0.4),
                           }}
                           onMouseEnter={(e) => {
-                            setHoverTooltip({
-                              x: Math.min(e.clientX + 14, window.innerWidth - 240),
-                              y: Math.max(e.clientY - 8, 8),
+                            openTooltip(e, {
                               title: event.title,
                               rows: [
                                 { dot: event.color, text: event.sub },
@@ -810,18 +868,8 @@ export default function MainCalendarPage() {
                               ],
                             });
                           }}
-                          onMouseMove={(e) => {
-                            setHoverTooltip((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    x: Math.min(e.clientX + 14, window.innerWidth - 240),
-                                    y: Math.max(e.clientY - 8, 8),
-                                  }
-                                : current,
-                            );
-                          }}
-                          onMouseLeave={() => setHoverTooltip(null)}
+                          onMouseMove={trackTooltip}
+                          onMouseLeave={closeTooltip}
                         >
                           <div className={styles.eventInner}>
                             <div className={styles.eventTitle}>{event.title}</div>
@@ -843,9 +891,7 @@ export default function MainCalendarPage() {
                             backgroundColor: `${event.color}f0`,
                           }}
                           onMouseEnter={(e) => {
-                            setHoverTooltip({
-                              x: Math.min(e.clientX + 14, window.innerWidth - 240),
-                              y: Math.max(e.clientY - 8, 8),
+                            openTooltip(e, {
                               title: event.title,
                               rows: [
                                 { dot: event.color, text: event.sub },
@@ -854,18 +900,8 @@ export default function MainCalendarPage() {
                               ],
                             });
                           }}
-                          onMouseMove={(e) => {
-                            setHoverTooltip((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    x: Math.min(e.clientX + 14, window.innerWidth - 240),
-                                    y: Math.max(e.clientY - 8, 8),
-                                  }
-                                : current,
-                            );
-                          }}
-                          onMouseLeave={() => setHoverTooltip(null)}
+                          onMouseMove={trackTooltip}
+                          onMouseLeave={closeTooltip}
                         >
                           <div className={styles.eventInner}>
                             <div className={styles.eventTitle}>{event.title}</div>
@@ -940,23 +976,14 @@ export default function MainCalendarPage() {
         </div>
       </div>
 
-      {hoverTooltip && (
-        <div
-          className={styles.tooltip}
-          style={{
-            left: `${hoverTooltip.x}px`,
-            top: `${hoverTooltip.y}px`,
-          }}
-        >
-          <div className={styles.tooltipTitle}>{hoverTooltip.title}</div>
-          {hoverTooltip.rows.map((row, index) => (
-            <div key={`${row.text}-${index}`} className={styles.tooltipRow}>
-              {row.dot ? <span className={styles.tooltipDot} style={{ backgroundColor: row.dot }} /> : null}
-              <span>{row.text}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <FloatingTooltip
+        ref={tooltipElementRef}
+        tooltip={hoverTooltip}
+        className={styles.tooltip}
+        titleClassName={styles.tooltipTitle}
+        rowClassName={styles.tooltipRow}
+        dotClassName={styles.tooltipDot}
+      />
 
       {showRoutineDialog && (
         <div className={styles.modalOverlay} onClick={() => setShowRoutineDialog(false)}>
