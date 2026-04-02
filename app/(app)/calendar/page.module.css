@@ -222,10 +222,11 @@
 .circleChip {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   border: 1.5px solid;
-  border-radius: 8px;
-  padding: 8px 11px 8px 9px;
+  border-radius: 7px;
+  min-height: 34px;
+  padding: 5px 10px 5px 8px;
   background: #fff;
   cursor: pointer;
   transition: all 0.18s;
@@ -253,15 +254,24 @@
 }
 
 .circleDot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
   flex-shrink: 0;
 }
 
+.circleChipBody {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
 .circleChipCheck {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   border: 1.5px solid;
   display: flex;
@@ -270,23 +280,23 @@
   flex-shrink: 0;
   margin-left: 2px;
   transition: all 0.18s;
-  font-size: 10px;
+  font-size: 8px;
   color: white;
   font-weight: 700;
 }
 
 .circleName {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.2;
   display: block;
 }
 
 .circleSub {
-  margin-top: 2px;
-  font-size: 10px;
+  margin-top: 1px;
+  font-size: 9px;
   color: #9ca3af;
-  line-height: 1.35;
+  line-height: 1.2;
   display: block;
 }
 

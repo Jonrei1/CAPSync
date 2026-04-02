@@ -2,13 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import supabase from "@/lib/supabaseClient";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import FloatingTooltip, {
   type FloatingTooltipContent,
@@ -80,29 +74,28 @@ function formatTooltipTime(hour: number) {
   return `${displayH}:${mm.toString().padStart(2, "0")} ${period}`;
 }
 
-function parseTimeHour(value: string) {
-  const [hours] = value.split(":");
-  const parsed = Number.parseInt(hours ?? "", 10);
-  if (Number.isNaN(parsed)) {
-    return 0;
+function parseTimeMinutes(value: string) {
+  const [hoursPart, minutesPart] = value.split(":");
+  const hours = Number.parseInt(hoursPart ?? "", 10);
+  const minutes = Number.parseInt(minutesPart ?? "0", 10);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return START_HOUR * 60;
   }
-  return Math.max(0, Math.min(parsed, 23));
+
+  const totalMinutes = hours * 60 + minutes;
+  const minMinutes = START_HOUR * 60;
+  const maxMinutes = END_HOUR * 60;
+
+  return Math.max(minMinutes, Math.min(totalMinutes, maxMinutes));
 }
 
-function toHourTimeValue(hour: number) {
-  const clamped = Math.max(0, Math.min(hour, 23));
-  return `${String(clamped).padStart(2, "0")}:00`;
+function toTimeInputValue(totalMinutes: number) {
+  const clamped = Math.max(START_HOUR * 60, Math.min(totalMinutes, END_HOUR * 60));
+  const hours = Math.floor(clamped / 60);
+  const minutes = clamped % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
-
-function toHourTimeLabel(hour: number) {
-  return formatTooltipTime(hour).replace(":00 ", " ");
-}
-
-const ROUTINE_TIME_OPTIONS = Array.from({ length: 24 }, (_, hour) => ({
-  hour,
-  value: toHourTimeValue(hour),
-  label: toHourTimeLabel(hour),
-}));
 
 function toRgba(color: string, alpha: number) {
   const cleaned = color.trim();
@@ -185,12 +178,6 @@ export default function MainCalendarPage() {
   );
 
   const weekLabel = useMemo(() => toDisplayRange(weekDates[0], weekDates[6]), [weekDates]);
-  const selectedStartHour = useMemo(() => parseTimeHour(newRoutineStart), [newRoutineStart]);
-  const routineStartTimeOptions = useMemo(() => ROUTINE_TIME_OPTIONS.slice(0, 23), []);
-  const routineEndTimeOptions = useMemo(
-    () => ROUTINE_TIME_OPTIONS.filter((option) => option.hour > selectedStartHour),
-    [selectedStartHour],
-  );
   const activeYear = activeDate.getFullYear();
   const activeMonth = activeDate.getMonth() + 1;
   const activeDay = activeDate.getDate();
@@ -465,10 +452,10 @@ export default function MainCalendarPage() {
       return;
     }
 
-    const startParts = newRoutineStart.split(":").map(Number);
-    const endParts = newRoutineEnd.split(":").map(Number);
-    const startHour = (startParts[0] ?? 0) + (startParts[1] ?? 0) / 60;
-    const endHour = (endParts[0] ?? 0) + (endParts[1] ?? 0) / 60;
+    const startMinutes = parseTimeMinutes(newRoutineStart);
+    const endMinutes = parseTimeMinutes(newRoutineEnd);
+    const startHour = startMinutes / 60;
+    const endHour = endMinutes / 60;
 
     if (endHour <= startHour) {
       alert("End time must be later than start time");
@@ -523,11 +510,11 @@ export default function MainCalendarPage() {
 
   function handleRoutineStartChange(nextValue: string) {
     setNewRoutineStart(nextValue);
-    const nextStartHour = parseTimeHour(nextValue);
-    const currentEndHour = parseTimeHour(newRoutineEnd);
+    const nextStartMinutes = parseTimeMinutes(nextValue);
+    const currentEndMinutes = parseTimeMinutes(newRoutineEnd);
 
-    if (currentEndHour <= nextStartHour) {
-      setNewRoutineEnd(toHourTimeValue(Math.min(nextStartHour + 1, 23)));
+    if (currentEndMinutes <= nextStartMinutes) {
+      setNewRoutineEnd(toTimeInputValue(nextStartMinutes + 60));
     }
   }
 
@@ -633,7 +620,7 @@ export default function MainCalendarPage() {
                   style={{ borderColor: color }}
                 >
                   <span className={styles.circleDot} style={{ backgroundColor: color }} />
-                  <span>
+                  <span className={styles.circleChipBody}>
                     <span className={styles.circleName} style={{ color }}>
                       {circle.name}
                     </span>
@@ -1025,36 +1012,34 @@ export default function MainCalendarPage() {
                   <label htmlFor="routine-start" className={styles.modalLabel}>
                     Start time
                   </label>
-                  <Select value={newRoutineStart} onValueChange={handleRoutineStartChange}>
-                    <SelectTrigger id="routine-start" className={`${styles.modalInput} ${styles.modalSelectTrigger}`}>
-                      <SelectValue placeholder="Select start time" />
-                    </SelectTrigger>
-                    <SelectContent className={styles.modalSelectContent}>
-                      {routineStartTimeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <input
+                    id="routine-start"
+                    type="time"
+                    value={newRoutineStart}
+                    onChange={(event) => handleRoutineStartChange(event.target.value)}
+                    className={styles.modalInput}
+                    min="06:00"
+                    max="23:00"
+                    step={60}
+                    required
+                  />
                 </div>
 
                 <div className={styles.modalField}>
                   <label htmlFor="routine-end" className={styles.modalLabel}>
                     End time
                   </label>
-                  <Select value={newRoutineEnd} onValueChange={setNewRoutineEnd}>
-                    <SelectTrigger id="routine-end" className={`${styles.modalInput} ${styles.modalSelectTrigger}`}>
-                      <SelectValue placeholder="Select end time" />
-                    </SelectTrigger>
-                    <SelectContent className={styles.modalSelectContent}>
-                      {routineEndTimeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <input
+                    id="routine-end"
+                    type="time"
+                    value={newRoutineEnd}
+                    onChange={(event) => setNewRoutineEnd(event.target.value)}
+                    className={styles.modalInput}
+                    min="06:00"
+                    max="23:00"
+                    step={60}
+                    required
+                  />
                 </div>
               </div>
 
