@@ -186,7 +186,7 @@ function AppShell({ children }: AppLayoutProps) {
       </aside>
 
       <div className="md:ml-55">
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-white px-4 py-3 md:px-6">
+        <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between border-b bg-white px-4 py-3 leading-none md:px-6">
           <div className="flex items-center gap-2.5">
             <Button
               variant="outline"
@@ -198,7 +198,7 @@ function AppShell({ children }: AppLayoutProps) {
               <Menu className="size-4" />
             </Button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex min-h-5 items-center gap-2">
               {showCircleChrome ? (
                 <>
                   <span

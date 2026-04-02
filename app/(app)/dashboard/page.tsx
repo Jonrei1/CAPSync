@@ -7,10 +7,11 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { designTokens } from "@/components/ui/design-standard";
 import { useCircle } from "@/contexts/CircleContext";
 import supabase from "@/lib/supabaseClient";
 
-const MEMBER_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "#ca8a04"];
+const MEMBER_COLORS = designTokens.palette.app.memberSet;
 
 type DashboardStats = {
   doneCount: number;
@@ -316,7 +317,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="rounded-xl border bg-white p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <span
@@ -328,7 +329,7 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-zinc-600">{activeCircle.subject ?? "No subject set"}</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <Badge variant={isPm ? "success" : "secondary"}>{isPm ? "PM" : "Member"}</Badge>
             {isPm && activeCircle.invite_code ? (
               <div className="inline-flex items-center gap-2 rounded-full border bg-zinc-100 px-3 py-1 text-xs">
