@@ -308,6 +308,20 @@ export const designStandard = {
     stat: "rounded-xl border border-border/70 bg-card p-4 shadow-sm",
     interactive: clickableCardClassName(),
   },
+  calendar: {
+    page: "space-y-3 text-zinc-900",
+    card: "rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden",
+    toolbar: "flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3",
+    dateJump: "inline-flex items-center gap-1.5 border-l border-zinc-200 pl-2",
+    dateJumpLabel: "text-[11px] text-zinc-500",
+    dateJumpPopover:
+      "w-auto overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 text-zinc-900 shadow-lg",
+    tooltip:
+      "pointer-events-none fixed top-0 left-0 z-90 min-w-44 rounded-lg border border-zinc-200 bg-white/95 px-3 py-2 text-xs text-zinc-700 shadow-lg backdrop-blur",
+    tooltipTitle: "mb-1 text-[11px] font-semibold text-zinc-900",
+    tooltipRow: "flex items-center gap-1.5",
+    tooltipDot: "h-1.5 w-1.5 rounded-full",
+  },
   colorPicker: {
     wrapper: "space-y-2",
     row: "flex flex-wrap items-center gap-2",

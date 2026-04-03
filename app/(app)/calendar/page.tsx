@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useDesignStandard } from "@/components/ui/design-standard";
 import FloatingTooltip, {
   type FloatingTooltipContent,
 } from "@/components/calendar/FloatingTooltip";
+import { cn } from "@/lib/utils";
 import styles from "./page.module.css";
 
 type CircleRow = {
@@ -175,6 +177,7 @@ function getPhilippineHour(date: Date) {
 }
 
 export default function MainCalendarPage() {
+  const ds = useDesignStandard();
   const [loading, setLoading] = useState(true);
   const [layout] = useState<Layout>("week");
   const [density, setDensity] = useState<Density>("all");
@@ -587,7 +590,7 @@ export default function MainCalendarPage() {
                     </Button>
                   )}
                 />
-                <PopoverContent className={styles.dateJumpPopover} align="start">
+                <PopoverContent className={cn(styles.dateJumpPopover, ds.calendar.dateJumpPopover)} align="start">
                   <Calendar
                     mode="single"
                     selected={activeDate}
@@ -980,10 +983,10 @@ export default function MainCalendarPage() {
       <FloatingTooltip
         ref={tooltipElementRef}
         tooltip={hoverTooltip}
-        className={styles.tooltip}
-        titleClassName={styles.tooltipTitle}
-        rowClassName={styles.tooltipRow}
-        dotClassName={styles.tooltipDot}
+        className={cn(styles.tooltip, ds.calendar.tooltip)}
+        titleClassName={cn(styles.tooltipTitle, ds.calendar.tooltipTitle)}
+        rowClassName={cn(styles.tooltipRow, ds.calendar.tooltipRow)}
+        dotClassName={cn(styles.tooltipDot, ds.calendar.tooltipDot)}
       />
 
       {showRoutineDialog && (

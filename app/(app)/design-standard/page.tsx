@@ -220,6 +220,54 @@ export default function DesignStandardPage() {
           </p>
           <Button onClick={() => setOpenPreview(true)} className={ds.button.primary}>Open Modal Preview</Button>
         </section>
+
+        <section className={ds.cards.panel + " " + ds.layout.panelPad + " " + ds.layout.margin.sectionTop}>
+          <h2 className={ds.getSeoHeadingClass("h2", ds.designTokens.fontSize.sm)}>Calendar Standard (/calendar)</h2>
+          <p className={ds.designTokens.text.muted + " mb-3"}>
+            The /calendar route is the canonical calendar UI. Use ds.calendar tokens for the shell, date jump popover,
+            and hover tooltip so future calendar views stay visually aligned.
+          </p>
+
+          <div className={ds.calendar.card}>
+            <div className={ds.calendar.toolbar}>
+              <div className={ds.layout.row}>
+                <Button variant="outline" className={ds.button.outline}>Previous</Button>
+                <Button variant="outline" className={ds.button.outline}>Today</Button>
+                <Button variant="outline" className={ds.button.outline}>Next</Button>
+              </div>
+
+              <div className={ds.calendar.dateJump}>
+                <span className={ds.calendar.dateJumpLabel}>Go to date</span>
+                <div className={ds.calendar.dateJumpPopover}>
+                  <div className="px-3 py-2 text-[11px] text-zinc-600">Calendar popover shell (canonical)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={ds.layout.margin.sectionTop + " " + ds.layout.grid2}>
+            <div className={ds.cards.compact}>
+              <div className="mb-2 text-xs font-semibold text-zinc-800">Required Tokens</div>
+              <ul className="space-y-1 text-[11px] text-zinc-600">
+                <li>ds.calendar.card</li>
+                <li>ds.calendar.toolbar</li>
+                <li>ds.calendar.dateJump</li>
+                <li>ds.calendar.dateJumpPopover</li>
+              </ul>
+            </div>
+
+            <div className={ds.cards.compact}>
+              <div className="mb-2 text-xs font-semibold text-zinc-800">Tooltip Standard</div>
+              <div className={ds.calendar.tooltip + " static min-w-0"}>
+                <div className={ds.calendar.tooltipTitle}>Task Name</div>
+                <div className={ds.calendar.tooltipRow}>
+                  <span className={ds.calendar.tooltipDot} style={{ backgroundColor: ds.designTokens.palette.app.brandPrimary }} />
+                  <span>09:00 AM - 10:00 AM</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </section>
 
       {openPreview ? (
