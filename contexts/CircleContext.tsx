@@ -94,7 +94,7 @@ export function CircleProvider({ children }: CircleProviderProps) {
           .eq("group_id", activeCircle.id)
           .order("joined_at", { ascending: true });
 
-        membershipRows = fallbackResult.data;
+        membershipRows = fallbackResult.data as typeof membershipRows;
         membershipError = fallbackResult.error;
       }
 

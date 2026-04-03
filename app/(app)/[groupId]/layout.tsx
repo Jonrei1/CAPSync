@@ -4,13 +4,13 @@ import { createClient } from "@/lib/supabaseServer";
 
 type CircleLayoutProps = {
   children: ReactNode;
-  params: { circleId: string } | Promise<{ circleId: string }>;
+  params: { groupId: string } | Promise<{ groupId: string }>;
 };
 
 export default async function CircleLayout({ children, params }: CircleLayoutProps) {
-  const { circleId } = await Promise.resolve(params);
+  const { groupId } = await Promise.resolve(params);
 
-  if (!circleId) {
+  if (!groupId) {
     notFound();
   }
 
@@ -27,7 +27,7 @@ export default async function CircleLayout({ children, params }: CircleLayoutPro
   const { data: membership, error: membershipError } = await supabase
     .from("group_members")
     .select("group_id")
-    .eq("group_id", circleId)
+    .eq("group_id", groupId)
     .eq("member_id", user.id)
     .maybeSingle();
 

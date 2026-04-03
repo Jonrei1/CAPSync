@@ -71,3 +71,38 @@ export type Comment = {
 };
 
 export type EmptyObject = Record<string, never>;
+
+export type CalendarMember = {
+	id: string;
+	name: string;
+	ini: string;
+	bg: string;
+	lt: string;
+	bd: string;
+	tc: string;
+	role: "pm" | "member";
+};
+
+export type CalendarBlock = {
+	memberId: string;
+	days: string[];
+	s: number;
+	e: number;
+	lbl: string;
+	sub: string;
+	routine: boolean;
+};
+
+export type FreeWindow = {
+	days: string[];
+	s: number;
+	e: number;
+	memberIds: string[];
+	lbl: string;
+	dur: string;
+};
+
+export type CalendarDeadline = {
+	days: string[];
+	lbl: string;
+};

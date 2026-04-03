@@ -205,7 +205,7 @@ export default function DesignStandardPage() {
                 <div key={item.label} className="w-24">
                   <div className={cn("h-12 border border-border/70 bg-muted", item.className)} />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {item.label} ({ds.designTokens.radiusValue[item.label]})
+                    {item.label} ({ds.designTokens.radiusValue[item.label as keyof typeof ds.designTokens.radiusValue]})
                   </p>
                 </div>
               ))}

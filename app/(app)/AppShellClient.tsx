@@ -8,6 +8,7 @@ import JoinCreateDialog from "@/components/circles/JoinCreateDialog";
 import CircleSwitcher from "@/components/circles/CircleSwitcher";
 import MemberList from "@/components/circles/MemberList";
 import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/toast";
 import { CircleProvider, useCircle } from "@/contexts/CircleContext";
 
 type AppLayoutProps = {
@@ -100,6 +101,7 @@ function AppShell({ children }: AppLayoutProps) {
 
   return (
     <>
+      <Toaster />
       <JoinCreateDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}

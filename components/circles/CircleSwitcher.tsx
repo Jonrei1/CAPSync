@@ -148,7 +148,7 @@ export default function CircleSwitcher() {
                   type="button"
                   onClick={() => {
                     setActiveCircle(group);
-                    void router.push("/dashboard");
+                    void router.push(`/${group.id}/calendar`);
                   }}
                   className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-1 py-0.5 text-left"
                 >
