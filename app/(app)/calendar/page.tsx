@@ -7,7 +7,6 @@ import supabase from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FloatingTooltip, {
   type FloatingTooltipContent,
@@ -200,8 +199,6 @@ export default function MainCalendarPage() {
   const [newRoutineColor, setNewRoutineColor] = useState(ROUTINE_COLORS[0]);
   const [now, setNow] = useState(() => new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [routineDateOpen, setRoutineDateOpen] = useState(false);
-  const [routineDate, setRoutineDate] = useState<Date | undefined>(activeDate);
 
   const weekDates = useMemo(
     () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
@@ -578,21 +575,22 @@ export default function MainCalendarPage() {
             <div className={styles.dateJump}>
               <span className={styles.dateJumpLabel}>Go to date</span>
               <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    id="go-to-date"
-                    className={styles.dateJumpPicker}
-                  >
-                    {format(activeDate, "PPP")}
-                    <ChevronDownIcon className={styles.dateJumpIcon} />
-                  </Button>
-                </PopoverTrigger>
+                <PopoverTrigger
+                  render={(
+                    <Button
+                      variant="outline"
+                      data-empty={!activeDate}
+                      className="w-53 justify-between text-left font-normal data-[empty=true]:text-muted-foreground"
+                    >
+                      {activeDate ? format(activeDate, "PPP") : <span>Pick a date</span>}
+                      <ChevronDownIcon data-icon="inline-end" />
+                    </Button>
+                  )}
+                />
                 <PopoverContent className={styles.dateJumpPopover} align="start">
                   <Calendar
                     mode="single"
                     selected={activeDate}
-                    captionLayout="dropdown"
                     defaultMonth={activeDate}
                     onSelect={(nextDate) => {
                       if (nextDate) {
@@ -1025,50 +1023,20 @@ export default function MainCalendarPage() {
 
               <div className={styles.modalGrid}>
                 <div className={styles.modalField}>
-                  <FieldGroup className={styles.dateTimeGroup}>
-                    <Field>
-                      <FieldLabel htmlFor="routine-date" className={styles.modalLabel}>Date</FieldLabel>
-                      <Popover open={routineDateOpen} onOpenChange={setRoutineDateOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            id="routine-date"
-                            className={styles.modalDateButton}
-                          >
-                            {routineDate ? format(routineDate, "PPP") : "Select date"}
-                            <ChevronDownIcon />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className={styles.dateJumpPopover} align="start">
-                          <Calendar
-                            mode="single"
-                            selected={routineDate}
-                            captionLayout="dropdown"
-                            defaultMonth={routineDate}
-                            onSelect={(date) => {
-                              if (!date) {
-                                return;
-                              }
-                              setRoutineDate(date);
-                              setRoutineDateOpen(false);
-                              setNewRoutineDays([date.getDay()]);
-                            }}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </Field>
-                    <Field className={styles.timeField}>
-                      <FieldLabel htmlFor="routine-start" className={styles.modalLabel}>Time</FieldLabel>
-                      <Input
-                        type="time"
-                        id="routine-start"
-                        step={60}
-                        value={newRoutineStart}
-                        onChange={(event) => handleRoutineStartChange(event.target.value)}
-                        className={`${styles.modalInput} ${styles.modalTimeInput}`}
-                      />
-                    </Field>
-                  </FieldGroup>
+                  <label htmlFor="routine-start" className={styles.modalLabel}>
+                    Start time
+                  </label>
+                  <Input
+                    type="time"
+                    id="routine-start"
+                    step={60}
+                    value={newRoutineStart}
+                    onChange={(event) => handleRoutineStartChange(event.target.value)}
+                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    min="06:00"
+                    max="23:00"
+                    required
+                  />
                 </div>
 
                 <div className={styles.modalField}>
