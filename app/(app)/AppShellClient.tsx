@@ -202,12 +202,20 @@ function AppShell({ children }: AppLayoutProps) {
             <div className="flex min-h-5 items-center gap-2">
               {headerTitle ? (
                 <>
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-zinc-900 text-[10px] font-bold text-white"
-                  >
-                    <CalendarDays className="size-3" />
-                  </span>
+                  {isPersonalCalendarRoute ? (
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-zinc-900 text-[10px] font-bold text-white"
+                    >
+                      <CalendarDays className="size-3" />
+                    </span>
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex h-2.5 w-2.5 rounded-full border border-white shadow-[0_0_0_1px_rgba(9,9,11,0.18)]"
+                      style={{ backgroundColor: activeCircle?.color ?? "#4f46e5" }}
+                    />
+                  )}
                   <span className="text-sm font-medium text-zinc-900">{headerTitle}</span>
                 </>
               ) : null}

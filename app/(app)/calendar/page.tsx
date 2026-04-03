@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { format } from "date-fns";
+import { ChevronDownIcon } from "lucide-react";
 import supabase from "@/lib/supabaseClient";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FloatingTooltip, {
   type FloatingTooltipContent,
 } from "@/components/calendar/FloatingTooltip";
@@ -41,21 +46,8 @@ type Layout = "week" | "focus";
 const SLOT = 52;
 const START_HOUR = 6;
 const END_HOUR = 23;
+const PH_TIME_ZONE = "Asia/Manila";
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_LABELS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
 const ROUTINE_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "#ca8a04"];
 
 function formatTime(hour: number) {
@@ -134,11 +126,18 @@ function addDays(date: Date, days: number) {
 }
 
 function formatDay(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
 
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month, 0).getDate();
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  return `${year}-${month}-${day}`;
 }
 
 function toDisplayRange(start: Date, end: Date) {
@@ -146,14 +145,42 @@ function toDisplayRange(start: Date, end: Date) {
   return `${start.toLocaleDateString("en-PH", opts)} - ${end.toLocaleDateString("en-PH", opts)}`;
 }
 
+function getPhilippineNow() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+
+  const year = Number(parts.find((part) => part.type === "year")?.value ?? "1970");
+  const month = Number(parts.find((part) => part.type === "month")?.value ?? "1");
+  const day = Number(parts.find((part) => part.type === "day")?.value ?? "1");
+
+  // Use midday to avoid timezone edges when converting between locales.
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+function getPhilippineHour(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: PH_TIME_ZONE,
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(date);
+
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0");
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0");
+  return hour + minute / 60;
+}
+
 export default function MainCalendarPage() {
   const [loading, setLoading] = useState(true);
   const [layout] = useState<Layout>("week");
   const [density, setDensity] = useState<Density>("all");
   const [activeDate, setActiveDate] = useState(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today;
+    return getPhilippineNow();
   });
   const [weekStart, setWeekStart] = useState(() => startOfWeek(activeDate));
   const [circles, setCircles] = useState<CircleRow[]>([]);
@@ -171,6 +198,10 @@ export default function MainCalendarPage() {
   const [newRoutineEnd, setNewRoutineEnd] = useState("10:00");
   const [newRoutineDays, setNewRoutineDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [newRoutineColor, setNewRoutineColor] = useState(ROUTINE_COLORS[0]);
+  const [now, setNow] = useState(() => new Date());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [routineDateOpen, setRoutineDateOpen] = useState(false);
+  const [routineDate, setRoutineDate] = useState<Date | undefined>(activeDate);
 
   const weekDates = useMemo(
     () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
@@ -178,23 +209,22 @@ export default function MainCalendarPage() {
   );
 
   const weekLabel = useMemo(() => toDisplayRange(weekDates[0], weekDates[6]), [weekDates]);
-  const activeYear = activeDate.getFullYear();
-  const activeMonth = activeDate.getMonth() + 1;
-  const activeDay = activeDate.getDate();
-  const jumpYearOptions = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    return Array.from({ length: 101 }, (_, i) => currentYear - 50 + i);
-  }, []);
-  const jumpDayOptions = useMemo(
-    () => Array.from({ length: getDaysInMonth(activeYear, activeMonth) }, (_, i) => i + 1),
-    [activeYear, activeMonth],
-  );
 
   useEffect(() => {
     return () => {
       if (tooltipRafRef.current) {
         cancelAnimationFrame(tooltipRafRef.current);
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(new Date());
+    }, 60_000);
+
+    return () => {
+      window.clearInterval(intervalId);
     };
   }, []);
 
@@ -406,6 +436,10 @@ export default function MainCalendarPage() {
     () => circles.filter((circle) => visibleCircleIds.includes(circle.id)).length,
     [circles, visibleCircleIds],
   );
+  const nowDayKey = useMemo(() => formatDay(now), [now]);
+  const nowHour = useMemo(() => getPhilippineHour(now), [now]);
+  const nowVisible = nowHour >= START_HOUR && nowHour <= END_HOUR;
+  const nowTop = Math.max(0, Math.min((nowHour - START_HOUR) * SLOT, (END_HOUR - START_HOUR) * SLOT));
 
   const circleMap = useMemo(() => {
     const map = new Map<string, CircleRow>();
@@ -417,15 +451,9 @@ export default function MainCalendarPage() {
 
   function syncCalendarDate(nextDate: Date) {
     const normalized = new Date(nextDate);
-    normalized.setHours(0, 0, 0, 0);
+    normalized.setHours(12, 0, 0, 0);
     setActiveDate(normalized);
     setWeekStart(startOfWeek(normalized));
-  }
-
-  function syncCalendarDateParts(nextYear: number, nextMonth: number, nextDay: number) {
-    const maxDay = getDaysInMonth(nextYear, nextMonth);
-    const safeDay = Math.min(nextDay, maxDay);
-    syncCalendarDate(new Date(nextYear, nextMonth - 1, safeDay));
   }
 
   function toggleCircle(circleId: string) {
@@ -549,51 +577,32 @@ export default function MainCalendarPage() {
             <span style={{ fontSize: 14, fontWeight: 600 }}>{weekLabel}</span>
             <div className={styles.dateJump}>
               <span className={styles.dateJumpLabel}>Go to date</span>
-              <Select
-                value={String(activeMonth)}
-                onValueChange={(value) => syncCalendarDateParts(activeYear, Number(value), activeDay)}
-              >
-                <SelectTrigger className={styles.dateJumpSelect}>
-                  <SelectValue placeholder="Month" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTH_LABELS.map((month, idx) => (
-                    <SelectItem key={month} value={String(idx + 1)}>
-                      {month}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={String(activeDay)}
-                onValueChange={(value) => syncCalendarDateParts(activeYear, activeMonth, Number(value))}
-              >
-                <SelectTrigger className={styles.dateJumpSelectDay}>
-                  <SelectValue placeholder="Day" />
-                </SelectTrigger>
-                <SelectContent>
-                  {jumpDayOptions.map((day) => (
-                    <SelectItem key={day} value={String(day)}>
-                      {day}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={String(activeYear)}
-                onValueChange={(value) => syncCalendarDateParts(Number(value), activeMonth, activeDay)}
-              >
-                <SelectTrigger className={styles.dateJumpSelectYear}>
-                  <SelectValue placeholder="Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {jumpYearOptions.map((year) => (
-                    <SelectItem key={year} value={String(year)}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    id="go-to-date"
+                    className={styles.dateJumpPicker}
+                  >
+                    {format(activeDate, "PPP")}
+                    <ChevronDownIcon className={styles.dateJumpIcon} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className={styles.dateJumpPopover} align="start">
+                  <Calendar
+                    mode="single"
+                    selected={activeDate}
+                    captionLayout="dropdown"
+                    defaultMonth={activeDate}
+                    onSelect={(nextDate) => {
+                      if (nextDate) {
+                        syncCalendarDate(nextDate);
+                        setDatePickerOpen(false);
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -675,7 +684,7 @@ export default function MainCalendarPage() {
               <div className={styles.weekHead}>
                 <div className={styles.weekHeadSpacer} />
                 {weekDates.map((date, dayIndex) => {
-                  const isToday = formatDay(date) === formatDay(new Date());
+                  const isToday = formatDay(date) === nowDayKey;
                   return (
                     <div key={dayIndex} className={styles.dayHeader}>
                       <div className={styles.dayName}>{WEEK_DAYS[dayIndex]}</div>
@@ -704,7 +713,7 @@ export default function MainCalendarPage() {
 
                 {weekDates.map((date, dayIndex) => {
                   const dateKey = formatDay(date);
-                  const isToday = dateKey === formatDay(new Date());
+                  const isToday = dateKey === nowDayKey;
                   const dayTasks = (tasksByDay.get(dateKey) ?? []).filter((task) =>
                     visibleCircleIds.includes(task.group_id),
                   );
@@ -832,6 +841,13 @@ export default function MainCalendarPage() {
                         <div key={i} className={styles.hrLine} style={{ top: i * SLOT }} />
                       ))}
                       <div className={styles.hrLine} style={{ top: (END_HOUR - START_HOUR) * SLOT }} />
+
+                      {isToday && nowVisible ? (
+                        <div className={styles.nowIndicator} style={{ top: nowTop }} aria-hidden="true">
+                          <span className={styles.nowDot} />
+                          <span className={styles.nowLine} />
+                        </div>
+                      ) : null}
 
                       {routineEvents.map((event) => (
                         <div
@@ -1009,32 +1025,62 @@ export default function MainCalendarPage() {
 
               <div className={styles.modalGrid}>
                 <div className={styles.modalField}>
-                  <label htmlFor="routine-start" className={styles.modalLabel}>
-                    Start time
-                  </label>
-                  <input
-                    id="routine-start"
-                    type="time"
-                    value={newRoutineStart}
-                    onChange={(event) => handleRoutineStartChange(event.target.value)}
-                    className={styles.modalInput}
-                    min="06:00"
-                    max="23:00"
-                    step={60}
-                    required
-                  />
+                  <FieldGroup className={styles.dateTimeGroup}>
+                    <Field>
+                      <FieldLabel htmlFor="routine-date" className={styles.modalLabel}>Date</FieldLabel>
+                      <Popover open={routineDateOpen} onOpenChange={setRoutineDateOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            id="routine-date"
+                            className={styles.modalDateButton}
+                          >
+                            {routineDate ? format(routineDate, "PPP") : "Select date"}
+                            <ChevronDownIcon />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className={styles.dateJumpPopover} align="start">
+                          <Calendar
+                            mode="single"
+                            selected={routineDate}
+                            captionLayout="dropdown"
+                            defaultMonth={routineDate}
+                            onSelect={(date) => {
+                              if (!date) {
+                                return;
+                              }
+                              setRoutineDate(date);
+                              setRoutineDateOpen(false);
+                              setNewRoutineDays([date.getDay()]);
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </Field>
+                    <Field className={styles.timeField}>
+                      <FieldLabel htmlFor="routine-start" className={styles.modalLabel}>Time</FieldLabel>
+                      <Input
+                        type="time"
+                        id="routine-start"
+                        step={60}
+                        value={newRoutineStart}
+                        onChange={(event) => handleRoutineStartChange(event.target.value)}
+                        className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                      />
+                    </Field>
+                  </FieldGroup>
                 </div>
 
                 <div className={styles.modalField}>
                   <label htmlFor="routine-end" className={styles.modalLabel}>
                     End time
                   </label>
-                  <input
+                  <Input
                     id="routine-end"
                     type="time"
                     value={newRoutineEnd}
                     onChange={(event) => setNewRoutineEnd(event.target.value)}
-                    className={styles.modalInput}
+                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
                     min="06:00"
                     max="23:00"
                     step={60}

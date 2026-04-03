@@ -15,6 +15,7 @@ type InteractiveState = {
 const clickableBase = "cursor-pointer transition-colors duration-150"
 const clickableHover = "hover:bg-muted/60 hover:text-foreground"
 const clickableDisabled = "cursor-not-allowed opacity-60"
+const buttonEnhanced = "h-9 px-3 transition-colors duration-150"
 
 export const designTokens = {
   font: {
@@ -217,12 +218,36 @@ export const designStandard = {
     link: cn(clickableBase, "text-primary underline-offset-4 hover:underline"),
   },
   button: {
-    primary: buttonVariants({ variant: "default", size: "default", className: clickableBase }),
-    outline: buttonVariants({ variant: "outline", size: "default", className: clickableBase }),
-    secondary: buttonVariants({ variant: "secondary", size: "default", className: clickableBase }),
-    ghost: buttonVariants({ variant: "ghost", size: "default", className: clickableBase }),
-    destructive: buttonVariants({ variant: "destructive", size: "default", className: clickableBase }),
-    link: buttonVariants({ variant: "link", size: "default", className: clickableBase }),
+    primary: buttonVariants({
+      variant: "default",
+      size: "default",
+      className: cn(clickableBase, buttonEnhanced, "hover:bg-primary/90"),
+    }),
+    outline: buttonVariants({
+      variant: "outline",
+      size: "default",
+      className: cn(clickableBase, buttonEnhanced, "hover:bg-muted/80"),
+    }),
+    secondary: buttonVariants({
+      variant: "secondary",
+      size: "default",
+      className: cn(clickableBase, buttonEnhanced, "hover:bg-secondary/90"),
+    }),
+    ghost: buttonVariants({
+      variant: "ghost",
+      size: "default",
+      className: cn(clickableBase, buttonEnhanced, "hover:bg-muted/80"),
+    }),
+    destructive: buttonVariants({
+      variant: "destructive",
+      size: "default",
+      className: cn(clickableBase, buttonEnhanced, "hover:bg-destructive/30"),
+    }),
+    link: buttonVariants({
+      variant: "link",
+      size: "default",
+      className: cn(clickableBase, buttonEnhanced),
+    }),
     small: buttonVariants({ variant: "outline", size: "sm", className: clickableBase }),
     extraSmall: buttonVariants({ variant: "outline", size: "xs", className: clickableBase }),
     icon: buttonVariants({ variant: "ghost", size: "icon-sm", className: clickableBase }),

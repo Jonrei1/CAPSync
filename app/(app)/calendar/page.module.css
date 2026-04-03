@@ -125,33 +125,33 @@
   padding-left: 8px;
   border-left: 1px solid #e5e7eb;
 }
+
 .dateJumpLabel {
   font-size: 11px;
   color: #6b7280;
 }
-.dateJumpSelect,
-.dateJumpSelectDay,
-.dateJumpSelectYear {
-  height: 30px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
+
+.dateJumpPicker {
+  height: 32px;
+  min-width: 196px;
+  justify-content: space-between;
+  border-color: #d1d5db;
   color: #111827;
   font-size: 12px;
-  font-family: inherit;
+  font-weight: 400;
   box-shadow: none;
 }
 
-.dateJumpSelect {
-  width: 92px;
+.dateJumpIcon {
+  width: 14px;
+  height: 14px;
+  color: #6b7280;
 }
 
-.dateJumpSelectDay {
-  width: 66px;
-}
-
-.dateJumpSelectYear {
-  width: 84px;
+.dateJumpPopover {
+  width: auto;
+  overflow: hidden;
+  padding: 0;
 }
 
 .btn {
@@ -437,6 +437,33 @@
   pointer-events: none;
 }
 
+.nowIndicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+}
+
+.nowDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #111827;
+  opacity: 0.62;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.nowLine {
+  flex: 1;
+  height: 1px;
+  background: rgba(17, 24, 39, 0.28);
+}
+
 .tooltip {
   position: fixed;
   left: 0;
@@ -715,19 +742,37 @@
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
-.modalSelectTrigger {
-  width: 100%;
-  justify-content: space-between;
+.modalTimeInput {
+  appearance: none;
+  background: #fff;
 }
 
-.modalSelectContent {
-  max-height: 280px;
+.modalTimeInput::-webkit-calendar-picker-indicator {
+  appearance: none;
+  display: none;
 }
 
 .modalGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.dateTimeGroup {
+  max-width: 100%;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.modalDateButton {
+  width: 170px;
+  justify-content: space-between;
+  font-weight: 400;
+}
+
+.timeField {
+  width: 120px;
 }
 
 .dayButtons {
@@ -843,6 +888,16 @@
 
   .modalGrid {
     grid-template-columns: 1fr;
+  }
+
+  .dateTimeGroup {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .modalDateButton,
+  .timeField {
+    width: 100%;
   }
 
   .modalActions {
