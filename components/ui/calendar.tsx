@@ -20,7 +20,7 @@ function Calendar({
       classNames={{
         months: "flex flex-col gap-4",
         month: "space-y-4",
-        month_caption: "relative flex h-8 items-center justify-center px-2",
+        month_caption: "relative flex h-9 items-center justify-center px-10",
         caption_label: "text-sm font-medium text-foreground flex-1 text-center",
         dropdowns: "flex items-center justify-center gap-1.5 text-sm font-medium",
         dropdown_root:
@@ -28,14 +28,14 @@ function Calendar({
         dropdown: "absolute inset-0 cursor-pointer opacity-0",
         months_dropdown: "text-sm font-medium text-foreground",
         years_dropdown: "text-sm font-medium text-foreground",
-        nav: "pointer-events-none absolute inset-x-0 top-0 flex h-8 items-center justify-between px-2",
+        nav: "pointer-events-none absolute inset-x-0 top-0 z-10 flex h-9 items-center justify-between px-1",
         button_previous: cn(
           buttonVariants({ variant: "ghost", size: "icon-sm" }),
-          "pointer-events-auto size-7 bg-transparent p-0 text-muted-foreground hover:text-foreground",
+          "pointer-events-auto size-8 rounded-md bg-transparent p-0 text-muted-foreground hover:text-foreground",
         ),
         button_next: cn(
           buttonVariants({ variant: "ghost", size: "icon-sm" }),
-          "pointer-events-auto size-7 bg-transparent p-0 text-muted-foreground hover:text-foreground",
+          "pointer-events-auto size-8 rounded-md bg-transparent p-0 text-muted-foreground hover:text-foreground",
         ),
         month_grid: "w-full border-collapse",
         weekdays: "flex",
