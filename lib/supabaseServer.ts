@@ -7,7 +7,7 @@ export async function createClient() {
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing Supabase environment variables.");
+    throw new Error("Application configuration is incomplete.");
   }
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {

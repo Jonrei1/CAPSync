@@ -12,7 +12,7 @@ export function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing Supabase environment variables.");
+    throw new Error("Application configuration is incomplete.");
   }
 
   browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey);

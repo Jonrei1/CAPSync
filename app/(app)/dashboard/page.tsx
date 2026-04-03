@@ -484,7 +484,7 @@ export default function DashboardPage() {
             <CardDescription>Plan meetings and deadlines in one timeline.</CardDescription>
           </CardHeader>
           <CardContent className="px-5">
-            <Link href="/calendar" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
+            <Link href={`/${activeCircle.id}/calendar`} className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Calendar →
             </Link>
           </CardContent>
@@ -499,7 +499,7 @@ export default function DashboardPage() {
             <CardDescription>Track tasks and sprint status for the whole team.</CardDescription>
           </CardHeader>
           <CardContent className="px-5">
-            <Link href="/tracker" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
+            <Link href={`/${activeCircle.id}/tracker`} className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Tracker →
             </Link>
           </CardContent>
@@ -514,7 +514,7 @@ export default function DashboardPage() {
             <CardDescription>Monitor contributions, expenses, and balances.</CardDescription>
           </CardHeader>
           <CardContent className="px-5">
-            <Link href="/fund" className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
+            <Link href={`/${activeCircle.id}/fund`} className="cursor-pointer text-sm font-medium text-zinc-700 hover:text-zinc-900">
               Open Fund →
             </Link>
           </CardContent>

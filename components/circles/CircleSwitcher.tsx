@@ -121,17 +121,17 @@ export default function CircleSwitcher() {
           const circleSubNav = [
             {
               label: "Calendar",
-              href: `/app/${group.id}/calendar`,
+              href: `/${group.id}/calendar`,
               icon: Calendar,
             },
             {
               label: "Tracker",
-              href: `/app/${group.id}/tracker`,
+              href: `/${group.id}/tracker`,
               icon: CheckSquare2,
             },
             {
               label: "Fund",
-              href: `/app/${group.id}/fund`,
+              href: `/${group.id}/fund`,
               icon: Wallet,
             },
           ];

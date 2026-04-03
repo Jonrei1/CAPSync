@@ -12,8 +12,7 @@ export async function GET() {
 
   return NextResponse.json({
     session: {
-      access_token: data.session.access_token,
-      expires_at: data.session.expires_at,
+      authenticated: true,
       user: {
         id: data.session.user.id,
         email: data.session.user.email,

@@ -8,6 +8,12 @@ type CookieToSet = {
 };
 
 const PUBLIC_PATHS = new Set(["/login", "/signup", "/auth/callback", "/callback"]);
+const PUBLIC_API_PATHS = new Set([
+  "/api/auth/login",
+  "/api/auth/signup",
+  "/api/auth/google",
+  "/api/auth/callback",
+]);
 
 function isStaticAsset(pathname: string) {
   return (
@@ -20,7 +26,7 @@ function isStaticAsset(pathname: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (isStaticAsset(pathname) || pathname.startsWith("/api")) {
+  if (isStaticAsset(pathname)) {
     return NextResponse.next();
   }
 
@@ -56,8 +62,13 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isPublicRoute = PUBLIC_PATHS.has(pathname);
+  const isPublicApiRoute = pathname.startsWith("/api/") && PUBLIC_API_PATHS.has(pathname);
 
-  if (!user && !isPublicRoute) {
+  if (!user && !isPublicRoute && !isPublicApiRoute) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
