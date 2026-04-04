@@ -34,16 +34,15 @@ function getWeekStart(date = new Date()) {
   return next;
 }
 
-function dayKeyToDate(day: string) {
+function dayKeyToDate(day: string, weekStart: Date) {
   const normalized = day.slice(0, 3).toLowerCase() as (typeof DAY_KEYS)[number];
-  const weekStart = getWeekStart();
   const next = new Date(weekStart);
   next.setDate(next.getDate() + (DAY_INDEX[normalized] ?? 0));
   return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
 }
 
-function todayToInput() {
-  const today = new Date();
+function dateToInput(date: Date) {
+  const today = new Date(date);
   return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 }
 
@@ -73,6 +72,7 @@ type AddMeetingDialogProps = {
   onOpenChange: (open: boolean) => void;
   groupId: string;
   members: CalendarMember[];
+  weekStart: Date;
   prefillDay?: string;
   prefillStart?: number;
   prefillEnd?: number;
@@ -83,13 +83,16 @@ export default function AddMeetingDialog({
   onOpenChange,
   groupId,
   members,
+  weekStart,
   prefillDay,
   prefillStart,
   prefillEnd,
 }: AddMeetingDialogProps) {
   const router = useRouter();
   const [title, setTitle] = useState("");
-  const [selectedDate, setSelectedDate] = useState(() => (prefillDay ? dayKeyToDate(prefillDay) : todayToInput()));
+  const [selectedDate, setSelectedDate] = useState(() =>
+    prefillDay ? dayKeyToDate(prefillDay, weekStart) : dateToInput(weekStart),
+  );
   const [startTime, setStartTime] = useState(() => hourToInput(prefillStart ?? 9));
   const [endTime, setEndTime] = useState(() => hourToInput(prefillEnd ?? 10));
   const [location, setLocation] = useState("");
@@ -105,14 +108,14 @@ export default function AddMeetingDialog({
     }
 
     setTitle("");
-    setSelectedDate(prefillDay ? dayKeyToDate(prefillDay) : todayToInput());
+    setSelectedDate(prefillDay ? dayKeyToDate(prefillDay, weekStart) : dateToInput(weekStart));
     setStartTime(hourToInput(prefillStart ?? 9));
     setEndTime(hourToInput(prefillEnd ?? Math.max((prefillStart ?? 9) + 1, 10)));
     setLocation("");
     setDescription("");
     setSelectedMemberIds(members.map((member) => member.id));
     setSaving(false);
-  }, [members, open, prefillDay, prefillEnd, prefillStart]);
+  }, [members, open, prefillDay, prefillEnd, prefillStart, weekStart]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

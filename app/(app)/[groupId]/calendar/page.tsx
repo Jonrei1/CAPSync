@@ -9,6 +9,7 @@ import type { CalendarBlock, CalendarDeadline, CalendarMember } from "@/types";
 
 type PageProps = {
   params: { groupId: string } | Promise<{ groupId: string }>;
+  searchParams?: { week?: string | string[] } | Promise<{ week?: string | string[] }>;
 };
 
 type MemberRow = {
@@ -219,8 +220,9 @@ function mapDeadline(row: DeadlineRow): CalendarDeadline | null {
   };
 }
 
-export default async function CircleCalendarPage({ params }: PageProps) {
+export default async function CircleCalendarPage({ params, searchParams }: PageProps) {
   const { groupId } = await Promise.resolve(params);
+  const resolvedSearchParams = await Promise.resolve(searchParams ?? {});
   const supabase = await createClient();
   const {
     data: { user },
@@ -241,7 +243,10 @@ export default async function CircleCalendarPage({ params }: PageProps) {
     redirect("/dashboard");
   }
 
-  const weekStart = startOfWeek(new Date());
+  const rawWeekOffset = Array.isArray(resolvedSearchParams?.week) ? resolvedSearchParams.week[0] : resolvedSearchParams?.week;
+  const weekOffset = Number.parseInt(rawWeekOffset ?? "0", 10);
+  const safeWeekOffset = Number.isNaN(weekOffset) ? 0 : weekOffset;
+  const weekStart = addDays(startOfWeek(new Date()), safeWeekOffset * 7);
   const weekEnd = addDays(weekStart, 6);
   weekEnd.setHours(23, 59, 59, 999);
 
@@ -298,6 +303,7 @@ export default async function CircleCalendarPage({ params }: PageProps) {
       freeWindows={freeWindows}
       deadlines={deadlineData}
       groupId={groupId}
+      weekOffset={safeWeekOffset}
     />
   );
 }

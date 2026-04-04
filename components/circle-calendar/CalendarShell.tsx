@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { ChevronDownIcon } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+import FloatingTooltip, { type FloatingTooltipContent } from "@/components/calendar/FloatingTooltip";
 import AddMeetingDialog from "@/components/circle-calendar/AddMeetingDialog";
-import { designTokens } from "@/components/ui/design-standard";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useDesignStandard } from "@/components/ui/design-standard";
 import { toast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 import supabase from "@/lib/supabaseClient";
 import type { CalendarBlock, CalendarDeadline, CalendarMember, FreeWindow } from "@/types";
 
@@ -14,6 +22,7 @@ type CalendarShellProps = {
   freeWindows: FreeWindow[];
   deadlines: CalendarDeadline[];
   groupId: string;
+  weekOffset: number;
 };
 
 type Layout = "week" | "heat" | "dots" | "free";
@@ -29,322 +38,263 @@ type MeetingPrefill = {
   end?: number;
 };
 
-const SH = 6;
-const EH = 21;
+type DayBlock = CalendarBlock & {
+  member: CalendarMember;
+};
+
+type LayoutEvent = DayBlock & {
+  top: number;
+  height: number;
+  left: number;
+  width: number;
+  startHour: number;
+  endHour: number;
+  compact: boolean;
+};
+
 const SLOT = 52;
-const WDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const WKEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-const WORKD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const WORKK = ["mon", "tue", "wed", "thu", "fri", "sat"];
-const HCOLS = ["#f0fdf4", "#dbeafe", "#93c5fd", "#3b82f6", "#1e3a8a"];
-const HBDS = ["#86efac", "#bfdbfe", "#60a5fa", "#1d4ed8", "#172554"];
-const HTXT = ["#15803d", "#1e40af", "#1e40af", "#fff", "#fff"];
-
-const CALENDAR_STYLES = `
-:root{
-  --bg:#fff;--bg2:#f9fafb;--bg3:#f3f4f6;
-  --border:#e5e7eb;--border2:#d1d5db;
-  --text:#111827;--muted:#6b7280;--muted2:#9ca3af;
-  --primary:${designTokens.palette.app.brandPrimary};--primary-l:#eef2ff;
-  --green:${designTokens.palette.app.brandAccent};--green-l:#f0fdf4;--green-b:#86efac;
-  --red:${designTokens.palette.app.status.danger};
-  --shadow:0 1px 3px rgba(0,0,0,.08);
-  --shadow-lg:0 8px 24px rgba(0,0,0,.12);
-  --r:${designTokens.radiusValue.xs};--r-lg:10px;
-}
-.cc-root,.cc-root *{box-sizing:border-box}
-.cc-root{font-family:var(--font-inter),system-ui,sans-serif;color:var(--text);display:flex;flex-direction:column;gap:14px}
-.app-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.app-id{display:flex;align-items:center;gap:10px}
-.logo{width:36px;height:36px;background:var(--primary);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px}
-.app-name{font-size:17px;font-weight:700}
-.app-sub{font-size:11px;color:var(--muted);margin-top:1px}
-.ltabs{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:3px;gap:2px;box-shadow:var(--shadow)}
-.lt{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 13px;border-radius:5px;border:none;background:transparent;cursor:pointer;transition:all .15s;min-width:80px;font-family:inherit}
-.lt:hover{background:var(--bg3)}
-.lt.on{background:var(--primary)}
-.lt-ico{font-size:14px;line-height:1}
-.lt-name{font-size:11px;font-weight:500;color:var(--muted)}
-.lt-hint{font-size:9px;color:var(--muted2)}
-.lt.on .lt-name{color:#fff}
-.lt.on .lt-hint{color:rgba(255,255,255,.55)}
-.card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow);overflow:hidden}
-.tb{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
-.tb-l,.tb-r{display:flex;align-items:center;gap:7px}
-.wk-title{font-size:14px;font-weight:600}
-.btn{height:30px;padding:0 11px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:5px;border:1px solid transparent;font-family:inherit;transition:all .15s}
-.btn-ghost{background:transparent;border-color:transparent;color:var(--muted)}
-.btn-ghost:hover{background:var(--bg2);color:var(--text)}
-.btn-outline{background:transparent;border-color:var(--border2);color:var(--text)}
-.btn-outline:hover{background:var(--bg2)}
-.btn-primary{background:var(--primary);color:#fff}
-.btn-primary:hover{background:#4338ca}
-.btn-green{background:var(--green);color:#fff}
-.btn-green:hover{background:#15803d}
-.btn-icon{width:30px;padding:0;justify-content:center}
-.fp{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg2);flex-wrap:wrap}
-.fp-lbl{font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;margin-right:2px}
-.fp-chips{display:flex;gap:6px;flex-wrap:wrap;flex:1}
-.m-chip{display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:8px;border:1.5px solid;cursor:pointer;transition:all .18s;background:var(--bg);user-select:none;position:relative}
-.m-chip:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.m-chip.off{background:var(--bg3);opacity:.5;border-color:var(--border2)!important}
-.m-chip.off .m-chip-name{color:var(--muted2)!important}
-.m-av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
-.m-chip-info{display:flex;flex-direction:column;gap:0}
-.m-chip-name{font-size:12px;font-weight:600;line-height:1.3}
-.m-chip-role{font-size:9px;color:var(--muted2);line-height:1.3}
-.m-chip-check{width:15px;height:15px;border-radius:50%;border:1.5px solid;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:1px;transition:all .18s}
-.m-chip:not(.off) .m-chip-check{background:var(--green);border-color:var(--green)}
-.m-chip.off .m-chip-check{background:transparent;border-color:var(--border2)}
-.fp-right{display:flex;align-items:center;gap:7px;margin-left:auto;flex-shrink:0}
-.fp-info{font-size:11px;color:var(--muted)}
-.suggest-btn{height:30px;padding:0 14px;border-radius:9999px;border:none;background:var(--green);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;transition:background .15s;white-space:nowrap}
-.suggest-btn:hover{background:#15803d}
-.view{display:none}.view.on{display:block}
-.wk-head{display:grid;grid-template-columns:52px repeat(7,1fr);border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10}
-.wk-head-spacer{height:48px;border-right:1px solid var(--border)}
-.wk-day-cell{padding:7px 4px;text-align:center;border-left:1px solid var(--border)}
-.wk-dname{font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.wk-dnum{font-size:18px;font-weight:700;color:var(--text);line-height:1.2;margin-top:2px}
-.wk-dnum-today{width:30px;height:30px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;margin:2px auto 0;font-size:16px;font-weight:700}
-.wk-scroll{overflow-y:auto;max-height:520px;position:relative}
-.wk-grid{display:grid;grid-template-columns:52px repeat(7,1fr);min-height:calc((21 - 6) * 52px)}
-.time-col{border-right:1px solid var(--border)}
-.time-cell{height:52px;display:flex;align-items:flex-start;justify-content:flex-end;padding:0 8px;position:relative;top:-7px}
-.time-cell span{font-size:10px;color:var(--muted2);white-space:nowrap}
-.time-half{height:26px}
-.day-col{position:relative;border-left:1px solid var(--border)}
-.day-col.today-col{background:rgba(79,70,229,.018)}
-.hr-line{position:absolute;left:0;right:0;border-top:1px solid var(--border)}
-.hf-line{position:absolute;left:0;right:0;border-top:1px dashed var(--border);opacity:.45}
-.ev{position:absolute;border-radius:5px;overflow:hidden;cursor:pointer;transition:box-shadow .15s, filter .15s;z-index:3}
-.ev:hover{filter:brightness(.9);box-shadow:0 4px 16px rgba(0,0,0,.22);z-index:20}
-.ev-inner{height:100%;padding:4px 6px;border-left:3px solid rgba(0,0,0,.15);display:flex;flex-direction:column;gap:1px;overflow:hidden}
-.ev-routine .ev-inner{background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(255,255,255,.22) 3px,rgba(255,255,255,.22) 6px)}
-.ev-title{font-size:10px;font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ev-sub{font-size:9px;opacity:.82;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
-.ev-pills{display:flex;align-items:center;gap:3px;margin-top:2px;flex-wrap:nowrap}
-.ev-pill{font-size:8px;padding:1px 6px;border-radius:9999px;font-weight:600;white-space:nowrap;flex-shrink:0;width:fit-content;align-self:flex-start}
-.ev.compact .ev-title{font-size:9px}
-.ev.narrow{border-radius:5px}
-.ev.narrow .ev-inner{padding:0;border-left:3px solid rgba(0,0,0,.18);display:flex;flex-direction:row;align-items:stretch;overflow:hidden;gap:0}
-.ev.narrow .ev-title,.ev.narrow .ev-sub,.ev.narrow .ev-npill{writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);white-space:nowrap;overflow:hidden;text-overflow:clip;flex-shrink:0;display:flex;align-items:center}
-.ev.narrow .ev-title{font-size:9px;font-weight:700;line-height:1;letter-spacing:.02em;padding:5px 1px 5px 3px;width:14px}
-.ev.narrow .ev-vdiv{width:1px;flex-shrink:0;background:rgba(255,255,255,.22);align-self:stretch}
-.ev.narrow .ev-sub{font-size:8px;font-weight:500;opacity:.8;padding:5px 0;width:12px}
-.ev.narrow .ev-npill{font-size:7px;font-weight:700;padding:5px 2px;border-radius:9999px;margin:4px 2px 4px 1px;width:auto;align-self:center}
-.ev.narrow .ev-pills{display:none}
-.ev.narrow.short-block .ev-vdiv,.ev.narrow.short-block .ev-sub,.ev.narrow.short-block .ev-npill{display:none!important}
-.free-ov{position:absolute;left:3px;right:3px;border-radius:5px;border:1px solid var(--green-b);background:var(--green-l);cursor:pointer;overflow:hidden;z-index:1;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:4px 6px}
-.free-ov:hover{background:#dcfce7;border-color:var(--green)}
-.free-ov-lbl{font-size:9px;font-weight:700;color:var(--green)}
-.free-ov-sub{font-size:8px;color:#4ade80}
-.free-pips{display:flex;gap:2px}
-.free-pip{width:5px;height:5px;border-radius:50%}
-.dl-chip{position:absolute;top:2px;right:3px;font-size:8px;font-weight:700;padding:1px 6px;border-radius:9999px;background:var(--red);color:#fff;z-index:8;cursor:pointer;white-space:nowrap;box-shadow:0 1px 4px rgba(220,38,38,.35)}
-.now-line{position:absolute;left:0;right:0;z-index:15;pointer-events:none;display:flex;align-items:center}
-.now-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;margin-left:-4px}
-.now-bar{flex:1;height:1.5px;background:var(--red)}
-.heat-wrap{padding:16px 20px}
-.heat-caption{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5}
-.heat-scroll{overflow-x:auto}
-.heat-grid{display:grid;min-width:600px}
-.h-corner{font-size:9px;color:var(--muted2);display:flex;align-items:flex-end;padding-bottom:4px;padding-right:6px}
-.h-dhead{text-align:center;font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding-bottom:4px}
-.h-time{font-size:9px;color:var(--muted2);display:flex;align-items:center;justify-content:flex-end;padding-right:7px;white-space:nowrap}
-.h-cell{height:22px;border-radius:3px;margin:1.5px;cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:center}
-.h-cell:hover{transform:scale(1.08);z-index:2}
-.h-cval{font-size:8px;font-weight:700}
-.h-leg{display:flex;align-items:center;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap}
-.hl{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
-.hl-sw{width:18px;height:11px;border-radius:2px}
-.f-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
-.f-badge{font-size:11px;font-weight:500;padding:5px 12px;border-radius:9999px;background:var(--green-l);border:1px solid var(--green-b);color:var(--green);cursor:pointer;transition:all .15s}
-.f-badge:hover{background:var(--green);color:#fff}
-.dots-wrap{padding:16px 20px}
-.dots-scroll{overflow-x:auto}
-.dots-inner{min-width:680px}
-.d-th-row{display:flex;margin-left:96px;margin-bottom:5px}
-.d-th{flex:1;text-align:center;font-size:8px;color:var(--muted2)}
-.d-section{margin-bottom:16px}
-.d-day-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:8px;margin-bottom:5px}
-.d-div{flex:1;height:1px;background:var(--border)}
-.d-mrow{display:flex;align-items:center;margin-bottom:3px}
-.d-mlabel{display:flex;align-items:center;gap:5px;width:96px;flex-shrink:0}
-.d-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff}
-.d-mname{font-size:10px;font-weight:500;color:var(--text)}
-.d-track{display:flex;flex:1;gap:2px}
-.d-cell{flex:1;height:20px;border-radius:3px;cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:center}
-.d-cell:hover{transform:scaleY(1.15);z-index:2}
-.d-free{background:var(--green-l);border:1px solid var(--green-b)}
-.d-pip{width:4px;height:4px;border-radius:50%;background:var(--green)}
-.d-fw-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;margin-left:96px}
-.d-fw-b{font-size:9px;font-weight:500;padding:2px 8px;border-radius:9999px;background:var(--green-l);border:1px solid var(--green-b);color:var(--green);cursor:pointer;transition:all .15s}
-.d-fw-b:hover{background:var(--green);color:#fff}
-.fwo-wrap{padding:14px 18px;display:flex;flex-direction:column;gap:8px}
-.fwo-caption{font-size:12px;color:var(--muted);margin-bottom:4px;line-height:1.5}
-.fwo-group{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:8px}
-.fwo-head{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--bg2);border-bottom:1px solid var(--border)}
-.fwo-dname{font-size:13px;font-weight:600}
-.fwo-today{font-size:9px;font-weight:600;padding:1px 7px;border-radius:9999px;background:var(--primary-l);color:var(--primary);margin-left:6px}
-.fwo-cnt{font-size:10px;font-weight:500;padding:2px 8px;border-radius:9999px}
-.fwo-none{padding:12px 14px;font-size:12px;color:var(--muted2);font-style:italic}
-.fwo-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
-.fwo-row:last-child{border-bottom:none}
-.fwo-row:hover{background:var(--bg2)}
-.fwo-tc{background:var(--green-l);border:1px solid var(--green-b);border-radius:var(--r);padding:8px 12px;text-align:center;flex-shrink:0;min-width:98px}
-.fwo-start{font-size:15px;font-weight:700;color:var(--green);line-height:1.2}
-.fwo-end{font-size:10px;color:#4ade80;line-height:1.2}
-.fwo-dur{font-size:10px;font-weight:600;color:var(--green);margin-top:3px}
-.fwo-info{flex:1;display:flex;flex-direction:column;gap:3px}
-.fwo-mems{display:flex;gap:7px;flex-wrap:wrap}
-.fwo-m{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
-.fwo-mdot{width:9px;height:9px;border-radius:50%}
-.fwo-absent{font-size:10px;color:var(--muted2);font-style:italic}
-.fwo-ok{font-size:10px;color:var(--green);font-weight:500}
-.fwo-acts{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-.sbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-top:1px solid var(--border);background:var(--bg2);flex-wrap:wrap;gap:6px}
-.leg-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
-.lsw{width:11px;height:11px;border-radius:2px}
-.lsw-r{background:repeating-linear-gradient(45deg,#c7d2fe,#c7d2fe 2px,#818cf8 2px,#818cf8 4px)}
-.lsw-m{background:var(--primary)}
-.lsw-f{background:var(--green-l);border:1.5px dashed var(--green-b)}
-#tip{position:fixed;z-index:9999;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:10px 13px;font-size:11px;color:var(--text);box-shadow:var(--shadow-lg);pointer-events:none;display:none;max-width:230px;line-height:1.5}
-.tt-title{font-size:13px;font-weight:600;margin-bottom:5px}
-.tt-r{display:flex;align-items:center;gap:6px;color:var(--muted);margin-bottom:3px}
-.tt-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.tt-divider{height:1px;background:var(--border);margin:6px 0}
-.tt-small{font-size:10px;color:var(--muted2)}
-`;
-
-function fmt(h: number) {
-  const hh = Math.floor(h);
-  const mm = Math.round((h % 1) * 60);
-  const p = hh >= 12 ? "PM" : "AM";
-  const d = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
-  return `${d}:${mm.toString().padStart(2, "0")} ${p}`;
-}
-
-function hPx(h: number) {
-  return (h - SH) * SLOT;
-}
-
-function dPx(s: number, e: number) {
-  return (e - s) * SLOT;
-}
+const START_HOUR = 6;
+const END_HOUR = 23;
+const HEAT_START_HOUR = 7;
+const HEAT_END_HOUR = 20;
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+const ROUTINE_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "#ca8a04"];
+const HEAT_COLORS = ["#f0fdf4", "#dbeafe", "#93c5fd", "#3b82f6", "#1e3a8a"];
+const HEAT_BORDERS = ["#86efac", "#bfdbfe", "#60a5fa", "#1d4ed8", "#172554"];
+const HEAT_TEXT = ["#15803d", "#1e40af", "#1e40af", "#ffffff", "#ffffff"];
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
 }
 
+function formatTime(hour: number) {
+  const whole = Math.floor(hour);
+  const period = whole >= 12 ? "P" : "A";
+  const display = whole > 12 ? whole - 12 : whole === 0 ? 12 : whole;
+  return `${display}${period}`;
+}
+
+function formatTooltipTime(hour: number) {
+  const normalized = ((hour % 24) + 24) % 24;
+  const whole = Math.floor(normalized);
+  const minutes = Math.round((normalized % 1) * 60);
+  const period = whole >= 12 ? "PM" : "AM";
+  const display = whole > 12 ? whole - 12 : whole === 0 ? 12 : whole;
+  return `${display}:${pad(minutes)} ${period}`;
+}
+
+function startOfWeek(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  next.setDate(next.getDate() - next.getDay());
+  return next;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 function getWeekDates(offset = 0) {
   const current = new Date();
   current.setDate(current.getDate() + offset * 7);
-  const dow = current.getDay();
+  const dayOfWeek = current.getDay();
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(current);
-    date.setDate(current.getDate() - dow + index);
+    date.setDate(current.getDate() - dayOfWeek + index);
+    date.setHours(12, 0, 0, 0);
     return date;
   });
 }
 
-function hexToRgba(hex: string, alpha: number) {
-  const cleaned = hex.trim().replace("#", "");
-  const normalized = cleaned.length === 3 ? cleaned.split("").map((part) => `${part}${part}`).join("") : cleaned;
-  if (normalized.length !== 6) {
-    return `rgba(55, 65, 81, ${alpha})`;
-  }
-
-  const value = Number.parseInt(normalized, 16);
-  if (Number.isNaN(value)) {
-    return `rgba(55, 65, 81, ${alpha})`;
-  }
-
-  const r = (value >> 16) & 255;
-  const g = (value >> 8) & 255;
-  const b = value & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+function formatRange(start: Date, end: Date) {
+  const options = { month: "short", day: "numeric" } as const;
+  return `${start.toLocaleDateString("en-PH", options)} - ${end.toLocaleDateString("en-PH", options)}`;
 }
 
-function darkenHex(hex: string) {
-  const cleaned = hex.trim().replace("#", "");
-  const normalized = cleaned.length === 3 ? cleaned.split("").map((part) => `${part}${part}`).join("") : cleaned;
+function toRgba(color: string, alpha: number) {
+  const cleaned = color.trim();
+  const hex = cleaned.startsWith("#") ? cleaned.slice(1) : cleaned;
+  const normalized =
+    hex.length === 3
+      ? `${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
+      : hex;
+
   if (normalized.length !== 6) {
-    return "#374151";
+    return `rgba(55, 65, 81, ${alpha})`;
   }
 
   const value = Number.parseInt(normalized, 16);
   if (Number.isNaN(value)) {
-    return "#374151";
+    return `rgba(55, 65, 81, ${alpha})`;
   }
 
-  const r = Math.max(0, Math.floor(((value >> 16) & 255) * 0.58));
-  const g = Math.max(0, Math.floor(((value >> 8) & 255) * 0.58));
-  const b = Math.max(0, Math.floor((value & 255) * 0.58));
-  return `#${[r, g, b].map((part) => part.toString(16).padStart(2, "0")).join("")}`;
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 function getDayKey(date: Date) {
-  return WKEYS[date.getDay()];
+  return DAY_KEYS[date.getDay()];
 }
 
-function getDayLabel(day: string) {
-  const index = WKEYS.indexOf(day as (typeof WKEYS)[number]);
-  return index >= 0 ? WDAYS[index] : day;
+function getTooltipPoint(clientX: number, clientY: number) {
+  return {
+    x: Math.min(clientX + 14, window.innerWidth - 240),
+    y: Math.max(clientY - 8, 8),
+  };
 }
 
-function isSameSubset(left: string[], right: string[]) {
-  if (left.length !== right.length) {
-    return false;
+function getWeekOffsetForDate(date: Date) {
+  const currentWeekStart = startOfWeek(new Date());
+  const targetWeekStart = startOfWeek(date);
+  return Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+}
+
+function layoutEvents(events: LayoutEvent[]) {
+  if (!events.length) {
+    return [] as LayoutEvent[];
   }
-  return left.every((value, index) => value === right[index]);
-}
 
-function tipMarkup(title: string, rows: TipRow[]) {
-  const body = rows
-    .map((row) => `<div class="tt-r">${row.dot ? `<div class="tt-dot" style="background:${row.dot}"></div>` : ""}${row.txt}</div>`)
-    .join("");
-  return `<div class="tt-title">${title}</div>${body}`;
-}
-
-export default function CalendarShell({ members, blocks, freeWindows, deadlines, groupId }: CalendarShellProps) {
-  const router = useRouter();
-  const [wkOff, setWkOff] = useState(0);
-  const [vis, setVis] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(members.map((member) => [member.id, true])),
+  const sorted = [...events].sort((left, right) =>
+    left.startHour !== right.startHour ? left.startHour - right.startHour : right.endHour - left.endHour,
   );
+
+  const slotEnds: number[] = [];
+
+  sorted.forEach((event) => {
+    let slot = -1;
+    for (let index = 0; index < slotEnds.length; index += 1) {
+      if (slotEnds[index] <= event.startHour + 0.01) {
+        slot = index;
+        break;
+      }
+    }
+
+    if (slot === -1) {
+      slot = slotEnds.length;
+      slotEnds.push(event.endHour);
+    } else {
+      slotEnds[slot] = event.endHour;
+    }
+
+    event.left = slot;
+  });
+
+  sorted.forEach((event) => {
+    let maxSlot = event.left;
+    sorted.forEach((other) => {
+      const overlap = other.startHour < event.endHour && other.endHour > event.startHour;
+      if (overlap) {
+        maxSlot = Math.max(maxSlot, other.left);
+      }
+    });
+
+    const cols = maxSlot + 1;
+    event.width = 100 / cols;
+    event.left = (event.left * 100) / cols;
+  });
+
+  return sorted;
+}
+
+export default function CalendarShell({ members, blocks, freeWindows, deadlines, groupId, weekOffset }: CalendarShellProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const ds = useDesignStandard();
   const [layout, setLayout] = useState<Layout>("week");
+  const [visibleMemberIds, setVisibleMemberIds] = useState<string[]>(() => members.map((member) => member.id));
   const [addMeetingOpen, setAddMeetingOpen] = useState(false);
   const [meetingPrefill, setMeetingPrefill] = useState<MeetingPrefill>({});
+  const [showRoutineDialog, setShowRoutineDialog] = useState(false);
+  const [newRoutineLabel, setNewRoutineLabel] = useState("");
+  const [newRoutineStart, setNewRoutineStart] = useState("09:00");
+  const [newRoutineEnd, setNewRoutineEnd] = useState("10:00");
+  const [newRoutineDays, setNewRoutineDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [newRoutineColor, setNewRoutineColor] = useState(ROUTINE_COLORS[0]);
   const [nowTick, setNowTick] = useState(() => new Date());
-  const tipRef = useRef<HTMLDivElement | null>(null);
-  const weekHeadersRef = useRef<HTMLDivElement | null>(null);
-  const weekGridRef = useRef<HTMLDivElement | null>(null);
-  const heatGridRef = useRef<HTMLDivElement | null>(null);
-  const dotsRef = useRef<HTMLDivElement | null>(null);
-  const freeListRef = useRef<HTMLDivElement | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const initialScrollDone = useRef(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [hoverTooltip, setHoverTooltip] = useState<FloatingTooltipContent | null>(null);
+  const tooltipElementRef = useRef<HTMLDivElement | null>(null);
+  const tooltipRafRef = useRef<number | null>(null);
+  const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const tooltipVisibleRef = useRef(false);
 
-  const weekDates = useMemo(() => getWeekDates(wkOff), [wkOff]);
-  const weekLabel = useMemo(
-    () => `${weekDates[0].toLocaleDateString("en-PH", { month: "short", day: "numeric" })} – ${weekDates[6].toLocaleDateString("en-PH", { month: "short", day: "numeric" })}`,
-    [weekDates],
+  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const weekStart = weekDates[0];
+  const weekLabel = useMemo(() => formatRange(weekDates[0], weekDates[6]), [weekDates]);
+  const visibleMemberSet = useMemo(() => new Set(visibleMemberIds), [visibleMemberIds]);
+
+  const memberMap = useMemo(
+    () => new Map(members.map((member) => [member.id, member] as const)),
+    [members],
   );
-  const visibleCount = useMemo(() => Object.values(vis).filter(Boolean).length, [vis]);
+
+  const visibleMembers = useMemo(
+    () => members.filter((member) => visibleMemberSet.has(member.id)),
+    [members, visibleMemberSet],
+  );
+
+  const visibleCount = visibleMembers.length;
+
+  const memberBlockCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const block of blocks) {
+      counts.set(block.memberId, (counts.get(block.memberId) ?? 0) + 1);
+    }
+    return counts;
+  }, [blocks]);
+
+  const visibleBlocks = useMemo(
+    () => blocks.filter((block) => visibleMemberSet.has(block.memberId)),
+    [blocks, visibleMemberSet],
+  );
+
+  const blocksByDay = useMemo(() => {
+    const map = new Map<string, DayBlock[]>();
+
+    for (const block of visibleBlocks) {
+      const member = memberMap.get(block.memberId);
+      if (!member) {
+        continue;
+      }
+
+      for (const day of block.days) {
+        const dayBlocks = map.get(day) ?? [];
+        dayBlocks.push({ ...block, member });
+        map.set(day, dayBlocks);
+      }
+    }
+
+    return map;
+  }, [memberMap, visibleBlocks]);
+
+  const minFreeMembers = Math.max(2, visibleCount - 1);
+  const visibleFreeWindows = useMemo(
+    () =>
+      freeWindows.filter(
+        (window) => window.memberIds.filter((memberId) => visibleMemberSet.has(memberId)).length >= minFreeMembers,
+      ),
+    [freeWindows, minFreeMembers, visibleMemberSet],
+  );
+
+  const visibleFreeWindowCount = visibleFreeWindows.length;
   const sharedFreeWindowCount = useMemo(
-    () => freeWindows.filter((window) => window.memberIds.filter((memberId) => vis[memberId]).length >= visibleCount).length,
-    [freeWindows, vis, visibleCount],
+    () =>
+      visibleFreeWindows.filter(
+        (window) => window.memberIds.filter((memberId) => visibleMemberSet.has(memberId)).length >= visibleCount,
+      ).length,
+    [visibleCount, visibleFreeWindows, visibleMemberSet],
   );
 
   useEffect(() => {
-    setVis((current) => {
-      const next: Record<string, boolean> = {};
-      members.forEach((member) => {
-        next[member.id] = current[member.id] ?? true;
-      });
-      return next;
+    setVisibleMemberIds((current) => {
+      const next = members.map((member) => member.id).filter((memberId) => current.includes(memberId));
+      return next.length > 0 ? next : members.map((member) => member.id);
     });
   }, [members]);
 
@@ -353,7 +303,17 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
       setNowTick(new Date());
     }, 60_000);
 
-    return () => window.clearInterval(intervalId);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (tooltipRafRef.current) {
+        cancelAnimationFrame(tooltipRafRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -396,87 +356,62 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
     };
   }, [groupId, router]);
 
-  useEffect(() => {
-    if (layout === "week" && !initialScrollDone.current) {
-      const scrollNode = scrollRef.current;
-      if (scrollNode) {
-        scrollNode.scrollTop = hPx(7) - 16;
-        initialScrollDone.current = true;
-      }
+  function navigateToWeek(nextOffset: number) {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (nextOffset === 0) {
+      nextParams.delete("week");
+    } else {
+      nextParams.set("week", String(nextOffset));
     }
-  }, [layout, weekDates]);
 
-  function getMem(id: string) {
-    return members.find((member) => member.id === id) ?? null;
-  }
-
-  function visCnt() {
-    return Object.values(vis).filter(Boolean).length;
-  }
-
-  function isBusy(memberId: string, day: string, hour: number) {
-    return blocks.some((block) => block.memberId === memberId && block.days.includes(day) && hour >= block.s && hour < block.e);
-  }
-
-  function busyCnt(day: string, hour: number) {
-    return members.filter((member) => vis[member.id] && isBusy(member.id, day, hour)).length;
+    const query = nextParams.toString();
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
   function showTip(event: { clientX: number; clientY: number }, title: string, rows: TipRow[]) {
-    const tip = tipRef.current;
+    const tip = tooltipElementRef.current;
     if (!tip) {
       return;
     }
 
-    tip.innerHTML = tipMarkup(title, rows);
-    tip.style.display = "block";
-    tip.style.left = `${Math.min(event.clientX + 14, window.innerWidth - 240)}px`;
-    tip.style.top = `${Math.max(event.clientY - 8, 8)}px`;
+    setHoverTooltip({
+      title,
+      rows: rows.map((row) => ({ text: row.txt, dot: row.dot })),
+    });
+    tooltipPointRef.current = getTooltipPoint(event.clientX, event.clientY);
+    tooltipVisibleRef.current = true;
+
+    window.requestAnimationFrame(() => {
+      tip.style.transform = `translate3d(${tooltipPointRef.current.x}px, ${tooltipPointRef.current.y}px, 0)`;
+    });
+  }
+
+  function trackTip(event: { clientX: number; clientY: number }) {
+    if (!tooltipVisibleRef.current) {
+      return;
+    }
+
+    tooltipPointRef.current = getTooltipPoint(event.clientX, event.clientY);
+    if (tooltipRafRef.current) {
+      return;
+    }
+
+    tooltipRafRef.current = window.requestAnimationFrame(() => {
+      tooltipRafRef.current = null;
+      const tip = tooltipElementRef.current;
+      if (tip) {
+        tip.style.transform = `translate3d(${tooltipPointRef.current.x}px, ${tooltipPointRef.current.y}px, 0)`;
+      }
+    });
   }
 
   function hideTip() {
-    if (tipRef.current) {
-      tipRef.current.style.display = "none";
+    tooltipVisibleRef.current = false;
+    if (tooltipRafRef.current) {
+      cancelAnimationFrame(tooltipRafRef.current);
+      tooltipRafRef.current = null;
     }
-  }
-
-  function layoutEvents(events: Array<CalendarBlock & { mem: CalendarMember }>) {
-    if (!events.length) {
-      return [] as Array<CalendarBlock & { mem: CalendarMember; _slot?: number; _cols?: number }>;
-    }
-
-    const sorted = [...events].sort((a, b) => (a.s !== b.s ? a.s - b.s : b.e - a.e)) as Array<
-      CalendarBlock & { mem: CalendarMember; _slot?: number; _cols?: number }
-    >;
-
-    const slots: number[] = [];
-    sorted.forEach((event) => {
-      let placed = false;
-      for (let index = 0; index < slots.length; index += 1) {
-        if (slots[index] <= event.s + 0.01) {
-          event._slot = index;
-          slots[index] = event.e;
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        event._slot = slots.length;
-        slots.push(event.e);
-      }
-    });
-
-    sorted.forEach((event) => {
-      let maxSlot = event._slot ?? 0;
-      sorted.forEach((other) => {
-        if (other !== event && other.s < event.e - 0.01 && other.e > event.s + 0.01) {
-          maxSlot = Math.max(maxSlot, other._slot ?? 0);
-        }
-      });
-      event._cols = maxSlot + 1;
-    });
-
-    return sorted;
+    setHoverTooltip(null);
   }
 
   function openAddMeeting(day: string, start: number, end: number) {
@@ -484,673 +419,977 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
     setAddMeetingOpen(true);
   }
 
-  function showAll() {
-    setVis(Object.fromEntries(members.map((member) => [member.id, true])));
+  function toggleMember(memberId: string) {
+    setVisibleMemberIds((current) =>
+      current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId],
+    );
+  }
+
+  function setAllVisible(nextVisible: boolean) {
+    if (nextVisible) {
+      setVisibleMemberIds(members.map((member) => member.id));
+      return;
+    }
+    setVisibleMemberIds([]);
   }
 
   function doSuggest() {
     toast({ title: "AI meeting suggester coming soon" });
   }
 
-  function toggleMember(memberId: string) {
-    setVis((current) => ({ ...current, [memberId]: !current[memberId] }));
-  }
-
-  useEffect(() => {
-    const tip = tipRef.current;
-    if (tip) {
-      tip.style.display = "none";
-    }
-
-    if (!weekHeadersRef.current || !weekGridRef.current || !heatGridRef.current || !dotsRef.current || !freeListRef.current) {
+  async function saveRoutine() {
+    if (!newRoutineLabel.trim()) {
+      toast({ title: "Please enter a routine name" });
       return;
     }
 
-    const dates = weekDates;
+    if (newRoutineDays.length === 0) {
+      toast({ title: "Please select at least one day" });
+      return;
+    }
+
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) {
+      return;
+    }
+
+    const [startHours, startMinutes] = newRoutineStart.split(":").map((part) => Number.parseInt(part, 10));
+    const [endHours, endMinutes] = newRoutineEnd.split(":").map((part) => Number.parseInt(part, 10));
+    const startHour = (startHours ?? 0) + (startMinutes ?? 0) / 60;
+    const endHour = (endHours ?? 0) + (endMinutes ?? 0) / 60;
+
+    if (endHour <= startHour) {
+      toast({ title: "End time must be later than start time" });
+      return;
+    }
+
+    const { error } = await supabase.from("personal_routines").insert({
+      user_id: userId,
+      label: newRoutineLabel.trim(),
+      details: "Personal",
+      color: newRoutineColor,
+      days_of_week: newRoutineDays,
+      start_time: newRoutineStart,
+      end_time: newRoutineEnd,
+      is_active: true,
+    });
+
+    if (error) {
+      toast({ title: "Failed to save routine" });
+      return;
+    }
+
+    setShowRoutineDialog(false);
+    setNewRoutineLabel("");
+    setNewRoutineStart("09:00");
+    setNewRoutineEnd("10:00");
+    setNewRoutineDays([1, 2, 3, 4, 5]);
+    setNewRoutineColor(ROUTINE_COLORS[0]);
+    router.refresh();
+  }
+
+  function handleRoutineStartChange(nextValue: string) {
+    setNewRoutineStart(nextValue);
+    const [hoursPart, minutesPart] = nextValue.split(":");
+    const nextStartMinutes = Number.parseInt(hoursPart ?? "0", 10) * 60 + Number.parseInt(minutesPart ?? "0", 10);
+    const [endHoursPart, endMinutesPart] = newRoutineEnd.split(":");
+    const currentEndMinutes = Number.parseInt(endHoursPart ?? "0", 10) * 60 + Number.parseInt(endMinutesPart ?? "0", 10);
+
+    if (currentEndMinutes <= nextStartMinutes) {
+      const nextEndMinutes = Math.min(nextStartMinutes + 60, END_HOUR * 60);
+      const hours = Math.floor(nextEndMinutes / 60);
+      const minutes = nextEndMinutes % 60;
+      setNewRoutineEnd(`${pad(hours)}:${pad(minutes)}`);
+    }
+  }
+
+  const weekView = useMemo(() => {
     const today = new Date();
-    const nowH = nowTick.getHours() + nowTick.getMinutes() / 60;
+    const nowHour = nowTick.getHours() + nowTick.getMinutes() / 60;
+    const nowVisible = nowHour >= START_HOUR && nowHour <= END_HOUR;
+    const nowTop = Math.max(0, Math.min((nowHour - START_HOUR) * SLOT, (END_HOUR - START_HOUR) * SLOT));
 
-    weekHeadersRef.current.innerHTML = "";
-    dates.forEach((date, index) => {
-      const isToday = date.toDateString() === today.toDateString();
-      const cell = document.createElement("div");
-      cell.className = "wk-day-cell";
-
-      const name = document.createElement("div");
-      name.className = "wk-dname";
-      if (isToday) {
-        name.style.color = "var(--primary)";
-      }
-      name.textContent = WDAYS[index];
-
-      const wrapper = document.createElement("div");
-      wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;margin-top:1px";
-
-      if (isToday) {
-        const todayNum = document.createElement("div");
-        todayNum.className = "wk-dnum-today";
-        todayNum.textContent = String(date.getDate());
-        wrapper.appendChild(todayNum);
-      } else {
-        const normalNum = document.createElement("div");
-        normalNum.className = "wk-dnum";
-        normalNum.textContent = String(date.getDate());
-        wrapper.appendChild(normalNum);
-      }
-
-      cell.appendChild(name);
-      cell.appendChild(wrapper);
-      weekHeadersRef.current?.appendChild(cell);
-    });
-
-    weekGridRef.current.innerHTML = "";
-
-    const gutter = document.createElement("div");
-    gutter.className = "time-col";
-    for (let hour = SH; hour <= EH; hour += 1) {
-      const slot = document.createElement("div");
-      slot.className = "time-cell";
-      const label = document.createElement("span");
-      label.textContent = hour === 12 ? "12 PM" : hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
-      slot.appendChild(label);
-      gutter.appendChild(slot);
-      if (hour < EH) {
-        const half = document.createElement("div");
-        half.className = "time-half";
-        gutter.appendChild(half);
-      }
-    }
-    weekGridRef.current.appendChild(gutter);
-
-    dates.forEach((date, index) => {
-      const dayKey = getDayKey(date);
-      const isToday = date.toDateString() === today.toDateString();
-      const col = document.createElement("div");
-      col.className = `day-col${isToday ? " today-col" : ""}`;
-      col.style.height = `${(EH - SH) * SLOT}px`;
-
-      for (let hour = SH; hour < EH; hour += 1) {
-        const hr = document.createElement("div");
-        hr.className = "hr-line";
-        hr.style.top = `${hPx(hour)}px`;
-        col.appendChild(hr);
-
-        const half = document.createElement("div");
-        half.className = "hf-line";
-        half.style.top = `${hPx(hour + 0.5)}px`;
-        col.appendChild(half);
-      }
-
-      freeWindows
-        .filter((window) => window.days.includes(dayKey))
-        .forEach((window) => {
-          const visibleMembers = window.memberIds.filter((memberId) => vis[memberId]);
-          if (visibleMembers.length < Math.max(2, visCnt() - 1)) {
-            return;
-          }
-
-          const overlay = document.createElement("div");
-          overlay.className = "free-ov";
-          overlay.style.cssText = `top:${hPx(window.s)}px;height:${dPx(window.s, Math.min(window.e, EH))}px`;
-          overlay.innerHTML = `
-            <div class="free-pips">${visibleMembers
-              .map((memberId) => {
-                const member = getMem(memberId);
-                return member ? `<div class="free-pip" style="background:${member.bg}"></div>` : "";
-              })
-              .join("")}</div>
-            <div class="free-ov-lbl">${visibleMembers.length >= visCnt() ? "All free" : "Available"}</div>
-            <div class="free-ov-sub">${fmt(window.s)}–${fmt(window.e)}</div>
-          `;
-          overlay.addEventListener("mouseenter", (event) =>
-            showTip(event, "Free window", [
-              { dot: "#16a34a", txt: `${fmt(window.s)} – ${fmt(window.e)}` },
-              { dot: "#16a34a", txt: window.dur },
-              ...visibleMembers.map((memberId) => {
-                const member = getMem(memberId);
-                return member ? { dot: member.bg, txt: `${member.name} is free` } : null;
-              }).filter(Boolean) as TipRow[],
-            ]),
-          );
-          overlay.addEventListener("mouseleave", hideTip);
-          overlay.onclick = () => openAddMeeting(window.days[0] ?? dayKey, window.s, window.e);
-          col.appendChild(overlay);
-        });
-
-      const dayEvents: Array<CalendarBlock & { mem: CalendarMember }> = [];
-      members
-        .filter((member) => vis[member.id])
-        .forEach((member) => {
-          blocks
-            .filter((block) => block.memberId === member.id && block.days.includes(dayKey) && block.s >= SH && block.e <= EH + 0.5)
-            .forEach((block) => {
-              dayEvents.push({ ...block, mem: member });
-            });
-        });
-
-      const laid = layoutEvents(dayEvents);
-      const gap = 2;
-
-      laid.forEach((event) => {
-        const height = Math.max(dPx(event.s, Math.min(event.e, EH)), 20);
-        const cols = event._cols ?? 1;
-        const slot = event._slot ?? 0;
-        const leftPct = (slot / cols) * 100;
-        const widthPct = (1 / cols) * 100;
-        const mode = cols >= 3 ? "narrow" : cols === 2 ? "compact" : "wide";
-        const block = document.createElement("div");
-        block.className = `ev${event.routine ? " ev-routine" : ""}${mode === "narrow" ? " narrow" : ""}${mode === "compact" ? " compact" : ""}`;
-        block.style.cssText = `top:${hPx(event.s)}px;height:${height}px;left:calc(${leftPct}% + ${slot === 0 ? 2 : gap}px);width:calc(${widthPct}% - ${slot === 0 ? gap + 2 : gap * 2}px);background:${event.routine ? event.mem.lt : event.mem.bg};`;
-
-        const inner = document.createElement("div");
-        inner.className = "ev-inner";
-        inner.style.borderLeftColor = event.mem.bg;
-
-        const tc = event.routine ? event.mem.tc : "#fff";
-        const tcMuted = event.routine ? `${event.mem.tc}99` : "rgba(255,255,255,.75)";
-        const pillBg = event.routine ? `${event.mem.bg}28` : "rgba(255,255,255,.2)";
-        const pillFg = event.routine ? event.mem.bg : "#fff";
-        const tagBg = event.routine ? `${event.mem.bg}14` : "rgba(255,255,255,.12)";
-        const tagFg = event.routine ? event.mem.tc : "rgba(255,255,255,.8)";
-
-        if (mode === "narrow") {
-          const isShort = height < 34;
-          if (isShort) {
-            block.classList.add("short-block");
-          }
-
-          const title = document.createElement("div");
-          title.className = "ev-title";
-          title.style.color = tc;
-          title.textContent = event.lbl;
-          inner.appendChild(title);
-
-          if (!isShort) {
-            if (event.sub && height > 44) {
-              const div = document.createElement("div");
-              div.className = "ev-vdiv";
-              inner.appendChild(div);
-
-              const sub = document.createElement("div");
-              sub.className = "ev-sub";
-              sub.style.color = tcMuted;
-              sub.textContent = event.sub;
-              inner.appendChild(sub);
-            }
-
-            if (height > 56) {
-              const pill = document.createElement("div");
-              pill.className = "ev-npill";
-              pill.style.cssText = `background:${pillBg};color:${pillFg}`;
-              pill.textContent = event.mem.name;
-              inner.appendChild(pill);
-            }
-          }
-        } else if (mode === "compact") {
-          const title = document.createElement("div");
-          title.className = "ev-title";
-          title.style.color = tc;
-          title.textContent = event.lbl;
-          inner.appendChild(title);
-
-          if (height > 30 && event.sub) {
-            const sub = document.createElement("div");
-            sub.className = "ev-sub";
-            sub.style.color = tcMuted;
-            sub.textContent = event.sub;
-            inner.appendChild(sub);
-          }
-
-          if (height > 46) {
-            const pills = document.createElement("div");
-            pills.className = "ev-pills";
-            const memberPill = document.createElement("div");
-            memberPill.className = "ev-pill";
-            memberPill.style.cssText = `background:${pillBg};color:${pillFg}`;
-            memberPill.textContent = event.mem.name;
-            pills.appendChild(memberPill);
-            inner.appendChild(pills);
-          }
-        } else {
-          const title = document.createElement("div");
-          title.className = "ev-title";
-          title.style.color = tc;
-          title.textContent = event.lbl;
-          inner.appendChild(title);
-
-          if (height > 28 && event.sub) {
-            const sub = document.createElement("div");
-            sub.className = "ev-sub";
-            sub.style.color = tcMuted;
-            sub.textContent = event.sub;
-            inner.appendChild(sub);
-          }
-
-          if (height > 48) {
-            const pills = document.createElement("div");
-            pills.className = "ev-pills";
-            const memberPill = document.createElement("div");
-            memberPill.className = "ev-pill";
-            memberPill.style.cssText = `background:${pillBg};color:${pillFg}`;
-            memberPill.textContent = event.mem.name;
-            pills.appendChild(memberPill);
-            if (height > 64) {
-              const typePill = document.createElement("div");
-              typePill.className = "ev-pill";
-              typePill.style.cssText = `background:${tagBg};color:${tagFg}`;
-              typePill.textContent = event.routine ? "Routine" : "Manual";
-              pills.appendChild(typePill);
-            }
-            inner.appendChild(pills);
-          }
-        }
-
-        block.appendChild(inner);
-
-        const overlapping = laid.filter((other) => other !== event && other.s < event.e - 0.01 && other.e > event.s + 0.01);
-        const tipRows: TipRow[] = [
-          { dot: event.mem.bg, txt: `${event.mem.name} · ${event.mem.role}` },
-          { txt: `${fmt(event.s)} – ${fmt(event.e)}` },
-          event.sub ? { txt: event.sub } : null,
-          { txt: event.routine ? "Recurring routine" : "Manual block" },
-        ].filter(Boolean) as TipRow[];
-
-        if (overlapping.length) {
-          tipRows.push({ txt: "──────────────" });
-          tipRows.push({ txt: `${overlapping.length} other block${overlapping.length > 1 ? "s" : ""} at this time:` });
-          overlapping.forEach((other) => {
-            tipRows.push({ dot: other.mem.bg, txt: `${other.mem.name}: ${other.lbl}` });
-          });
-        }
-
-        block.addEventListener("mouseenter", (mouseEvent) => showTip(mouseEvent, event.lbl, tipRows));
-        block.addEventListener("mouseleave", hideTip);
-        col.appendChild(block);
-      });
-
-      deadlines
-        .filter((deadline) => deadline.days.includes(dayKey))
-        .forEach((deadline) => {
-          const chip = document.createElement("div");
-          chip.className = "dl-chip";
-          chip.textContent = `⚑ ${deadline.lbl}`;
-          chip.addEventListener("mouseenter", (event) => showTip(event, "Deadline", [{ dot: "#dc2626", txt: deadline.lbl }]));
-          chip.addEventListener("mouseleave", hideTip);
-          col.appendChild(chip);
-        });
-
-      if (isToday && nowH >= SH && nowH <= EH) {
-        const nowLine = document.createElement("div");
-        nowLine.className = "now-line";
-        nowLine.style.top = `${hPx(nowH)}px`;
-        nowLine.innerHTML = '<div class="now-dot"></div><div class="now-bar"></div>';
-        col.appendChild(nowLine);
-      }
-
-      weekGridRef.current?.appendChild(col);
-    });
-
-    heatGridRef.current.innerHTML = "";
-    heatGridRef.current.style.gridTemplateColumns = `42px repeat(${WORKK.length},1fr)`;
-    const corner = document.createElement("div");
-    corner.className = "h-corner";
-    corner.textContent = "Hour";
-    heatGridRef.current.appendChild(corner);
-    WORKD.forEach((day) => {
-      const head = document.createElement("div");
-      head.className = "h-dhead";
-      head.textContent = day;
-      heatGridRef.current?.appendChild(head);
-    });
-    for (let hour = 7; hour <= 20; hour += 1) {
-      const timeLabel = document.createElement("div");
-      timeLabel.className = "h-time";
-      timeLabel.textContent = hour === 12 ? "12 PM" : hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
-      heatGridRef.current.appendChild(timeLabel);
-      WORKK.forEach((dayKey) => {
-        const count = busyCnt(dayKey, hour);
-        const bucket = Math.min(count, 4);
-        const cell = document.createElement("div");
-        cell.className = "h-cell";
-        cell.style.cssText = `background:${HCOLS[bucket]};border:1px solid ${HBDS[bucket]}`;
-        if (count === 0) {
-          cell.innerHTML = '<div style="width:5px;height:5px;border-radius:50%;background:#16a34a"></div>';
-        } else {
-          cell.innerHTML = `<div class="h-cval" style="color:${HTXT[bucket]}">${count >= visibleCount && visibleCount > 0 ? "✕" : count}</div>`;
-        }
-        const busyMembers = members.filter((member) => vis[member.id] && isBusy(member.id, dayKey, hour));
-        cell.addEventListener("mouseenter", (mouseEvent) =>
-          showTip(
-            mouseEvent,
-            `${dayKey.charAt(0).toUpperCase() + dayKey.slice(1, 3)} at ${fmt(hour)}`,
-            count === 0 ? [{ dot: "#16a34a", txt: "Everyone is free" }] : busyMembers.map((member) => ({ dot: member.bg, txt: `${member.name} is busy` })),
-          ),
-        );
-        cell.addEventListener("mouseleave", hideTip);
-        if (count === 0) {
-          cell.onclick = () => openAddMeeting(dayKey, hour, hour + 1);
-        }
-        heatGridRef.current!.appendChild(cell);
-      });
-    }
-
-    dotsRef.current.innerHTML = "";
-    const dotHours = Array.from({ length: 13 }, (_, index) => index + 7);
-    const th = document.createElement("div");
-    th.className = "d-th-row";
-    dotHours.forEach((hour) => {
-      const label = document.createElement("div");
-      label.className = "d-th";
-      label.textContent = hour === 12 ? "12P" : hour > 12 ? `${hour - 12}P` : `${hour}A`;
-      th.appendChild(label);
-    });
-    dotsRef.current.appendChild(th);
-
-    WORKK.forEach((dayKey, dayIndex) => {
-      const section = document.createElement("div");
-      section.className = "d-section";
-      const dayLabel = document.createElement("div");
-      dayLabel.className = "d-day-lbl";
-      dayLabel.innerHTML = `<span>${WORKD[dayIndex]}</span><div class="d-div"></div>`;
-      section.appendChild(dayLabel);
-
-      members
-        .filter((member) => vis[member.id])
-        .forEach((member) => {
-          const row = document.createElement("div");
-          row.className = "d-mrow";
-          const label = document.createElement("div");
-          label.className = "d-mlabel";
-          label.innerHTML = `<div class="d-av" style="background:${member.bg}">${member.ini}</div><span class="d-mname">${member.name}</span>`;
-          row.appendChild(label);
-          const track = document.createElement("div");
-          track.className = "d-track";
-          dotHours.forEach((hour) => {
-            const busy = isBusy(member.id, dayKey, hour);
-            const cell = document.createElement("div");
-            cell.className = `d-cell${busy ? "" : " d-free"}`;
-            if (busy) {
-              cell.style.background = `${member.bg}CC`;
-            } else {
-              cell.innerHTML = '<div class="d-pip"></div>';
-            }
-            const block = blocks.find((candidate) => candidate.memberId === member.id && candidate.days.includes(dayKey) && hour >= candidate.s && hour < candidate.e);
-            cell.addEventListener("mouseenter", (mouseEvent) =>
-              showTip(mouseEvent, busy ? (block ? block.lbl : "Busy") : `${member.name} free`, [{ dot: member.bg, txt: member.name }, { txt: `${fmt(hour)} – ${fmt(hour + 1)}` }]),
-            );
-            cell.addEventListener("mouseleave", hideTip);
-            track.appendChild(cell);
-          });
-          row.appendChild(track);
-          section.appendChild(row);
-        });
-
-      const fwDay = freeWindows.filter((window) => window.days.includes(dayKey) && window.memberIds.filter((memberId) => vis[memberId]).length >= Math.max(2, visibleCount - 1));
-      if (fwDay.length) {
-        const fwRow = document.createElement("div");
-        fwRow.className = "d-fw-row";
-        fwDay.forEach((window) => {
-          const badge = document.createElement("div");
-          badge.className = "d-fw-b";
-          badge.textContent = `${window.memberIds.filter((memberId) => vis[memberId]).length >= visibleCount ? "All" : "3+"} free · ${fmt(window.s)}–${fmt(window.e)}`;
-          badge.onclick = () => openAddMeeting(window.days[0] ?? dayKey, window.s, window.e);
-          fwRow.appendChild(badge);
-        });
-        section.appendChild(fwRow);
-      }
-
-      dotsRef.current!.appendChild(section);
-    });
-
-    freeListRef.current.innerHTML = "";
-    WORKK.forEach((dayKey, dayIndex) => {
-      const date = weekDates[dayIndex + 1];
-      const isToday = date?.toDateString() === today.toDateString();
-      const validFW = freeWindows.filter(
-        (window) => window.days.includes(dayKey) && window.memberIds.filter((memberId) => vis[memberId]).length >= Math.max(2, visibleCount - 1),
-      );
-      const group = document.createElement("div");
-      group.className = "fwo-group";
-      const head = document.createElement("div");
-      head.className = "fwo-head";
-      const allCount = validFW.filter((window) => window.memberIds.filter((memberId) => vis[memberId]).length >= visibleCount).length;
-      head.innerHTML = `<div style="display:flex;align-items:center;gap:6px">
-        <span class="fwo-dname"${isToday ? ' style="color:var(--primary)"' : ""}>${WORKD[dayIndex]}</span>
-        ${date ? `<span style="font-size:11px;color:var(--muted)">${date.toLocaleDateString("en-PH", { month: "short", day: "numeric" })}</span>` : ""}
-        ${isToday ? '<span class="fwo-today">Today</span>' : ""}
-      </div>
-      ${validFW.length ? `<span class="fwo-cnt" style="background:${allCount > 0 ? "#f0fdf4" : "#fef9c3"};color:${allCount > 0 ? "#15803d" : "#854d0e"}">${validFW.length} window${validFW.length > 1 ? "s" : ""}</span>` : ""}`;
-      group.appendChild(head);
-
-      if (!validFW.length) {
-        const no = document.createElement("div");
-        no.className = "fwo-none";
-        no.textContent = "No shared free windows on this day.";
-        group.appendChild(no);
-      } else {
-        validFW.forEach((window) => {
-          const freeMembers = window.memberIds.filter((memberId) => vis[memberId]);
-          const busyMembers = members.filter((member) => vis[member.id] && !window.memberIds.includes(member.id));
-          const isAll = freeMembers.length >= visibleCount;
-          const row = document.createElement("div");
-          row.className = "fwo-row";
-          row.innerHTML = `
-            <div class="fwo-tc"><div class="fwo-start">${fmt(window.s)}</div><div class="fwo-end">to ${fmt(window.e)}</div><div class="fwo-dur">${window.dur}</div></div>
-            <div class="fwo-info">
-              <div class="fwo-mems">${freeMembers
-                .map((memberId) => {
-                  const member = getMem(memberId);
-                  return member ? `<div class="fwo-m"><div class="fwo-mdot" style="background:${member.bg}"></div>${member.name}</div>` : "";
-                })
-                .join("")}</div>
-              ${busyMembers.length ? `<div class="fwo-absent">${busyMembers.map((member) => member.name).join(", ")} unavailable</div>` : `<div class="fwo-ok">All ${freeMembers.length} members available</div>`}
-            </div>
-            <div class="fwo-acts">
-              <button class="btn btn-green" style="font-size:11px">Book</button>
-              <div style="font-size:9px;color:var(--muted2);text-align:right">${isAll ? "Everyone free" : `${freeMembers.length}/${visibleCount} free`}</div>
-            </div>`;
-          const button = row.querySelector("button");
-          button?.addEventListener("click", () => openAddMeeting(window.days[0] ?? dayKey, window.s, window.e));
-          group.appendChild(row);
-        });
-      }
-
-      freeListRef.current!.appendChild(group);
-    });
-  }, [blocks, deadlines, freeWindows, layout, members, nowTick, vis, weekDates]);
-
-  const memberChips = members.map((member) => {
-    const visible = Boolean(vis[member.id]);
     return (
-      <button
-        key={member.id}
-        type="button"
-        className={`m-chip${visible ? "" : " off"}`}
-        onClick={() => toggleMember(member.id)}
-        style={{ borderColor: visible ? member.bd : "var(--border2)" }}
-      >
-        <div className="m-av" style={{ background: member.bg, opacity: visible ? 1 : 0.4 }}>
-          {member.ini}
-        </div>
-        <div className="m-chip-info">
-          <div className="m-chip-name" style={{ color: visible ? member.tc : "var(--muted2)" }}>
-            {member.name}
-          </div>
-          <div className="m-chip-role">{member.role}</div>
-        </div>
-        <div className="m-chip-check">
-          {visible ? (
-            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-              <path d="M1.5 4L3 5.5L6.5 2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          ) : null}
-        </div>
-      </button>
-    );
-  });
+      <div className="space-y-3">
+        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-4 py-3 sm:px-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="icon-sm" onClick={() => navigateToWeek(weekOffset - 1)}>
+                &#8249;
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => navigateToWeek(0)}>
+                Today
+              </Button>
+              <Button type="button" variant="outline" size="icon-sm" onClick={() => navigateToWeek(weekOffset + 1)}>
+                &#8250;
+              </Button>
+              <span className="text-sm font-semibold tracking-tight text-foreground">{weekLabel}</span>
+              <div className="inline-flex items-center gap-1.5 border-l border-border/70 pl-2">
+                <span className="text-[11px] text-muted-foreground">Go to date</span>
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        data-empty={!weekStart}
+                        className="w-52 justify-between text-left font-normal data-[empty=true]:text-muted-foreground"
+                      >
+                        {weekStart ? format(weekStart, "PPP") : <span>Pick a date</span>}
+                        <ChevronDownIcon data-icon="inline-end" />
+                      </Button>
+                    }
+                  />
+                  <PopoverContent className={cn(ds.calendar.dateJumpPopover)} align="start">
+                    <Calendar
+                      mode="single"
+                      selected={weekStart}
+                      defaultMonth={weekStart}
+                      onSelect={(nextDate) => {
+                        if (!nextDate) {
+                          return;
+                        }
+                        navigateToWeek(getWeekOffsetForDate(nextDate));
+                        setDatePickerOpen(false);
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
 
-  return (
-    <>
-      <style jsx global>{CALENDAR_STYLES}</style>
-      <div className="cc-root">
-      <div className="app-bar">
-        <div className="app-id">
-          <div className="logo">CS</div>
-          <div>
-            <div className="app-name">CAPSync</div>
-            <div className="app-sub">
-              Group calendar · <span>{weekLabel}</span>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowRoutineDialog(true)}>
+                Add routine
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={doSuggest}>
+                Suggest meeting
+              </Button>
             </div>
           </div>
-        </div>
-        <div className="ltabs">
-          <button className={`lt${layout === "week" ? " on" : ""}`} onClick={() => setLayout("week")}>
-            <span className="lt-ico">📅</span>
-            <span className="lt-name">Calendar</span>
-            <span className="lt-hint">Week grid</span>
-          </button>
-          <button className={`lt${layout === "heat" ? " on" : ""}`} onClick={() => setLayout("heat")}>
-            <span className="lt-ico">▦</span>
-            <span className="lt-name">Heat map</span>
-            <span className="lt-hint">Density</span>
-          </button>
-          <button className={`lt${layout === "dots" ? " on" : ""}`} onClick={() => setLayout("dots")}>
-            <span className="lt-ico">⠿</span>
-            <span className="lt-name">Availability</span>
-            <span className="lt-hint">Dot grid</span>
-          </button>
-          <button className={`lt${layout === "free" ? " on" : ""}`} onClick={() => setLayout("free")}>
-            <span className="lt-ico">◈</span>
-            <span className="lt-name">Free windows</span>
-            <span className="lt-hint">Clutter-free</span>
-          </button>
-        </div>
-      </div>
 
-      <div className="card">
-        <div className="tb">
-          <div className="tb-l">
-            <button className="btn btn-ghost btn-icon" onClick={() => setWkOff((current) => current - 1)}>
-              &#8249;
-            </button>
-            <button className="btn btn-outline" style={{ fontSize: 11 }} onClick={() => setWkOff(0)}>
-              Today
-            </button>
-            <button className="btn btn-ghost btn-icon" onClick={() => setWkOff((current) => current + 1)}>
-              &#8250;
-            </button>
-            <span className="wk-title">{weekLabel}</span>
-          </div>
-          <div className="tb-r">
-            <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => {
-              setMeetingPrefill({});
-              setAddMeetingOpen(true);
-            }}>
-              Add meeting
-            </button>
-            <button className="suggest-btn" onClick={doSuggest}>
-              ✦ Suggest meeting
-            </button>
-          </div>
-        </div>
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/70 bg-muted/30 px-4 py-3 sm:px-5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Members</span>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {members.map((member) => {
+                const visible = visibleMemberSet.has(member.id);
+                const blockCount = memberBlockCounts.get(member.id) ?? 0;
 
-        <div className="fp">
-          <span className="fp-lbl">Members</span>
-          <div className="fp-chips">{memberChips}</div>
-          <div className="fp-right">
-            <span className="fp-info">{visibleCount} of {members.length} visible</span>
-            <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={showAll}>
-              Show all
-            </button>
-          </div>
-        </div>
+                return (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => toggleMember(member.id)}
+                    className={cn(
+                      "group flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all duration-150",
+                      visible
+                        ? "bg-background shadow-sm hover:-translate-y-0.5"
+                        : "border-border/70 bg-muted/60 opacity-50",
+                    )}
+                    style={{ borderColor: visible ? member.bd : undefined }}
+                  >
+                    <div
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                      style={{ backgroundColor: member.bg, opacity: visible ? 1 : 0.45 }}
+                    >
+                      {member.ini}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-[12px] font-semibold text-foreground">{member.name}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {member.role} - {blockCount} blocks this week
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        "ml-1 flex h-4 w-4 items-center justify-center rounded-full border text-[9px] font-bold transition-colors",
+                        visible ? "border-emerald-500 bg-emerald-500 text-white" : "border-border/70 bg-transparent text-muted-foreground",
+                      )}
+                    >
+                      {visible ? "✓" : ""}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
 
-        <div className={`view${layout === "week" ? " on" : ""}`} id="view-week">
-          <div className="wk-head">
-            <div className="wk-head-spacer" />
-            <div ref={weekHeadersRef} style={{ display: "contents" }} />
+            <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>
+                {visibleCount} of {members.length} visible
+              </span>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAllVisible(true)}>
+                Show all
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAllVisible(false)}>
+                Hide all
+              </Button>
+            </div>
           </div>
-          <div className="wk-scroll" ref={scrollRef}>
-            <div className="wk-grid" ref={weekGridRef} />
+
+          <div className="border-b border-border/70 px-4 py-3 sm:px-5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { key: "week", label: "Calendar", hint: "Week grid", icon: "📅" },
+                  { key: "heat", label: "Heat map", hint: "Density", icon: "▦" },
+                  { key: "dots", label: "Availability", hint: "Dot grid", icon: "⠿" },
+                  { key: "free", label: "Free windows", hint: "Clutter-free", icon: "◈" },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setLayout(item.key as Layout)}
+                    className={cn(
+                      "flex min-w-22 flex-col items-center gap-1 rounded-xl border px-4 py-3 text-center text-[11px] transition-all duration-150",
+                      layout === item.key
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border/70 bg-background text-muted-foreground hover:-translate-y-0.5 hover:border-border hover:text-foreground",
+                    )}
+                  >
+                    <span className="text-sm leading-none">{item.icon}</span>
+                    <span className="font-medium">{item.label}</span>
+                    <span className={cn("text-[9px]", layout === item.key ? "text-primary-foreground/70" : "text-muted-foreground")}>{item.hint}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {visibleFreeWindowCount} shared free windows this week
+              </div>
+            </div>
           </div>
-          <div style={{ padding: "8px 16px", borderTop: "1px solid var(--border)", background: "var(--bg2)", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <div className="leg"><div className="lsw lsw-r" />Routine (auto-repeating)</div>
-            <div className="leg"><div className="lsw lsw-m" />Manual block</div>
-            <div className="leg"><div className="lsw lsw-f" />Free window</div>
-            <div className="leg"><div className="lsw" style={{ background: "var(--red)", borderRadius: "50%" }} />Deadline</div>
-            <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--muted2)" }}>
-              1 event = full detail · 2 = title only · 3+ = vertical title · hover any block for all details
+
+          {layout === "week" ? (
+            <div>
+              <div className="overflow-x-auto">
+                <div className="min-w-240">
+                  <div className="sticky top-0 z-10 grid grid-cols-[52px_repeat(7,minmax(0,1fr))] border-b border-border/70 bg-background">
+                    <div className="h-12 border-r border-border/70" />
+                    {weekDates.map((date, index) => {
+                      const dayKey = getDayKey(date);
+                      const isToday = date.toDateString() === today.toDateString();
+
+                      return (
+                        <div key={dayKey} className="border-l border-border/70 px-2 py-1.5 text-center">
+                          <div className={cn("text-[10px] uppercase tracking-[0.05em]", isToday ? "text-primary" : "text-muted-foreground")}>
+                            {DAY_LABELS[index]}
+                          </div>
+                          <div className={cn("mx-auto mt-1 flex h-8 w-8 items-center justify-center rounded-full text-[16px] font-bold", isToday ? "bg-primary text-primary-foreground" : "text-foreground") }>
+                            {date.getDate()}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-[52px_repeat(7,minmax(0,1fr))]">
+                    <div className="border-r border-border/70 bg-background">
+                      {Array.from({ length: END_HOUR - START_HOUR }, (_, index) => {
+                        const hour = START_HOUR + index;
+                        return (
+                          <div key={hour} className="relative h-13 border-b border-border/70 px-2 text-right text-[10px] text-muted-foreground">
+                            <span className="absolute right-2 -top-1.75">{formatTime(hour)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {weekDates.map((date) => {
+                      const dayKey = getDayKey(date);
+                      const isToday = date.toDateString() === today.toDateString();
+                      const dayBlocks = blocksByDay.get(dayKey) ?? [];
+                      const laidEvents = layoutEvents(
+                        dayBlocks.map((block) => {
+                          const startHour = block.s;
+                          const endHour = block.e;
+                          return {
+                            ...block,
+                            top: (startHour - START_HOUR) * SLOT,
+                            height: Math.max((endHour - startHour) * SLOT, 36),
+                            left: 0,
+                            width: 100,
+                            startHour,
+                            endHour,
+                            compact: endHour - startHour <= 0.85,
+                          };
+                        }),
+                      );
+
+                      const dayFreeWindows = visibleFreeWindows.filter((window) => window.days.includes(dayKey));
+                      const dayDeadlines = deadlines.filter((deadline) => deadline.days.includes(dayKey));
+
+                      return (
+                        <div
+                          key={dayKey}
+                          className={cn("relative border-l border-border/70 bg-background", isToday && "bg-primary/5")}
+                          style={{ height: (END_HOUR - START_HOUR) * SLOT }}
+                        >
+                          {Array.from({ length: END_HOUR - START_HOUR }, (_, index) => (
+                            <div key={index} className="absolute left-0 right-0 border-t border-border/70" style={{ top: index * SLOT }} />
+                          ))}
+                          <div className="absolute left-0 right-0 border-t border-border/70" style={{ top: (END_HOUR - START_HOUR) * SLOT }} />
+
+                          {isToday && nowVisible ? (
+                            <div className="pointer-events-none absolute left-0 right-0 z-20 flex items-center" style={{ top: nowTop }}>
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-red-600" />
+                              <span className="h-px flex-1 bg-red-600" />
+                            </div>
+                          ) : null}
+
+                          {dayFreeWindows.map((window) => {
+                            const visibleMembersInWindow = window.memberIds.filter((memberId) => visibleMemberSet.has(memberId));
+                            const isAllVisible = visibleMembersInWindow.length >= visibleCount;
+
+                            return (
+                              <button
+                                key={`${dayKey}-${window.s}-${window.e}`}
+                                type="button"
+                                className="absolute inset-x-1.5 z-0 flex cursor-pointer flex-col justify-center gap-1 overflow-hidden rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1 text-left transition-colors hover:border-emerald-400 hover:bg-emerald-100"
+                                style={{ top: (window.s - START_HOUR) * SLOT, height: Math.max((window.e - window.s) * SLOT, 24) }}
+                                onClick={() => openAddMeeting(window.days[0] ?? dayKey, window.s, window.e)}
+                                onMouseEnter={(event) =>
+                                  showTip(event, "Free window", [
+                                    { dot: "#16a34a", txt: `${formatTooltipTime(window.s)} - ${formatTooltipTime(window.e)}` },
+                                    { txt: window.dur },
+                                    ...visibleMembersInWindow
+                                      .map((memberId) => memberMap.get(memberId))
+                                      .filter((member): member is CalendarMember => Boolean(member))
+                                      .map((member) => ({ dot: member.bg, txt: `${member.name} is free` })),
+                                  ])
+                                }
+                                onMouseMove={trackTip}
+                                onMouseLeave={hideTip}
+                              >
+                                <div className="flex gap-1">
+                                  {visibleMembersInWindow.map((memberId) => {
+                                    const member = memberMap.get(memberId);
+                                    return member ? (
+                                      <span key={memberId} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: member.bg }} />
+                                    ) : null;
+                                  })}
+                                </div>
+                                <div className="text-[10px] font-semibold text-emerald-700">
+                                  {isAllVisible ? "All free" : "Available"}
+                                </div>
+                                <div className="text-[9px] text-emerald-600">{formatTooltipTime(window.s)} - {formatTooltipTime(window.e)}</div>
+                              </button>
+                            );
+                          })}
+
+                          {laidEvents.map((event) => {
+                            const blockColor = event.member.bg;
+                            const blockText = event.routine ? event.member.tc : "#ffffff";
+                            const blockMuted = event.routine ? `${event.member.tc}99` : "rgba(255,255,255,.75)";
+                            const tagBg = event.routine ? `${event.member.bg}20` : "rgba(255,255,255,.18)";
+                            const tagFg = event.routine ? event.member.bg : "#ffffff";
+
+                            return (
+                              <div
+                                key={`${event.memberId}-${event.days.join("-")}-${event.s}-${event.e}-${event.lbl}`}
+                                className="absolute z-10 overflow-hidden rounded-md border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                                style={{
+                                  top: event.top,
+                                  height: event.height,
+                                  left: `calc(${event.left}% + 2px)`,
+                                  width: `calc(${Math.max(event.width - 2, 20)}% - 4px)`,
+                                  backgroundColor: event.routine ? toRgba(blockColor, 0.16) : blockColor,
+                                  borderColor: event.routine ? toRgba(blockColor, 0.38) : blockColor,
+                                }}
+                                onMouseEnter={(mouseEvent) =>
+                                  showTip(mouseEvent, event.lbl, [
+                                    { dot: event.member.bg, txt: `${event.member.name} - ${event.member.role}` },
+                                    { txt: `${formatTooltipTime(event.s)} - ${formatTooltipTime(event.e)}` },
+                                    event.sub ? { txt: event.sub } : null,
+                                    { txt: event.routine ? "Recurring routine" : "Manual block" },
+                                  ].filter(Boolean) as TipRow[])
+                                }
+                                onMouseMove={trackTip}
+                                onMouseLeave={hideTip}
+                              >
+                                <div className="flex h-full flex-col gap-0.5 border-l-4 px-2 py-1" style={{ borderLeftColor: event.member.bg }}>
+                                  <div className="truncate text-[10px] font-semibold leading-tight" style={{ color: blockText }}>
+                                    {event.lbl}
+                                  </div>
+                                  {!event.compact && event.sub ? (
+                                    <div className="truncate text-[9px] leading-tight" style={{ color: blockMuted }}>
+                                      {event.sub}
+                                    </div>
+                                  ) : null}
+                                  {!event.compact ? (
+                                    <div className="mt-auto inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[8px] font-semibold" style={{ backgroundColor: tagBg, color: tagFg }}>
+                                      {event.member.name}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {dayDeadlines.map((deadline, index) => (
+                            <button
+                              key={`${dayKey}-${deadline.lbl}-${index}`}
+                              type="button"
+                              className="absolute right-2 top-2 z-30 rounded-full bg-red-600 px-2 py-1 text-[8px] font-semibold text-white shadow-sm"
+                              onMouseEnter={(event) => showTip(event, "Deadline", [{ dot: "#dc2626", txt: deadline.lbl }])}
+                              onMouseMove={trackTip}
+                              onMouseLeave={hideTip}
+                            >
+                              {deadline.lbl}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/30 px-4 py-3 text-[10px] text-muted-foreground sm:px-5">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-sm bg-[repeating-linear-gradient(45deg,#c7d2fe,#c7d2fe_2px,#818cf8_2px,#818cf8_4px)]" />
+                  Routine
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-sm bg-primary" />
+                  Manual
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-sm border border-emerald-300 bg-emerald-50" />
+                  Free
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-red-600" />
+                  Deadline
+                </div>
+                <span className="ml-auto text-[10px] text-muted-foreground">
+                  Hover a block for details. Click a free window to book it.
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          {layout === "heat" ? (
+            <div className="space-y-4 p-4 sm:p-5">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Color shows how many visible members are busy each hour. Green means everyone is free.
+              </p>
+              <div className="overflow-x-auto">
+                <div className="grid min-w-180 gap-0.5" style={{ gridTemplateColumns: "42px repeat(7,minmax(0,1fr))" }}>
+                  <div />
+                  {weekDates.map((date) => (
+                    <div key={getDayKey(date)} className="pb-2 text-center text-[10px] font-medium uppercase tracking-[0.04em] text-muted-foreground">
+                      {DAY_LABELS[date.getDay()]}
+                    </div>
+                  ))}
+
+                  {Array.from({ length: HEAT_END_HOUR - HEAT_START_HOUR + 1 }, (_, index) => HEAT_START_HOUR + index).map((hour) => (
+                    <div key={`row-${hour}`} className="contents">
+                      <div className="flex h-5.5 items-center justify-end pr-2 text-[9px] text-muted-foreground">
+                        {formatTime(hour)}
+                      </div>
+                      {weekDates.map((date) => {
+                        const dayKey = getDayKey(date);
+                        const busyMembers = visibleMembers.filter((member) =>
+                          blocks.some((block) => block.memberId === member.id && block.days.includes(dayKey) && hour >= block.s && hour < block.e),
+                        );
+                        const count = busyMembers.length;
+                        const bucket = Math.min(count, 4);
+
+                        return (
+                          <button
+                            key={`${dayKey}-${hour}`}
+                            type="button"
+                            className="flex h-5.5 items-center justify-center rounded-[3px] border transition-transform duration-150 hover:scale-105"
+                            style={{ backgroundColor: HEAT_COLORS[bucket], borderColor: HEAT_BORDERS[bucket] }}
+                            onMouseEnter={(event) =>
+                              showTip(
+                                event,
+                                `${DAY_LABELS[date.getDay()]} at ${formatTime(hour)}`,
+                                count === 0
+                                  ? [{ dot: "#16a34a", txt: "Everyone is free" }]
+                                  : busyMembers.map((member) => ({ dot: member.bg, txt: `${member.name} is busy` })),
+                              )
+                            }
+                            onMouseMove={trackTip}
+                            onMouseLeave={hideTip}
+                            onClick={() => {
+                              if (count === 0) {
+                                openAddMeeting(dayKey, hour, hour + 1);
+                              }
+                            }}
+                          >
+                            {count === 0 ? (
+                              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            ) : (
+                              <span className="text-[8px] font-semibold" style={{ color: HEAT_TEXT[bucket] }}>
+                                {count >= visibleCount && visibleCount > 0 ? "X" : count}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 border-t border-border/70 pt-3 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-4 rounded-sm border border-emerald-300 bg-emerald-50" />
+                  0 - all free
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-4 rounded-sm bg-[#dbeafe]" />
+                  1 busy
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-4 rounded-sm bg-[#93c5fd]" />
+                  2 busy
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-4 rounded-sm bg-[#3b82f6]" />
+                  3 busy
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-4 rounded-sm bg-[#1e3a8a]" />
+                  All busy
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-3 text-sm font-semibold text-foreground">Best shared windows</div>
+                <div className="flex flex-wrap gap-2">
+                  {visibleFreeWindows.map((window) => (
+                    <button
+                      key={`${window.days.join("-")}-${window.s}-${window.e}`}
+                      type="button"
+                      className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-500 hover:text-white"
+                      onClick={() => openAddMeeting(window.days[0] ?? "sun", window.s, window.e)}
+                    >
+                      {window.lbl} - {window.dur}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {layout === "dots" ? (
+            <div className="space-y-4 p-4 sm:p-5">
+              <div className="overflow-x-auto">
+                <div className="min-w-205 space-y-5">
+                  <div className="flex pl-24 pb-1 text-[8px] uppercase tracking-[0.08em] text-muted-foreground">
+                    {Array.from({ length: 13 }, (_, index) => index + 7).map((hour) => (
+                      <div key={hour} className="flex-1 text-center">
+                        {hour === 12 ? "12P" : hour > 12 ? `${hour - 12}P` : `${hour}A`}
+                      </div>
+                    ))}
+                  </div>
+
+                  {weekDates.map((date) => {
+                    const dayKey = getDayKey(date);
+                    const dayWindows = visibleFreeWindows.filter((window) => window.days.includes(dayKey));
+
+                    return (
+                      <section key={dayKey} className="space-y-2">
+                        <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                          <span>{DAY_LABELS[date.getDay()]}</span>
+                          <div className="h-px flex-1 bg-border/70" />
+                        </div>
+
+                        {visibleMembers.map((member) => (
+                          <div key={`${dayKey}-${member.id}`} className="flex items-center gap-3">
+                            <div className="flex w-24 shrink-0 items-center gap-2">
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-semibold text-white" style={{ backgroundColor: member.bg }}>
+                                {member.ini}
+                              </div>
+                              <span className="truncate text-[10px] font-medium text-foreground">{member.name}</span>
+                            </div>
+
+                            <div className="flex flex-1 gap-1">
+                              {Array.from({ length: 13 }, (_, index) => index + 7).map((hour) => {
+                                const busy = blocks.some(
+                                  (block) => block.memberId === member.id && block.days.includes(dayKey) && hour >= block.s && hour < block.e,
+                                );
+
+                                return (
+                                  <button
+                                    key={`${member.id}-${dayKey}-${hour}`}
+                                    type="button"
+                                    className={cn(
+                                      "flex h-5 flex-1 items-center justify-center rounded-[3px] border transition-transform duration-150 hover:scale-y-110",
+                                      busy ? "border-transparent" : "border-emerald-300 bg-emerald-50",
+                                    )}
+                                    style={busy ? { backgroundColor: `${member.bg}CC` } : undefined}
+                                    onMouseEnter={(event) =>
+                                      showTip(event, `${member.name} at ${formatTime(hour)}`, [
+                                        { dot: member.bg, txt: member.name },
+                                        { txt: `${formatTime(hour)} - ${formatTime(hour + 1)}` },
+                                        { txt: busy ? "Busy" : "Free" },
+                                      ])
+                                    }
+                                    onMouseMove={trackTip}
+                                    onMouseLeave={hideTip}
+                                  >
+                                    {busy ? null : <span className="h-1 w-1 rounded-full bg-emerald-500" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+
+                        {dayWindows.length ? (
+                          <div className="flex flex-wrap gap-2 pl-24">
+                            {dayWindows.map((window) => (
+                              <button
+                                key={`${dayKey}-${window.s}-${window.e}`}
+                                type="button"
+                                className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[9px] font-medium text-emerald-700 transition-colors hover:bg-emerald-500 hover:text-white"
+                                onClick={() => openAddMeeting(window.days[0] ?? dayKey, window.s, window.e)}
+                              >
+                                {window.lbl} - {window.dur}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </section>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {layout === "free" ? (
+            <div className="space-y-4 p-4 sm:p-5">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Busy blocks are hidden. Only shared free windows are shown here.
+              </p>
+
+              <div className="space-y-3">
+                {weekDates.map((date) => {
+                  const dayKey = getDayKey(date);
+                  const dayWindows = visibleFreeWindows.filter((window) => window.days.includes(dayKey));
+
+                  return (
+                    <div key={dayKey} className="overflow-hidden rounded-xl border border-border/70 bg-background">
+                      <div className="flex items-center justify-between border-b border-border/70 bg-muted/30 px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className={cn("text-sm font-semibold", date.toDateString() === new Date().toDateString() ? "text-primary" : "text-foreground")}>{DAY_LABELS[date.getDay()]}</span>
+                          <span className="text-[11px] text-muted-foreground">{date.toLocaleDateString("en-PH", { month: "short", day: "numeric" })}</span>
+                        </div>
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-medium text-emerald-700">
+                          {dayWindows.length} window{dayWindows.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+
+                      {dayWindows.length === 0 ? (
+                        <div className="px-4 py-4 text-sm text-muted-foreground">No shared free windows on this day.</div>
+                      ) : (
+                        <div className="divide-y divide-border/70">
+                          {dayWindows.map((window) => {
+                            const freeMemberIds = window.memberIds.filter((memberId) => visibleMemberSet.has(memberId));
+                            const freeMembers = freeMemberIds
+                              .map((memberId) => memberMap.get(memberId))
+                              .filter((member): member is CalendarMember => Boolean(member));
+                            const unavailableMembers = visibleMembers.filter((member) => !freeMemberIds.includes(member.id));
+                            const isAllFree = freeMemberIds.length >= visibleCount;
+
+                            return (
+                              <div key={`${dayKey}-${window.s}-${window.e}`} className="flex flex-wrap items-center gap-4 px-4 py-4">
+                                <div className="min-w-27 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-center">
+                                  <div className="text-lg font-bold text-emerald-700">{formatTooltipTime(window.s)}</div>
+                                  <div className="text-[10px] text-emerald-600">to {formatTooltipTime(window.e)}</div>
+                                  <div className="mt-1 text-[10px] font-medium text-emerald-700">{window.dur}</div>
+                                </div>
+
+                                <div className="min-w-0 flex-1 space-y-2">
+                                  <div className="flex flex-wrap gap-2">
+                                    {freeMembers.map((member) => (
+                                      <span key={member.id} className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-1 text-[11px] text-foreground">
+                                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: member.bg }} />
+                                        {member.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  {unavailableMembers.length ? (
+                                    <div className="text-[10px] text-muted-foreground">
+                                      {unavailableMembers.map((member) => member.name).join(", ")} unavailable
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] font-medium text-emerald-700">All visible members available</div>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-col items-end gap-2">
+                                  <Button type="button" variant="secondary" size="sm" onClick={() => openAddMeeting(window.days[0] ?? dayKey, window.s, window.e)}>
+                                    Book
+                                  </Button>
+                                  <span className="text-[9px] text-muted-foreground">
+                                    {isAllFree ? "Everyone free" : `${freeMemberIds.length}/${visibleCount} free`}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 bg-muted/30 px-4 py-3 text-[10px] text-muted-foreground sm:px-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm bg-[repeating-linear-gradient(45deg,#c7d2fe,#c7d2fe_2px,#818cf8_2px,#818cf8_4px)]" />
+                Routine
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm bg-primary" />
+                Manual
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm border border-emerald-300 bg-emerald-50" />
+                Free
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full bg-red-600" />
+                Deadline
+              </span>
+            </div>
+            <span>
+              {visibleCount} members visible - {sharedFreeWindowCount} shared free windows this week
             </span>
           </div>
         </div>
-
-        <div className={`view${layout === "heat" ? " on" : ""}`} id="view-heat">
-          <div className="heat-wrap">
-            <div className="heat-caption">
-              Color = how many visible members are busy each hour. <strong>Green = everyone free.</strong>
-            </div>
-            <div className="heat-scroll">
-              <div className="heat-grid" ref={heatGridRef} />
-            </div>
-            <div className="h-leg">
-              <div className="hl"><div className="hl-sw" style={{ background: "#f0fdf4", border: "1px solid #86efac" }} />0 — all free</div>
-              <div className="hl"><div className="hl-sw" style={{ background: "#dbeafe" }} />1 busy</div>
-              <div className="hl"><div className="hl-sw" style={{ background: "#93c5fd" }} />2 busy</div>
-              <div className="hl"><div className="hl-sw" style={{ background: "#3b82f6" }} />3 busy</div>
-              <div className="hl"><div className="hl-sw" style={{ background: "#1e3a8a" }} />All busy</div>
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginTop: 14, marginBottom: 6 }}>Best shared windows</div>
-            <div className="f-badges">
-              {freeWindows
-                .filter((window) => window.memberIds.filter((memberId) => vis[memberId]).length >= visibleCount)
-                .map((window) => (
-                  <div key={`${window.days.join("-")}-${window.s}-${window.e}`} className="f-badge" onClick={() => openAddMeeting(window.days[0] ?? "mon", window.s, window.e)}>
-                    ✓ {window.lbl} · {window.dur}
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-
-        <div className={`view${layout === "dots" ? " on" : ""}`} id="view-dots">
-          <div className="dots-wrap">
-            <div className="dots-scroll">
-              <div className="dots-inner" ref={dotsRef} />
-            </div>
-          </div>
-        </div>
-
-        <div className={`view${layout === "free" ? " on" : ""}`} id="view-free">
-          <div className="fwo-wrap">
-            <div className="fwo-caption">Busy blocks hidden. Only shared free windows shown. Click <strong>Book</strong> to schedule.</div>
-            <div ref={freeListRef} />
-          </div>
-        </div>
-
-        <div className="sbar">
-          <div className="leg-row">
-            <div className="leg"><div className="lsw lsw-r" />Routine</div>
-            <div className="leg"><div className="lsw lsw-m" />Manual</div>
-            <div className="leg"><div className="lsw lsw-f" />Free</div>
-          </div>
-          <span style={{ fontSize: 11, color: "var(--muted)" }}>
-            {visibleCount} members visible · {sharedFreeWindowCount} shared free windows this week
-          </span>
-        </div>
       </div>
+    );
+  }, [
+    blocks,
+    blocksByDay,
+    deadlines,
+    layout,
+    memberMap,
+    nowTick,
+    sharedFreeWindowCount,
+    visibleCount,
+    visibleFreeWindowCount,
+    visibleFreeWindows,
+    visibleMembers,
+    visibleMemberSet,
+    weekDates,
+    weekLabel,
+    weekOffset,
+  ]);
 
-      <div id="tip" ref={tipRef} />
+  return (
+    <div className={cn(ds.layout.page, "space-y-3")}>
+      <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm">
+            CS
+          </div>
+          <div>
+            <div className="text-lg font-semibold tracking-tight text-foreground">CAPSync</div>
+            <div className="text-[11px] text-muted-foreground">Group calendar - {weekLabel}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            { key: "week", label: "Calendar", hint: "Week grid", icon: "📅" },
+            { key: "heat", label: "Heat map", hint: "Density", icon: "▦" },
+            { key: "dots", label: "Availability", hint: "Dot grid", icon: "⠿" },
+            { key: "free", label: "Free windows", hint: "Clutter-free", icon: "◈" },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setLayout(item.key as Layout)}
+              className={cn(
+                "flex min-w-21 flex-col items-center gap-1 rounded-xl border px-3 py-2 text-center transition-all duration-150",
+                layout === item.key
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-border/70 bg-background text-muted-foreground hover:-translate-y-0.5 hover:border-border hover:text-foreground",
+              )}
+            >
+              <span className="text-sm leading-none">{item.icon}</span>
+              <span className="text-[11px] font-medium">{item.label}</span>
+              <span className={cn("text-[9px]", layout === item.key ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                {item.hint}
+              </span>
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {weekView}
+
+      <FloatingTooltip
+        ref={tooltipElementRef}
+        tooltip={hoverTooltip}
+        className={cn(ds.calendar.tooltip, "min-w-44")}
+        titleClassName={cn(ds.calendar.tooltipTitle)}
+        rowClassName={cn(ds.calendar.tooltipRow)}
+        dotClassName={cn(ds.calendar.tooltipDot)}
+      />
+
+      {showRoutineDialog ? (
+        <div className={cn(ds.modal.overlay)} onClick={() => setShowRoutineDialog(false)}>
+          <div className={cn(ds.modal.card)} onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className={cn(ds.modal.closeButton)}
+              onClick={() => setShowRoutineDialog(false)}
+              aria-label="Close dialog"
+            >
+              ×
+            </button>
+
+            <div className={cn(ds.modal.header)}>
+              <div className={cn(ds.modal.badge)}>Routine Setup</div>
+              <h2 className={cn(ds.modal.title)}>Create routine</h2>
+              <p className={cn(ds.modal.description)}>
+                Save recurring routines per account so they appear in your calendars across all circles.
+              </p>
+            </div>
+
+            <div className={cn(ds.modal.body, "px-4 pb-4 sm:px-6")}>
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="routine-label" className={cn(ds.field.label)}>
+                  Routine name
+                </label>
+                <input
+                  id="routine-label"
+                  type="text"
+                  value={newRoutineLabel}
+                  onChange={(event) => setNewRoutineLabel(event.target.value)}
+                  placeholder="e.g., Morning run"
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="routine-start" className={cn(ds.field.label)}>
+                    Start time
+                  </label>
+                  <input
+                    id="routine-start"
+                    type="time"
+                    step={60}
+                    value={newRoutineStart}
+                    onChange={(event) => handleRoutineStartChange(event.target.value)}
+                    className={cn(ds.field.input)}
+                    min="06:00"
+                    max="23:00"
+                    required
+                  />
+                </div>
+
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="routine-end" className={cn(ds.field.label)}>
+                    End time
+                  </label>
+                  <input
+                    id="routine-end"
+                    type="time"
+                    value={newRoutineEnd}
+                    onChange={(event) => setNewRoutineEnd(event.target.value)}
+                    className={cn(ds.field.input)}
+                    min="06:00"
+                    max="23:00"
+                    step={60}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className={cn(ds.field.wrapper)}>
+                <label className={cn(ds.field.label)}>Days</label>
+                <div className="flex flex-wrap gap-2">
+                  {DAY_LABELS.map((day, index) => {
+                    const active = newRoutineDays.includes(index);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          setNewRoutineDays((current) =>
+                            current.includes(index)
+                              ? current.filter((selectedDay) => selectedDay !== index)
+                              : [...current, index],
+                          );
+                        }}
+                        className={cn(
+                          "h-8 rounded-md border px-3 text-xs font-medium transition-all",
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border/70 bg-background text-muted-foreground hover:border-border hover:text-foreground",
+                        )}
+                      >
+                        {day.slice(0, 3)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="routine-color" className={cn(ds.field.label)}>
+                  Routine color
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    id="routine-color"
+                    type="color"
+                    value={newRoutineColor}
+                    onChange={(event) => setNewRoutineColor(event.target.value)}
+                    className="h-9 w-11 cursor-pointer rounded-md border border-border/70 bg-background p-1 transition-colors hover:border-border"
+                    aria-label="Choose routine color"
+                  />
+                  {ROUTINE_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setNewRoutineColor(color)}
+                      className={cn(
+                        "h-7 w-7 rounded-full border border-border/70 transition-all hover:-translate-y-0.5 hover:shadow-sm",
+                        newRoutineColor === color && "ring-2 ring-ring ring-offset-2 ring-offset-background",
+                      )}
+                      style={{ backgroundColor: color }}
+                      aria-label={`Pick routine color ${color}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className={cn(ds.modal.actions, "px-4 pb-4 sm:px-6")}>
+              <Button type="button" variant="outline" onClick={() => setShowRoutineDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void saveRoutine()}>
+                Save routine
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <AddMeetingDialog
         open={addMeetingOpen}
         onOpenChange={setAddMeetingOpen}
         groupId={groupId}
         members={members}
+        weekStart={weekStart}
         prefillDay={meetingPrefill.day}
         prefillStart={meetingPrefill.start}
         prefillEnd={meetingPrefill.end}
       />
-      </div>
-    </>
+    </div>
   );
 }
