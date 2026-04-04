@@ -1186,7 +1186,7 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
   ]);
 
   return (
-    <div className={cn(ds.layout.page, "space-y-3")}>
+    <div className={cn(ds.layout.page, "max-w-none space-y-3")}>
       <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm">

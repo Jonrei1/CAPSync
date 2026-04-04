@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import CalendarShell from "@/components/circle-calendar/CalendarShell";
 import { designTokens } from "@/components/ui/design-standard";
 import { createClient } from "@/lib/supabaseServer";
@@ -297,13 +298,24 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
   const deadlineData = deadlines.map(mapDeadline).filter((deadline): deadline is CalendarDeadline => Boolean(deadline));
 
   return (
-    <CalendarShell
-      members={members}
-      blocks={blocks}
-      freeWindows={freeWindows}
-      deadlines={deadlineData}
-      groupId={groupId}
-      weekOffset={safeWeekOffset}
-    />
+    <div className="space-y-3">
+      <div className="mx-auto flex w-full justify-start px-4 sm:px-6">
+        <Link
+          href="/dashboard"
+          className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-[0.8rem] font-medium whitespace-nowrap text-foreground transition-all hover:bg-muted hover:text-foreground"
+        >
+          Back to dashboard
+        </Link>
+      </div>
+
+      <CalendarShell
+        members={members}
+        blocks={blocks}
+        freeWindows={freeWindows}
+        deadlines={deadlineData}
+        groupId={groupId}
+        weekOffset={safeWeekOffset}
+      />
+    </div>
   );
 }
