@@ -22,6 +22,8 @@ type CalendarShellProps = {
   freeWindows: FreeWindow[];
   deadlines: CalendarDeadline[];
   groupId: string;
+  groupName: string;
+  groupSubject?: string | null;
   weekOffset: number;
 };
 
@@ -201,7 +203,16 @@ function layoutEvents(events: LayoutEvent[]) {
   return sorted;
 }
 
-export default function CalendarShell({ members, blocks, freeWindows, deadlines, groupId, weekOffset }: CalendarShellProps) {
+export default function CalendarShell({
+  members,
+  blocks,
+  freeWindows,
+  deadlines,
+  groupId,
+  groupName,
+  groupSubject,
+  weekOffset,
+}: CalendarShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -282,7 +293,6 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
     [freeWindows, minFreeMembers, visibleMemberSet],
   );
 
-  const visibleFreeWindowCount = visibleFreeWindows.length;
   const sharedFreeWindowCount = useMemo(
     () =>
       visibleFreeWindows.filter(
@@ -533,7 +543,7 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
                       <Button
                         variant="outline"
                         data-empty={!weekStart}
-                        className="w-52 justify-between text-left font-normal data-[empty=true]:text-muted-foreground"
+                        className="w-53 justify-between text-left font-normal data-[empty=true]:text-muted-foreground"
                       >
                         {weekStart ? format(weekStart, "PPP") : <span>Pick a date</span>}
                         <ChevronDownIcon data-icon="inline-end" />
@@ -626,42 +636,10 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
             </div>
           </div>
 
-          <div className="border-b border-border/70 px-4 py-3 sm:px-5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { key: "week", label: "Calendar", hint: "Week grid", icon: "📅" },
-                  { key: "heat", label: "Heat map", hint: "Density", icon: "▦" },
-                  { key: "dots", label: "Availability", hint: "Dot grid", icon: "⠿" },
-                  { key: "free", label: "Free windows", hint: "Clutter-free", icon: "◈" },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => setLayout(item.key as Layout)}
-                    className={cn(
-                      "flex min-w-22 flex-col items-center gap-1 rounded-xl border px-4 py-3 text-center text-[11px] transition-all duration-150",
-                      layout === item.key
-                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                        : "border-border/70 bg-background text-muted-foreground hover:-translate-y-0.5 hover:border-border hover:text-foreground",
-                    )}
-                  >
-                    <span className="text-sm leading-none">{item.icon}</span>
-                    <span className="font-medium">{item.label}</span>
-                    <span className={cn("text-[9px]", layout === item.key ? "text-primary-foreground/70" : "text-muted-foreground")}>{item.hint}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                {visibleFreeWindowCount} shared free windows this week
-              </div>
-            </div>
-          </div>
-
+          <div>
           {layout === "week" ? (
-            <div>
-              <div className="overflow-x-auto">
-                <div className="min-w-240">
+            <div className="max-h-142 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]">
+              <div className="min-w-240">
                   <div className="sticky top-0 z-10 grid grid-cols-[52px_repeat(7,minmax(0,1fr))] border-b border-border/70 bg-background">
                     <div className="h-12 border-r border-border/70" />
                     {weekDates.map((date, index) => {
@@ -686,8 +664,8 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
                       {Array.from({ length: END_HOUR - START_HOUR }, (_, index) => {
                         const hour = START_HOUR + index;
                         return (
-                          <div key={hour} className="relative h-13 border-b border-border/70 px-2 text-right text-[10px] text-muted-foreground">
-                            <span className="absolute right-2 -top-1.75">{formatTime(hour)}</span>
+                          <div key={hour} className="flex h-13 items-start justify-end border-b border-border/70 px-2 pt-0.5 text-right text-[10px] text-muted-foreground">
+                            <span className="leading-none">{formatTime(hour)}</span>
                           </div>
                         );
                       })}
@@ -840,35 +818,13 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
                       );
                     })}
                   </div>
-                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/30 px-4 py-3 text-[10px] text-muted-foreground sm:px-5">
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-sm bg-[repeating-linear-gradient(45deg,#c7d2fe,#c7d2fe_2px,#818cf8_2px,#818cf8_4px)]" />
-                  Routine
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-sm bg-primary" />
-                  Manual
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-sm border border-emerald-300 bg-emerald-50" />
-                  Free
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-red-600" />
-                  Deadline
-                </div>
-                <span className="ml-auto text-[10px] text-muted-foreground">
-                  Hover a block for details. Click a free window to book it.
-                </span>
-              </div>
             </div>
           ) : null}
 
           {layout === "heat" ? (
-            <div className="space-y-4 p-4 sm:p-5">
+            <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 [scrollbar-gutter:stable]">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Color shows how many visible members are busy each hour. Green means everyone is free.
               </p>
@@ -974,7 +930,7 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
           ) : null}
 
           {layout === "dots" ? (
-            <div className="space-y-4 p-4 sm:p-5">
+            <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 [scrollbar-gutter:stable]">
               <div className="overflow-x-auto">
                 <div className="min-w-205 space-y-5">
                   <div className="flex pl-24 pb-1 text-[8px] uppercase tracking-[0.08em] text-muted-foreground">
@@ -1061,7 +1017,7 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
           ) : null}
 
           {layout === "free" ? (
-            <div className="space-y-4 p-4 sm:p-5">
+            <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 [scrollbar-gutter:stable]">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Busy blocks are hidden. Only shared free windows are shown here.
               </p>
@@ -1140,6 +1096,7 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
               </div>
             </div>
           ) : null}
+          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 bg-muted/30 px-4 py-3 text-[10px] text-muted-foreground sm:px-5">
             <div className="flex flex-wrap items-center gap-3">
@@ -1176,7 +1133,6 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
     nowTick,
     sharedFreeWindowCount,
     visibleCount,
-    visibleFreeWindowCount,
     visibleFreeWindows,
     visibleMembers,
     visibleMemberSet,
@@ -1190,11 +1146,18 @@ export default function CalendarShell({ members, blocks, freeWindows, deadlines,
       <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm">
-            CS
+            {groupName
+              .split(/\s+/)
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((part) => part[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase() || "GC"}
           </div>
           <div>
-            <div className="text-lg font-semibold tracking-tight text-foreground">CAPSync</div>
-            <div className="text-[11px] text-muted-foreground">Group calendar - {weekLabel}</div>
+            <div className="text-lg font-semibold tracking-tight text-foreground">{groupName}</div>
+            <div className="text-[11px] text-muted-foreground">{groupSubject?.trim() || "Group calendar"} - {weekLabel}</div>
           </div>
         </div>
 

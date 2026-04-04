@@ -244,6 +244,12 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
     redirect("/dashboard");
   }
 
+  const { data: group } = await supabase
+    .from("groups")
+    .select("name, subject")
+    .eq("id", groupId)
+    .maybeSingle();
+
   const rawWeekOffset = Array.isArray(resolvedSearchParams?.week) ? resolvedSearchParams.week[0] : resolvedSearchParams?.week;
   const weekOffset = Number.parseInt(rawWeekOffset ?? "0", 10);
   const safeWeekOffset = Number.isNaN(weekOffset) ? 0 : weekOffset;
@@ -314,6 +320,8 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         freeWindows={freeWindows}
         deadlines={deadlineData}
         groupId={groupId}
+        groupName={group?.name ?? "Circle"}
+        groupSubject={group?.subject ?? null}
         weekOffset={safeWeekOffset}
       />
     </div>
