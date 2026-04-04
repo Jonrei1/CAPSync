@@ -308,9 +308,10 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
       <div className="mx-auto flex w-full justify-start px-4 sm:px-6">
         <Link
           href="/dashboard"
-          className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-[0.8rem] font-medium whitespace-nowrap text-foreground transition-all hover:bg-muted hover:text-foreground"
+          className="inline-flex h-7 items-center justify-center rounded-md border border-border bg-background px-2.5 text-xs font-medium whitespace-nowrap text-foreground transition-all hover:bg-muted hover:text-foreground"
         >
-          Back to dashboard
+          <span className="mr-1" aria-hidden="true">&larr;</span>
+          Back
         </Link>
       </div>
 
