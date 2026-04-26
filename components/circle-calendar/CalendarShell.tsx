@@ -244,6 +244,7 @@ export default function CalendarShell({
     () => new Map(members.map((member) => [member.id, member] as const)),
     [members],
   );
+  const memberIds = useMemo(() => members.map((member) => member.id), [members]);
 
   const visibleMembers = useMemo(
     () => members.filter((member) => visibleMemberSet.has(member.id)),
@@ -327,44 +328,38 @@ export default function CalendarShell({
   }, []);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`circle-calendar:${groupId}`)
-      .on(
+    let channel = supabase.channel(`circle-calendar:${groupId}`);
+
+    for (const memberId of memberIds) {
+      channel = channel.on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "routines",
-          filter: `group_id=eq.${groupId}`,
+          table: "personal_routines",
+          filter: `user_id=eq.${memberId}`,
         },
         () => router.refresh(),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "schedules",
-          filter: `group_id=eq.${groupId}`,
-        },
-        () => router.refresh(),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "routine_exceptions",
-          filter: `group_id=eq.${groupId}`,
-        },
-        () => router.refresh(),
-      )
-      .subscribe();
+      );
+    }
+
+    channel = channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "schedules",
+        filter: `group_id=eq.${groupId}`,
+      },
+      () => router.refresh(),
+    );
+
+    channel.subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [groupId, router]);
+  }, [groupId, memberIds, router]);
 
   function navigateToWeek(nextOffset: number) {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -474,19 +469,23 @@ export default function CalendarShell({
       return;
     }
 
-    const { error } = await supabase.from("personal_routines").insert({
-      user_id: userId,
-      label: newRoutineLabel.trim(),
-      details: "Personal",
-      color: newRoutineColor,
-      days_of_week: newRoutineDays,
-      start_time: newRoutineStart,
-      end_time: newRoutineEnd,
-      is_active: true,
-    });
+    const { data: insertedRoutine, error } = await supabase
+      .from("personal_routines")
+      .insert({
+        user_id: userId,
+        label: newRoutineLabel.trim(),
+        details: "Personal",
+        color: newRoutineColor,
+        days_of_week: newRoutineDays,
+        start_time: newRoutineStart,
+        end_time: newRoutineEnd,
+        is_active: true,
+      })
+      .select("id")
+      .single();
 
-    if (error) {
-      toast({ title: "Failed to save routine" });
+    if (error || !insertedRoutine) {
+      toast({ title: "Failed to save routine", description: error?.message ?? "Insert did not return a row." });
       return;
     }
 

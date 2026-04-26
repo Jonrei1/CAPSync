@@ -258,6 +258,7 @@ create table if not exists personal_routines (
 alter table personal_routines enable row level security;
 
 drop policy if exists "users can view own routines" on personal_routines;
+drop policy if exists "group members can view co-member routines" on personal_routines;
 drop policy if exists "users can create own routines" on personal_routines;
 drop policy if exists "users can update own routines" on personal_routines;
 drop policy if exists "users can delete own routines" on personal_routines;
@@ -266,6 +267,20 @@ create policy "users can view own routines"
 on personal_routines
 for select
 using (user_id = auth.uid());
+
+create policy "group members can view co-member routines"
+on personal_routines
+for select
+using (
+  exists (
+    select 1
+    from public.group_members gm_self
+    join public.group_members gm_owner
+      on gm_self.group_id = gm_owner.group_id
+    where gm_self.member_id = auth.uid()
+      and gm_owner.member_id = personal_routines.user_id
+  )
+);
 
 create policy "users can create own routines"
 on personal_routines

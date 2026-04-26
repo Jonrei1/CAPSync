@@ -490,33 +490,42 @@ export default function MainCalendarPage() {
       return;
     }
 
-    const { error } = await supabase.from("personal_routines").insert({
-      user_id: userId,
-      label: newRoutineLabel,
-      details: "Personal",
-      color: newRoutineColor,
-      days_of_week: newRoutineDays,
-      start_time: newRoutineStart,
-      end_time: newRoutineEnd,
-      is_active: true,
-    });
+    const { data: insertedRoutine, error } = await supabase
+      .from("personal_routines")
+      .insert({
+        user_id: userId,
+        label: newRoutineLabel.trim(),
+        details: "Personal",
+        color: newRoutineColor,
+        days_of_week: newRoutineDays,
+        start_time: newRoutineStart,
+        end_time: newRoutineEnd,
+        is_active: true,
+      })
+      .select("id, label, details, color, days_of_week, start_time, end_time")
+      .single();
 
-    if (error) {
+    if (error || !insertedRoutine) {
       console.error("Error saving routine:", error);
       alert("Failed to save routine");
       return;
     }
 
+    const savedStartParts = insertedRoutine.start_time.split(":").map(Number);
+    const savedEndParts = insertedRoutine.end_time.split(":").map(Number);
+    const savedStartHour = (savedStartParts[0] ?? 0) + (savedStartParts[1] ?? 0) / 60;
+    const savedEndHour = (savedEndParts[0] ?? 0) + (savedEndParts[1] ?? 0) / 60;
+
     setRoutines((current) => [
       ...current,
       {
-        id: `routine-${Date.now()}`,
-        label: newRoutineLabel,
-        sub: "Personal",
-        color: newRoutineColor,
-        days: newRoutineDays,
-        startHour,
-        endHour,
+        id: insertedRoutine.id,
+        label: insertedRoutine.label,
+        sub: insertedRoutine.details ?? "Personal",
+        color: insertedRoutine.color ?? "#374151",
+        days: insertedRoutine.days_of_week,
+        startHour: savedStartHour,
+        endHour: savedEndHour,
       },
     ]);
 

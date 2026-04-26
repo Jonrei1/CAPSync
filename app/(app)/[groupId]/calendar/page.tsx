@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import CalendarShell from "@/components/circle-calendar/CalendarShell";
-import { designTokens } from "@/components/ui/design-standard";
 import { createClient } from "@/lib/supabaseServer";
 import { computeFreeWindows } from "@/lib/schedule/computeFreeWindows";
-import { expandRoutines } from "@/lib/schedule/expandRoutines";
 import { mergeBlocks } from "@/lib/schedule/mergeBlocks";
 import type { CalendarBlock, CalendarDeadline, CalendarMember } from "@/types";
 
@@ -16,18 +14,15 @@ type PageProps = {
 type MemberRow = {
   member_id: string;
   role: string | null;
+  color?: string | null;
   profiles:
     | {
         id: string;
-        name?: string | null;
-        avatar_url?: string | null;
-        color?: string | null;
+        full_name?: string | null;
       }
     | Array<{
         id: string;
-        name?: string | null;
-        avatar_url?: string | null;
-        color?: string | null;
+        full_name?: string | null;
       }>
     | null;
 };
@@ -50,32 +45,19 @@ type DeadlineRow = {
   name?: string | null;
 };
 
-type CalendarRoutineRow = {
-  member_id?: string | null;
-  memberId?: string | null;
+type PersonalRoutineRow = {
+  id: string;
+  user_id: string;
   label?: string | null;
   details?: string | null;
-  sub?: string | null;
-  location?: string | null;
+  color?: string | null;
   days_of_week?: number[] | null;
-  days?: string[] | null;
   start_time?: string | null;
   end_time?: string | null;
-  start_hour?: number | string | null;
-  end_hour?: number | string | null;
-};
-
-type CalendarRoutineExceptionRow = {
-  exception_date?: string | null;
-  day?: string | null;
-  date?: string | null;
 };
 
 const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
-
-function pad(value: number) {
-  return String(value).padStart(2, "0");
-}
+const MEMBER_FALLBACK_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "#ca8a04"] as const;
 
 function startOfWeek(date: Date) {
   const next = new Date(date);
@@ -88,10 +70,6 @@ function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
-}
-
-function toDateKey(date: Date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 function toDayKey(date: Date) {
@@ -171,8 +149,8 @@ function dayFromDateString(value: string | null | undefined) {
 
 function mapMember(row: MemberRow, index: number): CalendarMember {
   const profile = Array.isArray(row.profiles) ? row.profiles[0] ?? null : row.profiles;
-  const rawName = (profile?.name ?? row.member_id ?? "Member").trim();
-  const color = profile?.color ?? designTokens.palette.app.memberSet[index % designTokens.palette.app.memberSet.length];
+  const rawName = (profile?.full_name ?? row.member_id ?? "Member").trim();
+  const color = row.color ?? MEMBER_FALLBACK_COLORS[index % MEMBER_FALLBACK_COLORS.length];
   return {
     id: profile?.id ?? row.member_id,
     name: rawName,
@@ -257,26 +235,72 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
   const weekEnd = addDays(weekStart, 6);
   weekEnd.setHours(23, 59, 59, 999);
 
-  const [membersResult, routinesResult, exceptionsResult, schedulesResult, deadlinesResult] = await Promise.all([
-    supabase
+  const initialMembersResult = await supabase
+    .from("group_members")
+    .select(
+      `
+        member_id,
+        role,
+        color,
+        profiles (
+          id,
+          full_name
+        )
+      `,
+    )
+    .eq("group_id", groupId);
+
+  let membersData = (initialMembersResult.data ?? []) as MemberRow[];
+  let membersError = initialMembersResult.error;
+
+  if (membersError?.message?.includes("column group_members.color does not exist")) {
+    const fallbackMembersResult = await supabase
       .from("group_members")
       .select(
         `
-        member_id,
-        role,
-        profiles (
-          id, name, avatar_url, color
-        )
-      `,
+          member_id,
+          role,
+          profiles (
+            id,
+            full_name
+          )
+        `,
       )
-      .eq("group_id", groupId),
-    supabase.from("routines").select("*").eq("group_id", groupId).eq("is_active", true),
-    supabase
-      .from("routine_exceptions")
-      .select("*")
-      .eq("group_id", groupId)
-      .gte("exception_date", weekStart.toISOString())
-      .lte("exception_date", weekEnd.toISOString()),
+      .eq("group_id", groupId);
+
+    membersData = (fallbackMembersResult.data ?? []) as MemberRow[];
+    membersError = fallbackMembersResult.error;
+  }
+
+  if (membersError) {
+    const bareMembersResult = await supabase
+      .from("group_members")
+      .select("member_id, role")
+      .eq("group_id", groupId);
+
+    membersData = ((bareMembersResult.data ?? []) as Array<{ member_id: string; role: string | null }>).map((row) => ({
+      ...row,
+      profiles: null,
+    }));
+
+    if (bareMembersResult.error) {
+      console.error("[group-calendar] failed to load group members", {
+        groupId,
+        error: bareMembersResult.error.message,
+      });
+    }
+  }
+
+  const memberIds = membersData.map((row) => row.member_id).filter((memberId): memberId is string => Boolean(memberId));
+
+  const [personalRoutinesResult, schedulesResult, deadlinesResult] = await Promise.all([
+    memberIds.length > 0
+      ? supabase
+          .from("personal_routines")
+          .select("id, user_id, label, details, color, days_of_week, start_time, end_time")
+          .in("user_id", memberIds)
+          .eq("is_active", true)
+      : Promise.resolve({ data: [], error: null }),
     supabase
       .from("schedules")
       .select("*")
@@ -291,13 +315,53 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
       .lte("due_date", weekEnd.toISOString()),
   ]);
 
-  const members = ((membersResult.data ?? []) as unknown[]).map((row, index) => mapMember(row as MemberRow, index));
-  const routines = (routinesResult.data ?? []) as CalendarRoutineRow[];
-  const exceptions = (exceptionsResult.data ?? []) as CalendarRoutineExceptionRow[];
+  if (personalRoutinesResult.error) {
+    console.error("[group-calendar] failed to load personal routines", {
+      groupId,
+      memberCount: memberIds.length,
+      error: personalRoutinesResult.error.message,
+    });
+  }
+
+  const members = membersData.map((row, index) => mapMember(row, index));
+  const personalRoutines = (personalRoutinesResult.data ?? []) as PersonalRoutineRow[];
   const schedules = (schedulesResult.data ?? []) as ScheduleRow[];
   const deadlines = (deadlinesResult.data ?? []) as DeadlineRow[];
 
-  const routineBlocks = expandRoutines(routines, exceptions, weekStart, weekEnd);
+  const DAY_KEY_BY_INDEX = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+  type DayKey = (typeof DAY_KEY_BY_INDEX)[number];
+
+  const routineBlocks: CalendarBlock[] = personalRoutines.flatMap((routine) => {
+    const startParts = (routine.start_time ?? "0:00").split(":").map((part) => Number.parseInt(part, 10));
+    const endParts = (routine.end_time ?? "0:00").split(":").map((part) => Number.parseInt(part, 10));
+    const startHour = (startParts[0] ?? 0) + (startParts[1] ?? 0) / 60;
+    const endHour = (endParts[0] ?? 0) + (endParts[1] ?? 0) / 60;
+
+    if (!(endHour > startHour)) {
+      return [];
+    }
+
+    const days = (routine.days_of_week ?? [])
+      .map((dayOfWeek): DayKey | null => DAY_KEY_BY_INDEX[dayOfWeek] ?? null)
+      .filter((dayKey): dayKey is DayKey => dayKey !== null);
+
+    if (days.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        memberId: routine.user_id,
+        days,
+        s: startHour,
+        e: endHour,
+        lbl: routine.label ?? "Routine",
+        sub: routine.details ?? "Personal routine",
+        routine: true,
+      },
+    ];
+  });
+
   const scheduleBlocks = schedules.map(mapSchedule).filter((block): block is CalendarBlock => Boolean(block));
   const blocks = mergeBlocks(routineBlocks, scheduleBlocks);
   const freeWindows = computeFreeWindows(members, blocks, weekStart);
