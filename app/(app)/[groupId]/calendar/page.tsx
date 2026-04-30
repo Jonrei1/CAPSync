@@ -368,17 +368,18 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
   const deadlineData = deadlines.map(mapDeadline).filter((deadline): deadline is CalendarDeadline => Boolean(deadline));
 
   return (
-    <div className="space-y-3">
-      <div className="mx-auto flex w-full justify-start px-4 sm:px-6">
+    <div className="flex h-[calc(100dvh-5.5rem)] flex-col gap-1 md:h-[calc(100dvh-6.5rem)]">
+      <div className="mx-auto flex w-full justify-start px-2 sm:px-3">
         <Link
           href="/dashboard"
-          className="inline-flex h-7 items-center justify-center rounded-md border border-border bg-background px-2.5 text-xs font-medium whitespace-nowrap text-foreground transition-all hover:bg-muted hover:text-foreground"
+          className="ml-5 mb-1 -mt-2 inline-flex h-6 items-center justify-center rounded-md border border-border bg-background px-2 text-[11px] font-medium whitespace-nowrap text-foreground transition-all hover:bg-muted hover:text-foreground"
         >
           <span className="mr-1" aria-hidden="true">&larr;</span>
           Back
         </Link>
       </div>
 
+      <div className="min-h-0 flex-1">
       <CalendarShell
         members={members}
         blocks={blocks}
@@ -389,6 +390,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         groupSubject={group?.subject ?? null}
         weekOffset={safeWeekOffset}
       />
+      </div>
     </div>
   );
 }

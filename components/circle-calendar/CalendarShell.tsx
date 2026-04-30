@@ -507,9 +507,9 @@ export default function CalendarShell({
     });
 
     return (
-      <div className="space-y-3">
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-4 py-3 sm:px-5">
+      <div className="min-h-0 flex-1 flex flex-col">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-3 py-1.5 sm:px-4">
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="icon-sm" onClick={() => navigateToWeek(weekOffset - 1)}>
                 &#8249;
@@ -564,7 +564,7 @@ export default function CalendarShell({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 border-b border-border/70 bg-muted/30 px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/70 bg-muted/30 px-3 py-1.5 sm:px-4">
             <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Members</span>
             <div className="flex flex-1 flex-wrap gap-2">
               {members.map((member) => {
@@ -622,7 +622,7 @@ export default function CalendarShell({
             </div>
           </div>
 
-          <div>
+          <div className="min-h-0 flex-1 overflow-auto">
             {layout === "week" ? (
               <WeekCalendarGrid
                 weekDates={weekDates}
@@ -912,7 +912,7 @@ export default function CalendarShell({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 bg-muted/30 px-4 py-3 text-[10px] text-muted-foreground sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 bg-muted/30 px-3 py-1.5 text-[10px] text-muted-foreground sm:px-4">
             <div className="flex flex-wrap items-center gap-3">
               <span className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-sm bg-[repeating-linear-gradient(45deg,#c7d2fe,#c7d2fe_2px,#818cf8_2px,#818cf8_4px)]" />
@@ -959,10 +959,10 @@ export default function CalendarShell({
   ]);
 
   return (
-    <div className={cn(ds.layout.page, "max-w-none space-y-3 py-0")}>
-      <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm">
+    <div className={cn(ds.layout.page, "max-w-none flex h-full flex-col gap-2 py-0")}>
+      <header className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border/70 bg-card p-2 shadow-sm sm:p-3">
+        <div className="flex items-start gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground shadow-sm">
             {groupName
               .split(/\s+/)
               .filter(Boolean)
@@ -973,7 +973,7 @@ export default function CalendarShell({
               .toUpperCase() || "GC"}
           </div>
           <div>
-            <div className="text-lg font-semibold tracking-tight text-foreground">{groupName}</div>
+            <div className="text-sm font-semibold tracking-tight text-foreground">{groupName}</div>
             <div className="text-[11px] text-muted-foreground">{groupSubject?.trim() || "Group calendar"} - {weekLabel}</div>
           </div>
         </div>
@@ -990,14 +990,14 @@ export default function CalendarShell({
               type="button"
               onClick={() => setLayout(item.key as Layout)}
               className={cn(
-                "flex min-w-21 flex-col items-center gap-1 rounded-xl border px-3 py-2 text-center transition-all duration-150",
+                "flex min-w-16 flex-col items-center gap-0.5 rounded-lg border px-2 py-1 text-center transition-all duration-150",
                 layout === item.key
                   ? "border-primary bg-primary text-primary-foreground shadow-sm"
                   : "border-border/70 bg-background text-muted-foreground hover:-translate-y-0.5 hover:border-border hover:text-foreground",
               )}
             >
-              <span className="text-sm leading-none">{item.icon}</span>
-              <span className="text-[11px] font-medium">{item.label}</span>
+              <span className="text-xs leading-none">{item.icon}</span>
+              <span className="text-[10px] font-medium">{item.label}</span>
               <span className={cn("text-[9px]", layout === item.key ? "text-primary-foreground/70" : "text-muted-foreground")}>
                 {item.hint}
               </span>
