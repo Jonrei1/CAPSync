@@ -22,6 +22,10 @@ export type CalendarGridEvent = {
   variant?: "solid" | "pattern" | "window";
   tooltip?: FloatingTooltipContent;
   onClick?: () => void;
+  isRoutine?: boolean;
+  isSchedule?: boolean;
+  routineId?: string;
+  occurrenceDate?: string;
 };
 
 export type CalendarGridBadge = {
@@ -45,6 +49,13 @@ type WeekCalendarGridProps = {
   tooltipTitleClassName?: string;
   tooltipRowClassName?: string;
   tooltipDotClassName?: string;
+  onRoutineAction?: (
+    routineId: string,
+    action: "edit" | "delete",
+    occurrenceDate: string,
+    dayIndex: number,
+  ) => void;
+  onScheduleAction?: (scheduleId: string, action: "edit" | "delete") => void;
 };
 
 type LayoutEvent = CalendarGridEvent & {
@@ -213,8 +224,11 @@ export default function WeekCalendarGrid({
   tooltipTitleClassName,
   tooltipRowClassName,
   tooltipDotClassName,
+  onRoutineAction,
+  onScheduleAction,
 }: WeekCalendarGridProps) {
   const [hoverTooltip, setHoverTooltip] = useState<FloatingTooltipContent | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const tooltipElementRef = useRef<HTMLDivElement | null>(null);
   const tooltipRafRef = useRef<number | null>(null);
   const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -245,6 +259,78 @@ export default function WeekCalendarGrid({
       }
     };
   }, []);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target;
+      if (target instanceof Element && !target.closest(`.${styles.eventMenu}`) && !target.closest(`.${styles.eventMenuBtn}`)) {
+        setOpenMenuId(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, []);
+
+  function eventMenu(event: CalendarGridEvent) {
+    if (!event.isRoutine && !event.isSchedule) {
+      return null;
+    }
+
+    return (
+      <div>
+        <button
+          type="button"
+          className={styles.eventMenuBtn}
+          onClick={(mouseEvent) => {
+            mouseEvent.stopPropagation();
+            setOpenMenuId((current) => (current === event.id ? null : event.id));
+          }}
+          aria-label="Open event menu"
+        >
+          ⋯
+        </button>
+        {openMenuId === event.id ? (
+          <div className={styles.eventMenu}>
+            <button
+              type="button"
+              className={styles.eventMenuItem}
+              onClick={(mouseEvent) => {
+                mouseEvent.stopPropagation();
+                setOpenMenuId(null);
+                if (event.isRoutine && event.routineId && event.occurrenceDate && onRoutineAction) {
+                  onRoutineAction(event.routineId, "edit", event.occurrenceDate, event.dayIndex);
+                }
+                if (event.isSchedule && onScheduleAction) {
+                  onScheduleAction(event.id, "edit");
+                }
+              }}
+            >
+              {event.isRoutine ? "✏️ Edit routine" : "✏️ Edit schedule"}
+            </button>
+            <button
+              type="button"
+              className={styles.eventMenuItem}
+              onClick={(mouseEvent) => {
+                mouseEvent.stopPropagation();
+                setOpenMenuId(null);
+                if (event.isRoutine && event.routineId && event.occurrenceDate && onRoutineAction) {
+                  onRoutineAction(event.routineId, "delete", event.occurrenceDate, event.dayIndex);
+                }
+                if (event.isSchedule && onScheduleAction) {
+                  onScheduleAction(event.id, "delete");
+                }
+              }}
+            >
+              {event.isRoutine ? "🗑 Delete routine" : "🗑 Delete schedule"}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   function applyTooltipPosition(point: { x: number; y: number }) {
     const element = tooltipElementRef.current;
@@ -385,6 +471,7 @@ export default function WeekCalendarGrid({
                       onMouseMove={tooltip ? trackTooltip : undefined}
                       onMouseLeave={tooltip ? closeTooltip : undefined}
                     >
+                      {eventMenu(event)}
                       <div className={styles.eventInner}>
                         <div className={styles.eventTitle}>{event.title}</div>
                         {event.endHour - event.startHour > 0.85 && event.subtitle ? (
@@ -437,6 +524,7 @@ export default function WeekCalendarGrid({
                       onMouseMove={tooltip ? trackTooltip : undefined}
                       onMouseLeave={tooltip ? closeTooltip : undefined}
                     >
+                      {eventMenu(event)}
                       <div className={styles.eventInner}>
                         <div className={styles.eventTitle}>{event.title}</div>
                         {!event.compact && event.subtitle ? (

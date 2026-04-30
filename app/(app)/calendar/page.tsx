@@ -41,6 +41,34 @@ type RoutineRow = {
   endHour: number;
 };
 
+type RoutineOverride = {
+  id: string;
+  routineId: string;
+  overrideDate: string;
+  label: string | null;
+  color: string | null;
+  startHour: number | null;
+  endHour: number | null;
+  isDeleted: boolean;
+};
+
+type ScheduledBlock = {
+  id: string;
+  label: string;
+  details: string;
+  color: string;
+  scheduledDate: string;
+  startHour: number;
+  endHour: number;
+};
+
+type ScopeTarget = {
+  routineId: string;
+  dayIndex: number;
+  occurrenceDate: string;
+  action: "edit" | "delete";
+};
+
 type Density = "all" | "tasks" | "routines";
 type Layout = "week" | "focus";
 
@@ -144,13 +172,34 @@ export default function MainCalendarPage() {
   const [circles, setCircles] = useState<CircleRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [routines, setRoutines] = useState<RoutineRow[]>([]);
+  const [overrides, setOverrides] = useState<RoutineOverride[]>([]);
+  const [scheduledBlocks, setScheduledBlocks] = useState<ScheduledBlock[]>([]);
   const [visibleCircleIds, setVisibleCircleIds] = useState<string[]>([]);
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showScopeModal, setShowScopeModal] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [scopeTarget, setScopeTarget] = useState<ScopeTarget | null>(null);
+  const [editingRoutine, setEditingRoutine] = useState<RoutineRow | null>(null);
+  const [editScope, setEditScope] = useState<"occurrence" | "all">("all");
+  const [editOccurrenceDate, setEditOccurrenceDate] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editStart, setEditStart] = useState("09:00");
+  const [editEnd, setEditEnd] = useState("10:00");
+  const [editDays, setEditDays] = useState<number[]>([]);
+  const [editColor, setEditColor] = useState(ROUTINE_COLORS[0]);
+  const [editingSchedule, setEditingSchedule] = useState<ScheduledBlock | null>(null);
   const [newRoutineLabel, setNewRoutineLabel] = useState("");
   const [newRoutineStart, setNewRoutineStart] = useState("09:00");
   const [newRoutineEnd, setNewRoutineEnd] = useState("10:00");
   const [newRoutineDays, setNewRoutineDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [newRoutineColor, setNewRoutineColor] = useState(ROUTINE_COLORS[0]);
+  const [newScheduleLabel, setNewScheduleLabel] = useState("");
+  const [newScheduleDate, setNewScheduleDate] = useState(() => formatDay(getPhilippineNow()));
+  const [newScheduleStart, setNewScheduleStart] = useState("09:00");
+  const [newScheduleEnd, setNewScheduleEnd] = useState("10:00");
+  const [newScheduleColor, setNewScheduleColor] = useState(ROUTINE_COLORS[0]);
+  const [newScheduleDetails, setNewScheduleDetails] = useState("");
   const [now, setNow] = useState(() => new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
@@ -262,6 +311,60 @@ export default function MainCalendarPage() {
   useEffect(() => {
     let mounted = true;
 
+    async function loadOverrides() {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+
+      if (!userId) {
+        if (mounted) {
+          setOverrides([]);
+        }
+        return;
+      }
+
+      const start = formatDay(weekDates[0]);
+      const end = formatDay(weekDates[6]);
+
+      const { data } = await supabase
+        .from("routine_overrides")
+        .select("id, routine_id, override_date, label, color, start_time, end_time, is_deleted")
+        .eq("user_id", userId)
+        .gte("override_date", start)
+        .lte("override_date", end);
+
+      if (!mounted) {
+        return;
+      }
+
+      const mappedOverrides = (data ?? []).map((row) => {
+        const startParts = row.start_time?.split(":").map(Number) ?? [];
+        const endParts = row.end_time?.split(":").map(Number) ?? [];
+        return {
+          id: row.id,
+          routineId: row.routine_id,
+          overrideDate: row.override_date,
+          label: row.label ?? null,
+          color: row.color ?? null,
+          startHour:
+            startParts.length >= 2 ? (startParts[0] ?? 0) + (startParts[1] ?? 0) / 60 : null,
+          endHour: endParts.length >= 2 ? (endParts[0] ?? 0) + (endParts[1] ?? 0) / 60 : null,
+          isDeleted: row.is_deleted,
+        } satisfies RoutineOverride;
+      });
+
+      setOverrides(mappedOverrides);
+    }
+
+    void loadOverrides();
+
+    return () => {
+      mounted = false;
+    };
+  }, [weekDates]);
+
+  useEffect(() => {
+    let mounted = true;
+
     async function loadTasks() {
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id;
@@ -276,19 +379,44 @@ export default function MainCalendarPage() {
       const start = formatDay(weekDates[0]);
       const end = formatDay(weekDates[6]);
 
-      const { data } = await supabase
-        .from("tasks")
-        .select("id, title, due_date, status, group_id, starts_at, ends_at")
-        .eq("assigned_to", userId)
-        .gte("due_date", start)
-        .lte("due_date", end)
-        .order("due_date", { ascending: true });
+      const [tasksResult, schedulesResult] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("id, title, due_date, status, group_id, starts_at, ends_at")
+          .eq("assigned_to", userId)
+          .gte("due_date", start)
+          .lte("due_date", end)
+          .order("due_date", { ascending: true }),
+        supabase
+          .from("scheduled_blocks")
+          .select("id, label, details, color, scheduled_date, start_time, end_time")
+          .eq("user_id", userId)
+          .gte("scheduled_date", start)
+          .lte("scheduled_date", end),
+      ]);
 
       if (!mounted) {
         return;
       }
 
-      setTasks((data as TaskRow[]) ?? []);
+      setTasks((tasksResult.data as TaskRow[]) ?? []);
+
+      const mappedSchedules = (schedulesResult.data ?? []).map((row) => {
+        const startParts = row.start_time.split(":").map(Number);
+        const endParts = row.end_time.split(":").map(Number);
+
+        return {
+          id: row.id,
+          label: row.label,
+          details: row.details ?? "",
+          color: row.color ?? "#374151",
+          scheduledDate: row.scheduled_date,
+          startHour: (startParts[0] ?? 0) + (startParts[1] ?? 0) / 60,
+          endHour: (endParts[0] ?? 0) + (endParts[1] ?? 0) / 60,
+        } satisfies ScheduledBlock;
+      });
+
+      setScheduledBlocks(mappedSchedules);
     }
 
     void loadTasks();
@@ -335,27 +463,46 @@ export default function MainCalendarPage() {
     }
 
     return routines.flatMap((routine) =>
-      routine.days.map((dayIndex) => ({
-        id: `${routine.id}-${dayIndex}`,
-        dayIndex,
-        startHour: routine.startHour,
-        endHour: routine.endHour,
-        title: routine.label,
-        subtitle: routine.sub,
-        color: routine.color,
-        tag: "Personal",
-        variant: "pattern",
-        tooltip: {
-          title: routine.label,
-          rows: [
-            { dot: routine.color, text: routine.sub },
-            { text: `${formatTooltipTime(routine.startHour)} - ${formatTooltipTime(routine.endHour)}` },
-            { text: "Recurring routine" },
-          ],
-        },
-      })),
+      routine.days.flatMap((dayIndex) => {
+        const occurrenceDate = formatDay(weekDates[dayIndex]);
+        const override = overrides.find(
+          (entry) => entry.routineId === routine.id && entry.overrideDate === occurrenceDate,
+        );
+
+        if (override?.isDeleted) {
+          return [];
+        }
+
+        const title = override?.label ?? routine.label;
+        const color = override?.color ?? routine.color;
+        const startHour = override?.startHour ?? routine.startHour;
+        const endHour = override?.endHour ?? routine.endHour;
+
+        return {
+          id: `${routine.id}-${occurrenceDate}`,
+          routineId: routine.id,
+          isRoutine: true,
+          occurrenceDate,
+          dayIndex,
+          startHour,
+          endHour,
+          title,
+          subtitle: routine.sub,
+          color,
+          tag: "Personal",
+          variant: "pattern",
+          tooltip: {
+            title,
+            rows: [
+              { dot: color, text: routine.sub },
+              { text: `${formatTooltipTime(startHour)} - ${formatTooltipTime(endHour)}` },
+              { text: "Recurring routine" },
+            ],
+          },
+        } satisfies CalendarGridEvent;
+      }),
     );
-  }, [density, routines]);
+  }, [density, overrides, routines, weekDates]);
 
   const taskEvents = useMemo<CalendarGridEvent[]>(() => {
     if (density === "routines") {
@@ -423,6 +570,39 @@ export default function MainCalendarPage() {
 
     return events;
   }, [circleMap, dayIndexByKey, density, visibleTasks]);
+
+  const scheduleEvents = useMemo<CalendarGridEvent[]>(() => {
+    return scheduledBlocks
+      .map((block) => {
+        const dayIndex = dayIndexByKey.get(block.scheduledDate);
+        if (dayIndex === undefined) {
+          return null;
+        }
+
+        return {
+          id: block.id,
+          dayIndex,
+          startHour: block.startHour,
+          endHour: block.endHour,
+          title: block.label,
+          subtitle: block.details || "One-off · does not repeat",
+          color: block.color,
+          tag: "Schedule",
+          variant: "solid",
+          isSchedule: true,
+          occurrenceDate: block.scheduledDate,
+          tooltip: {
+            title: block.label,
+            rows: [
+              { text: block.details || "One-off schedule" },
+              { text: `${formatTooltipTime(block.startHour)} - ${formatTooltipTime(block.endHour)}` },
+              { text: "One-off · does not repeat" },
+            ],
+          },
+        } satisfies CalendarGridEvent;
+      })
+      .filter(Boolean) as CalendarGridEvent[];
+  }, [dayIndexByKey, scheduledBlocks]);
 
   function syncCalendarDate(nextDate: Date) {
     const normalized = new Date(nextDate);
@@ -530,6 +710,390 @@ export default function MainCalendarPage() {
     }
   }
 
+  function handleEditStartChange(nextValue: string) {
+    setEditStart(nextValue);
+    const nextStartMinutes = parseTimeMinutes(nextValue);
+    const currentEndMinutes = parseTimeMinutes(editEnd);
+
+    if (currentEndMinutes <= nextStartMinutes) {
+      setEditEnd(toTimeInputValue(nextStartMinutes + 60));
+    }
+  }
+
+  function openEditForOccurrence(target: ScopeTarget) {
+    const routine = routines.find((entry) => entry.id === target.routineId);
+    if (!routine) {
+      return;
+    }
+
+    const existing = overrides.find(
+      (entry) =>
+        entry.routineId === target.routineId && entry.overrideDate === target.occurrenceDate,
+    );
+
+    setEditingRoutine(routine);
+    setEditOccurrenceDate(target.occurrenceDate);
+    setEditLabel(existing?.label ?? routine.label);
+    setEditColor(existing?.color ?? routine.color);
+    setEditStart(toTimeInputValue((existing?.startHour ?? routine.startHour) * 60));
+    setEditEnd(toTimeInputValue((existing?.endHour ?? routine.endHour) * 60));
+    setEditDays([]);
+    setEditScope("occurrence");
+    setShowEditDialog(true);
+  }
+
+  function openEditForAll(routineId: string) {
+    const routine = routines.find((entry) => entry.id === routineId);
+    if (!routine) {
+      return;
+    }
+
+    setEditingRoutine(routine);
+    setEditOccurrenceDate(null);
+    setEditLabel(routine.label);
+    setEditColor(routine.color);
+    setEditStart(toTimeInputValue(routine.startHour * 60));
+    setEditEnd(toTimeInputValue(routine.endHour * 60));
+    setEditDays(routine.days);
+    setEditScope("all");
+    setShowEditDialog(true);
+  }
+
+  async function updateRoutine() {
+    if (!editingRoutine) {
+      return;
+    }
+
+    if (!editLabel.trim()) {
+      alert("Please enter a routine name");
+      return;
+    }
+
+    if (editScope === "all" && editDays.length === 0) {
+      alert("Please select at least one day");
+      return;
+    }
+
+    const startMinutes = parseTimeMinutes(editStart);
+    const endMinutes = parseTimeMinutes(editEnd);
+    if (endMinutes <= startMinutes) {
+      alert("End time must be later than start time");
+      return;
+    }
+
+    if (editScope === "all") {
+      const { error } = await supabase
+        .from("personal_routines")
+        .update({
+          label: editLabel.trim(),
+          color: editColor,
+          days_of_week: editDays,
+          start_time: editStart,
+          end_time: editEnd,
+        })
+        .eq("id", editingRoutine.id);
+
+      if (error) {
+        alert("Failed to update routine.");
+        return;
+      }
+
+      setRoutines((previous) =>
+        previous.map((routine) =>
+          routine.id === editingRoutine.id
+            ? {
+                ...routine,
+                label: editLabel.trim(),
+                color: editColor,
+                days: editDays,
+                startHour: startMinutes / 60,
+                endHour: endMinutes / 60,
+              }
+            : routine,
+        ),
+      );
+    } else {
+      if (!editOccurrenceDate) {
+        return;
+      }
+
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) {
+        return;
+      }
+
+      const { data: upserted, error } = await supabase
+        .from("routine_overrides")
+        .upsert(
+          {
+            routine_id: editingRoutine.id,
+            user_id: userId,
+            override_date: editOccurrenceDate,
+            label: editLabel.trim(),
+            color: editColor,
+            start_time: editStart,
+            end_time: editEnd,
+            is_deleted: false,
+          },
+          { onConflict: "routine_id,override_date" },
+        )
+        .select("id")
+        .single();
+
+      if (error || !upserted) {
+        alert("Failed to update occurrence.");
+        return;
+      }
+
+      setOverrides((previous) => {
+        const exists = previous.some(
+          (entry) =>
+            entry.routineId === editingRoutine.id && entry.overrideDate === editOccurrenceDate,
+        );
+
+        const next: RoutineOverride = {
+          id: upserted.id,
+          routineId: editingRoutine.id,
+          overrideDate: editOccurrenceDate,
+          label: editLabel.trim(),
+          color: editColor,
+          startHour: startMinutes / 60,
+          endHour: endMinutes / 60,
+          isDeleted: false,
+        };
+
+        return exists
+          ? previous.map((entry) =>
+              entry.routineId === editingRoutine.id && entry.overrideDate === editOccurrenceDate
+                ? next
+                : entry,
+            )
+          : [...previous, next];
+      });
+    }
+
+    setShowEditDialog(false);
+    setEditingRoutine(null);
+    setEditOccurrenceDate(null);
+  }
+
+  async function deleteOccurrence(target: ScopeTarget) {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) {
+      return;
+    }
+
+    const { data: upserted, error } = await supabase
+      .from("routine_overrides")
+      .upsert(
+        {
+          routine_id: target.routineId,
+          user_id: userId,
+          override_date: target.occurrenceDate,
+          is_deleted: true,
+        },
+        { onConflict: "routine_id,override_date" },
+      )
+      .select("id")
+      .single();
+
+    if (error || !upserted) {
+      alert("Failed to remove occurrence.");
+      return;
+    }
+
+    setOverrides((previous) => {
+      const exists = previous.some(
+        (entry) =>
+          entry.routineId === target.routineId && entry.overrideDate === target.occurrenceDate,
+      );
+
+      const next: RoutineOverride = {
+        id: upserted.id,
+        routineId: target.routineId,
+        overrideDate: target.occurrenceDate,
+        label: null,
+        color: null,
+        startHour: null,
+        endHour: null,
+        isDeleted: true,
+      };
+
+      return exists
+        ? previous.map((entry) =>
+            entry.routineId === target.routineId && entry.overrideDate === target.occurrenceDate
+              ? next
+              : entry,
+          )
+        : [...previous, next];
+    });
+  }
+
+  async function deleteAllOccurrences(routineId: string) {
+    const confirmed = window.confirm(
+      "This will permanently delete the entire recurring routine. Continue?",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const { error } = await supabase.from("personal_routines").delete().eq("id", routineId);
+    if (error) {
+      alert("Failed to delete routine.");
+      return;
+    }
+
+    setRoutines((previous) => previous.filter((routine) => routine.id !== routineId));
+    setOverrides((previous) => previous.filter((entry) => entry.routineId !== routineId));
+  }
+
+  function resetScheduleForm() {
+    setEditingSchedule(null);
+    setNewScheduleLabel("");
+    setNewScheduleDetails("");
+    setNewScheduleDate(formatDay(getPhilippineNow()));
+    setNewScheduleStart("09:00");
+    setNewScheduleEnd("10:00");
+    setNewScheduleColor(ROUTINE_COLORS[0]);
+  }
+
+  function openScheduleDialogForCreate() {
+    resetScheduleForm();
+    setShowScheduleDialog(true);
+  }
+
+  function openScheduleDialogForEdit(block: ScheduledBlock) {
+    setEditingSchedule(block);
+    setNewScheduleLabel(block.label);
+    setNewScheduleDetails(block.details);
+    setNewScheduleDate(block.scheduledDate);
+    setNewScheduleStart(toTimeInputValue(block.startHour * 60));
+    setNewScheduleEnd(toTimeInputValue(block.endHour * 60));
+    setNewScheduleColor(block.color);
+    setShowScheduleDialog(true);
+  }
+
+  async function saveSchedule() {
+    if (!newScheduleLabel.trim()) {
+      alert("Please enter an activity name.");
+      return;
+    }
+
+    if (!newScheduleDate) {
+      alert("Please select a date.");
+      return;
+    }
+
+    const startMinutes = parseTimeMinutes(newScheduleStart);
+    const endMinutes = parseTimeMinutes(newScheduleEnd);
+    if (endMinutes <= startMinutes) {
+      alert("End time must be later than start time.");
+      return;
+    }
+
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) {
+      return;
+    }
+
+    if (editingSchedule) {
+      const { error } = await supabase
+        .from("scheduled_blocks")
+        .update({
+          label: newScheduleLabel.trim(),
+          details: newScheduleDetails.trim() || null,
+          color: newScheduleColor,
+          scheduled_date: newScheduleDate,
+          start_time: newScheduleStart,
+          end_time: newScheduleEnd,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingSchedule.id);
+
+      if (error) {
+        alert("Failed to update schedule.");
+        return;
+      }
+
+      setScheduledBlocks((previous) => {
+        const inWeek = dayIndexByKey.has(newScheduleDate);
+        if (!inWeek) {
+          return previous.filter((block) => block.id !== editingSchedule.id);
+        }
+
+        return previous.map((block) =>
+          block.id === editingSchedule.id
+            ? {
+                id: block.id,
+                label: newScheduleLabel.trim(),
+                details: newScheduleDetails.trim(),
+                color: newScheduleColor,
+                scheduledDate: newScheduleDate,
+                startHour: startMinutes / 60,
+                endHour: endMinutes / 60,
+              }
+            : block,
+        );
+      });
+    } else {
+      const { data: inserted, error } = await supabase
+        .from("scheduled_blocks")
+        .insert({
+          user_id: userId,
+          label: newScheduleLabel.trim(),
+          details: newScheduleDetails.trim() || null,
+          color: newScheduleColor,
+          scheduled_date: newScheduleDate,
+          start_time: newScheduleStart,
+          end_time: newScheduleEnd,
+        })
+        .select("id")
+        .single();
+
+      if (error || !inserted) {
+        alert("Failed to save schedule.");
+        return;
+      }
+
+      const dayIndex = dayIndexByKey.get(newScheduleDate);
+      if (dayIndex !== undefined) {
+        setScheduledBlocks((previous) => [
+          ...previous,
+          {
+            id: inserted.id,
+            label: newScheduleLabel.trim(),
+            details: newScheduleDetails.trim(),
+            color: newScheduleColor,
+            scheduledDate: newScheduleDate,
+            startHour: startMinutes / 60,
+            endHour: endMinutes / 60,
+          },
+        ]);
+      }
+    }
+
+    setShowScheduleDialog(false);
+    resetScheduleForm();
+  }
+
+  async function deleteSchedule(blockId: string) {
+    const confirmed = window.confirm("Remove this scheduled activity?");
+    if (!confirmed) {
+      return;
+    }
+
+    const { error } = await supabase.from("scheduled_blocks").delete().eq("id", blockId);
+    if (error) {
+      alert("Failed to delete.");
+      return;
+    }
+
+    setScheduledBlocks((previous) => previous.filter((block) => block.id !== blockId));
+  }
+
   return (
     <div className={styles.page}>
       <header className={styles.appBar}>
@@ -592,7 +1156,9 @@ export default function MainCalendarPage() {
           </div>
 
           <div className={styles.toolbarRow}>
-            <button className={`${styles.btn} ${styles.btnOutline}`}>Import schedule</button>
+            <button className={`${styles.btn} ${styles.btnOutline}`} onClick={openScheduleDialogForCreate}>
+              + Add schedule
+            </button>
             <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => setShowRoutineDialog(true)}>+ Add routine</button>
           </div>
         </div>
@@ -666,9 +1232,25 @@ export default function MainCalendarPage() {
         {layout === "week" ? (
           <WeekCalendarGrid
             weekDates={weekDates}
-            foregroundEvents={taskEvents}
+            foregroundEvents={[...taskEvents, ...scheduleEvents]}
             backgroundEvents={routineEvents}
             now={now}
+            onRoutineAction={(routineId, action, occurrenceDate, dayIndex) => {
+              setScopeTarget({ routineId, action, occurrenceDate, dayIndex });
+              setShowScopeModal(true);
+            }}
+            onScheduleAction={(blockId, action) => {
+              if (action === "delete") {
+                void deleteSchedule(blockId);
+              }
+
+              if (action === "edit") {
+                const block = scheduledBlocks.find((entry) => entry.id === blockId);
+                if (block) {
+                  openScheduleDialogForEdit(block);
+                }
+              }
+            }}
             tooltipClassName={ds.calendar.tooltip}
             tooltipTitleClassName={ds.calendar.tooltipTitle}
             tooltipRowClassName={ds.calendar.tooltipRow}
@@ -865,6 +1447,378 @@ export default function MainCalendarPage() {
               </Button>
               <Button type="button" onClick={() => void saveRoutine()} className="cursor-pointer">
                 Save routine
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditDialog && editingRoutine && (
+        <div className={styles.modalOverlay} onClick={() => setShowEditDialog(false)}>
+          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className={styles.modalClose}
+              onClick={() => setShowEditDialog(false)}
+              aria-label="Close dialog"
+            >
+              ×
+            </button>
+
+            <div className={styles.modalHeader}>
+              <div className={styles.modalBadge}>Routine Setup</div>
+              <h2 className={styles.modalTitle}>Edit routine</h2>
+              <p className={styles.modalDesc}>
+                Update this recurring routine or just one occurrence based on your selected scope.
+              </p>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.modalField}>
+                <label htmlFor="edit-routine-label" className={styles.modalLabel}>
+                  Routine name
+                </label>
+                <input
+                  id="edit-routine-label"
+                  type="text"
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  placeholder="e.g., Morning run"
+                  className={styles.modalInput}
+                />
+              </div>
+
+              <div className={styles.modalGrid}>
+                <div className={styles.modalField}>
+                  <label htmlFor="edit-routine-start" className={styles.modalLabel}>
+                    Start time
+                  </label>
+                  <Input
+                    type="time"
+                    id="edit-routine-start"
+                    step={60}
+                    value={editStart}
+                    onChange={(event) => handleEditStartChange(event.target.value)}
+                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    min="00:00"
+                    max="23:59"
+                    required
+                  />
+                </div>
+
+                <div className={styles.modalField}>
+                  <label htmlFor="edit-routine-end" className={styles.modalLabel}>
+                    End time
+                  </label>
+                  <Input
+                    id="edit-routine-end"
+                    type="time"
+                    value={editEnd}
+                    onChange={(event) => setEditEnd(event.target.value)}
+                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    min="00:00"
+                    max="23:59"
+                    step={60}
+                    required
+                  />
+                </div>
+              </div>
+
+              {editScope === "all" && (
+                <div className={styles.modalField}>
+                  <label className={styles.modalLabel}>Days</label>
+                  <div className={styles.dayButtons}>
+                    {WEEK_DAYS.map((day, idx) => {
+                      const active = editDays.includes(idx);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => {
+                            setEditDays((current) =>
+                              current.includes(idx)
+                                ? current.filter((selectedDay) => selectedDay !== idx)
+                                : [...current, idx],
+                            );
+                          }}
+                          className={`${styles.dayBtn} ${active ? styles.dayBtnActive : ""}`}
+                        >
+                          {day.slice(0, 3)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {editScope === "occurrence" && (
+                <div className={styles.modalField}>
+                  <label className={styles.modalLabel}>Editing occurrence</label>
+                  <p style={{ fontSize: 12, color: "#6b7280", margin: 0 }}>
+                    Changes apply to <strong>{editOccurrenceDate}</strong> only. Other days of this
+                    routine are not affected.
+                  </p>
+                </div>
+              )}
+
+              <div className={styles.modalField}>
+                <label htmlFor="edit-routine-color" className={styles.modalLabel}>
+                  Routine color
+                </label>
+                <div className={styles.dashboardColorRow}>
+                  <input
+                    id="edit-routine-color"
+                    type="color"
+                    value={editColor}
+                    onChange={(e) => setEditColor(e.target.value)}
+                    className={styles.dashboardColorInput}
+                    aria-label="Choose routine color"
+                  />
+                  {ROUTINE_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setEditColor(color)}
+                      className={`${styles.dashboardColorSwatch} ${
+                        editColor === color ? styles.dashboardColorSwatchActive : ""
+                      }`}
+                      style={{ backgroundColor: color }}
+                      aria-label={`Pick routine color ${color}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)} className="cursor-pointer">
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void updateRoutine()} className="cursor-pointer">
+                Save changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showScopeModal && scopeTarget && (
+        <div className={styles.modalOverlay} onClick={() => setShowScopeModal(false)}>
+          <div className={styles.modalCard} style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <button type="button" className={styles.modalClose} onClick={() => setShowScopeModal(false)}>
+              ×
+            </button>
+
+            <div className={styles.modalHeader}>
+              <div className={styles.modalBadge}>
+                {scopeTarget.action === "edit" ? "Edit Routine" : "Delete Routine"}
+              </div>
+              <h2 className={styles.modalTitle}>
+                {scopeTarget.action === "edit"
+                  ? "What would you like to edit?"
+                  : "What would you like to delete?"}
+              </h2>
+              <p className={styles.modalDesc}>
+                {scopeTarget.action === "edit"
+                  ? "Choose whether to edit only this day's occurrence or update the entire recurring routine."
+                  : "Choose whether to remove only this day's occurrence or delete the entire recurring routine."}
+              </p>
+            </div>
+
+            <div className={styles.modalActions} style={{ flexDirection: "column", gap: 8 }}>
+              <Button
+                type="button"
+                variant="outline"
+                className="cursor-pointer w-full justify-start"
+                onClick={() => {
+                  setShowScopeModal(false);
+                  if (scopeTarget.action === "edit") {
+                    openEditForOccurrence(scopeTarget);
+                  } else {
+                    void deleteOccurrence(scopeTarget);
+                  }
+                }}
+              >
+                <span style={{ fontWeight: 600 }}>This occurrence only</span>
+                <span style={{ fontSize: 11, color: "#6b7280", marginLeft: 6 }}>
+                  - {scopeTarget.occurrenceDate}
+                </span>
+              </Button>
+
+              <Button
+                type="button"
+                className={`cursor-pointer w-full justify-start ${
+                  scopeTarget.action === "delete" ? "bg-red-600 hover:bg-red-700" : ""
+                }`}
+                onClick={() => {
+                  setShowScopeModal(false);
+                  if (scopeTarget.action === "edit") {
+                    openEditForAll(scopeTarget.routineId);
+                  } else {
+                    void deleteAllOccurrences(scopeTarget.routineId);
+                  }
+                }}
+              >
+                <span style={{ fontWeight: 600 }}>All occurrences</span>
+                <span style={{ fontSize: 11, opacity: 0.75, marginLeft: 6 }}>
+                  - entire recurring routine
+                </span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowScopeModal(false)}
+                className="cursor-pointer"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showScheduleDialog && (
+        <div
+          className={styles.modalOverlay}
+          onClick={() => {
+            setShowScheduleDialog(false);
+            resetScheduleForm();
+          }}
+        >
+          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className={styles.modalClose}
+              onClick={() => {
+                setShowScheduleDialog(false);
+                resetScheduleForm();
+              }}
+            >
+              ×
+            </button>
+
+            <div className={styles.modalHeader}>
+              <div className={styles.modalBadge}>One-off Schedule</div>
+              <h2 className={styles.modalTitle}>{editingSchedule ? "Edit schedule" : "Add schedule"}</h2>
+              <p className={styles.modalDesc}>
+                Add a one-time activity block to a specific date. It will not repeat on other weeks.
+              </p>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.modalField}>
+                <label htmlFor="sched-label" className={styles.modalLabel}>Activity name</label>
+                <input
+                  id="sched-label"
+                  type="text"
+                  value={newScheduleLabel}
+                  onChange={(e) => setNewScheduleLabel(e.target.value)}
+                  placeholder="e.g., Doctor's appointment"
+                  className={styles.modalInput}
+                />
+              </div>
+
+              <div className={styles.modalField}>
+                <label htmlFor="sched-details" className={styles.modalLabel}>Details (optional)</label>
+                <input
+                  id="sched-details"
+                  type="text"
+                  value={newScheduleDetails}
+                  onChange={(e) => setNewScheduleDetails(e.target.value)}
+                  placeholder="e.g., Clinic visit"
+                  className={styles.modalInput}
+                />
+              </div>
+
+              <div className={styles.modalField}>
+                <label htmlFor="sched-date" className={styles.modalLabel}>Date</label>
+                <input
+                  id="sched-date"
+                  type="date"
+                  value={newScheduleDate}
+                  onChange={(e) => setNewScheduleDate(e.target.value)}
+                  className={styles.modalInput}
+                />
+              </div>
+
+              <div className={styles.modalGrid}>
+                <div className={styles.modalField}>
+                  <label htmlFor="sched-start" className={styles.modalLabel}>Start time</label>
+                  <Input
+                    type="time"
+                    id="sched-start"
+                    step={60}
+                    value={newScheduleStart}
+                    onChange={(e) => {
+                      setNewScheduleStart(e.target.value);
+                      const startMinutes = parseTimeMinutes(e.target.value);
+                      if (parseTimeMinutes(newScheduleEnd) <= startMinutes) {
+                        setNewScheduleEnd(toTimeInputValue(startMinutes + 60));
+                      }
+                    }}
+                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    min="00:00"
+                    max="23:59"
+                    required
+                  />
+                </div>
+                <div className={styles.modalField}>
+                  <label htmlFor="sched-end" className={styles.modalLabel}>End time</label>
+                  <Input
+                    id="sched-end"
+                    type="time"
+                    value={newScheduleEnd}
+                    onChange={(e) => setNewScheduleEnd(e.target.value)}
+                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    min="00:00"
+                    max="23:59"
+                    step={60}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className={styles.modalField}>
+                <label htmlFor="sched-color" className={styles.modalLabel}>Color</label>
+                <div className={styles.dashboardColorRow}>
+                  <input
+                    id="sched-color"
+                    type="color"
+                    value={newScheduleColor}
+                    onChange={(e) => setNewScheduleColor(e.target.value)}
+                    className={styles.dashboardColorInput}
+                  />
+                  {ROUTINE_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setNewScheduleColor(color)}
+                      className={`${styles.dashboardColorSwatch} ${
+                        newScheduleColor === color ? styles.dashboardColorSwatchActive : ""
+                      }`}
+                      style={{ backgroundColor: color }}
+                      aria-label={`Pick color ${color}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowScheduleDialog(false);
+                  resetScheduleForm();
+                }}
+                className="cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void saveSchedule()} className="cursor-pointer">
+                {editingSchedule ? "Save changes" : "Add to calendar"}
               </Button>
             </div>
           </div>

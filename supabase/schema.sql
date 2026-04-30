@@ -297,3 +297,52 @@ create policy "users can delete own routines"
 on personal_routines
 for delete
 using (user_id = auth.uid());
+
+-- Stores per-day overrides or deletions for recurring routines.
+create table if not exists routine_overrides (
+  id uuid primary key default gen_random_uuid(),
+  routine_id uuid not null references personal_routines(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  override_date date not null,
+  label text,
+  color text,
+  start_time time,
+  end_time time,
+  is_deleted boolean default false,
+  created_at timestamptz default now(),
+  unique(routine_id, override_date)
+);
+
+alter table routine_overrides enable row level security;
+
+drop policy if exists "users can manage own overrides" on routine_overrides;
+
+create policy "users can manage own overrides"
+on routine_overrides
+for all
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+-- One-off activity blocks tied to a specific date. No recurrence.
+create table if not exists scheduled_blocks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  label text not null,
+  details text,
+  color text default '#374151',
+  scheduled_date date not null,
+  start_time time not null,
+  end_time time not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table scheduled_blocks enable row level security;
+
+drop policy if exists "users can manage own scheduled blocks" on scheduled_blocks;
+
+create policy "users can manage own scheduled blocks"
+on scheduled_blocks
+for all
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
