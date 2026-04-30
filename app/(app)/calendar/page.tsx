@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ChevronDownIcon } from "lucide-react";
 import supabase from "@/lib/supabaseClient";
@@ -9,9 +9,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDesignStandard } from "@/components/ui/design-standard";
-import FloatingTooltip, {
-  type FloatingTooltipContent,
-} from "@/components/calendar/FloatingTooltip";
+import WeekCalendarGrid, {
+  type CalendarGridEvent,
+} from "../../../components/calendar/WeekCalendarGrid";
 import { cn } from "@/lib/utils";
 import styles from "./page.module.css";
 
@@ -44,19 +44,11 @@ type RoutineRow = {
 type Density = "all" | "tasks" | "routines";
 type Layout = "week" | "focus";
 
-const SLOT = 52;
-const START_HOUR = 6;
-const END_HOUR = 23;
+const INPUT_START_HOUR = 0;
+const INPUT_END_HOUR = 23;
 const PH_TIME_ZONE = "Asia/Manila";
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const ROUTINE_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "#ca8a04"];
-
-function formatTime(hour: number) {
-  const h = Math.floor(hour);
-  const period = h >= 12 ? "P" : "A";
-  const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
-  return `${displayH}${period}`;
-}
 
 function formatTooltipTime(hour: number) {
   const normalized = ((hour % 24) + 24) % 24;
@@ -73,44 +65,21 @@ function parseTimeMinutes(value: string) {
   const minutes = Number.parseInt(minutesPart ?? "0", 10);
 
   if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return START_HOUR * 60;
+    return INPUT_START_HOUR * 60;
   }
 
   const totalMinutes = hours * 60 + minutes;
-  const minMinutes = START_HOUR * 60;
-  const maxMinutes = END_HOUR * 60;
+  const minMinutes = INPUT_START_HOUR * 60;
+  const maxMinutes = INPUT_END_HOUR * 60;
 
   return Math.max(minMinutes, Math.min(totalMinutes, maxMinutes));
 }
 
 function toTimeInputValue(totalMinutes: number) {
-  const clamped = Math.max(START_HOUR * 60, Math.min(totalMinutes, END_HOUR * 60));
+  const clamped = Math.max(INPUT_START_HOUR * 60, Math.min(totalMinutes, INPUT_END_HOUR * 60));
   const hours = Math.floor(clamped / 60);
   const minutes = clamped % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
-
-function toRgba(color: string, alpha: number) {
-  const cleaned = color.trim();
-  const fullHex = cleaned.startsWith("#") ? cleaned.slice(1) : cleaned;
-  const normalized =
-    fullHex.length === 3
-      ? `${fullHex[0]}${fullHex[0]}${fullHex[1]}${fullHex[1]}${fullHex[2]}${fullHex[2]}`
-      : fullHex;
-
-  if (normalized.length !== 6) {
-    return `rgba(55, 65, 81, ${alpha})`;
-  }
-
-  const value = Number.parseInt(normalized, 16);
-  if (Number.isNaN(value)) {
-    return `rgba(55, 65, 81, ${alpha})`;
-  }
-
-  const r = (value >> 16) & 255;
-  const g = (value >> 8) & 255;
-  const b = value & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function startOfWeek(date: Date) {
@@ -163,19 +132,6 @@ function getPhilippineNow() {
   return new Date(year, month - 1, day, 12, 0, 0, 0);
 }
 
-function getPhilippineHour(date: Date) {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: PH_TIME_ZONE,
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-  }).formatToParts(date);
-
-  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0");
-  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0");
-  return hour + minute / 60;
-}
-
 export default function MainCalendarPage() {
   const ds = useDesignStandard();
   const [loading, setLoading] = useState(true);
@@ -189,11 +145,6 @@ export default function MainCalendarPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [routines, setRoutines] = useState<RoutineRow[]>([]);
   const [visibleCircleIds, setVisibleCircleIds] = useState<string[]>([]);
-  const [hoverTooltip, setHoverTooltip] = useState<FloatingTooltipContent | null>(null);
-  const tooltipElementRef = useRef<HTMLDivElement | null>(null);
-  const tooltipRafRef = useRef<number | null>(null);
-  const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const tooltipVisibleRef = useRef(false);
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [newRoutineLabel, setNewRoutineLabel] = useState("");
   const [newRoutineStart, setNewRoutineStart] = useState("09:00");
@@ -210,13 +161,6 @@ export default function MainCalendarPage() {
 
   const weekLabel = useMemo(() => toDisplayRange(weekDates[0], weekDates[6]), [weekDates]);
 
-  useEffect(() => {
-    return () => {
-      if (tooltipRafRef.current) {
-        cancelAnimationFrame(tooltipRafRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -228,74 +172,6 @@ export default function MainCalendarPage() {
     };
   }, []);
 
-  function getTooltipPoint(clientX: number, clientY: number) {
-    return {
-      x: Math.min(clientX + 14, window.innerWidth - 240),
-      y: Math.max(clientY - 8, 8),
-    };
-  }
-
-  function applyTooltipPosition(point: { x: number; y: number }) {
-    const element = tooltipElementRef.current;
-    if (!element) {
-      return;
-    }
-
-    element.style.transform = `translate3d(${point.x}px, ${point.y}px, 0)`;
-  }
-
-  function openTooltip(
-    event: { clientX: number; clientY: number },
-    nextTooltip: FloatingTooltipContent,
-  ) {
-    const point = getTooltipPoint(event.clientX, event.clientY);
-    tooltipPointRef.current = point;
-    tooltipVisibleRef.current = true;
-    setHoverTooltip(nextTooltip);
-    window.requestAnimationFrame(() => {
-      applyTooltipPosition(point);
-    });
-  }
-
-  function trackTooltip(event: { clientX: number; clientY: number }) {
-    if (!tooltipVisibleRef.current) {
-      return;
-    }
-
-    tooltipPointRef.current = getTooltipPoint(event.clientX, event.clientY);
-
-    if (tooltipRafRef.current) {
-      return;
-    }
-
-    tooltipRafRef.current = window.requestAnimationFrame(() => {
-      tooltipRafRef.current = null;
-      applyTooltipPosition(tooltipPointRef.current);
-    });
-  }
-
-  function closeTooltip() {
-    tooltipVisibleRef.current = false;
-    if (tooltipRafRef.current) {
-      cancelAnimationFrame(tooltipRafRef.current);
-      tooltipRafRef.current = null;
-    }
-    setHoverTooltip(null);
-  }
-
-  const tasksByDay = useMemo(() => {
-    const map = new Map<string, TaskRow[]>();
-    for (const task of tasks) {
-      if (!task.due_date) {
-        continue;
-      }
-      if (!map.has(task.due_date)) {
-        map.set(task.due_date, []);
-      }
-      map.get(task.due_date)?.push(task);
-    }
-    return map;
-  }, [tasks]);
 
   useEffect(() => {
     let mounted = true;
@@ -436,10 +312,6 @@ export default function MainCalendarPage() {
     () => circles.filter((circle) => visibleCircleIds.includes(circle.id)).length,
     [circles, visibleCircleIds],
   );
-  const nowDayKey = useMemo(() => formatDay(now), [now]);
-  const nowHour = useMemo(() => getPhilippineHour(now), [now]);
-  const nowVisible = nowHour >= START_HOUR && nowHour <= END_HOUR;
-  const nowTop = Math.max(0, Math.min((nowHour - START_HOUR) * SLOT, (END_HOUR - START_HOUR) * SLOT));
 
   const circleMap = useMemo(() => {
     const map = new Map<string, CircleRow>();
@@ -448,6 +320,109 @@ export default function MainCalendarPage() {
     }
     return map;
   }, [circles]);
+
+  const dayIndexByKey = useMemo(() => {
+    const map = new Map<string, number>();
+    weekDates.forEach((date, index) => {
+      map.set(formatDay(date), index);
+    });
+    return map;
+  }, [weekDates]);
+
+  const routineEvents = useMemo<CalendarGridEvent[]>(() => {
+    if (density === "tasks") {
+      return [];
+    }
+
+    return routines.flatMap((routine) =>
+      routine.days.map((dayIndex) => ({
+        id: `${routine.id}-${dayIndex}`,
+        dayIndex,
+        startHour: routine.startHour,
+        endHour: routine.endHour,
+        title: routine.label,
+        subtitle: routine.sub,
+        color: routine.color,
+        tag: "Personal",
+        variant: "pattern",
+        tooltip: {
+          title: routine.label,
+          rows: [
+            { dot: routine.color, text: routine.sub },
+            { text: `${formatTooltipTime(routine.startHour)} - ${formatTooltipTime(routine.endHour)}` },
+            { text: "Recurring routine" },
+          ],
+        },
+      })),
+    );
+  }, [density, routines]);
+
+  const taskEvents = useMemo<CalendarGridEvent[]>(() => {
+    if (density === "routines") {
+      return [];
+    }
+
+    const grouped = new Map<number, TaskRow[]>();
+
+    for (const task of visibleTasks) {
+      if (!task.due_date) {
+        continue;
+      }
+
+      const dayIndex = dayIndexByKey.get(task.due_date);
+      if (dayIndex === undefined) {
+        continue;
+      }
+
+      const list = grouped.get(dayIndex) ?? [];
+      list.push(task);
+      grouped.set(dayIndex, list);
+    }
+
+    const events: CalendarGridEvent[] = [];
+
+    grouped.forEach((dayTasks, dayIndex) => {
+      dayTasks.forEach((task, index) => {
+        const circle = circleMap.get(task.group_id);
+        const color = circle?.color ?? "#4f46e5";
+        const sub = `${circle?.name ?? "Circle"} · ${task.status}`;
+        const startAt = task.starts_at ? new Date(task.starts_at) : null;
+        const endAt = task.ends_at ? new Date(task.ends_at) : null;
+
+        const startHour =
+          startAt && !Number.isNaN(startAt.getTime())
+            ? startAt.getHours() + startAt.getMinutes() / 60
+            : 9 + index * 0.6;
+
+        const endHour =
+          endAt && !Number.isNaN(endAt.getTime())
+            ? endAt.getHours() + endAt.getMinutes() / 60
+            : startHour + 1;
+
+        events.push({
+          id: task.id,
+          dayIndex,
+          startHour,
+          endHour,
+          title: task.title,
+          subtitle: sub,
+          color,
+          tag: "Task",
+          variant: "solid",
+          tooltip: {
+            title: task.title,
+            rows: [
+              { dot: color, text: sub },
+              { text: `${formatTooltipTime(startHour)} - ${formatTooltipTime(endHour)}` },
+              { text: "Manual block" },
+            ],
+          },
+        });
+      });
+    });
+
+    return events;
+  }, [circleMap, dayIndexByKey, density, visibleTasks]);
 
   function syncCalendarDate(nextDate: Date) {
     const normalized = new Date(nextDate);
@@ -689,246 +664,16 @@ export default function MainCalendarPage() {
         </div>
 
         {layout === "week" ? (
-          <>
-            <div className={styles.scroll}>
-              <div className={styles.weekHead}>
-                <div className={styles.weekHeadSpacer} />
-                {weekDates.map((date, dayIndex) => {
-                  const isToday = formatDay(date) === nowDayKey;
-                  return (
-                    <div key={dayIndex} className={styles.dayHeader}>
-                      <div className={styles.dayName}>{WEEK_DAYS[dayIndex]}</div>
-                      {isToday ? (
-                        <div className={styles.dayNumToday}>{date.getDate()}</div>
-                      ) : (
-                        <div className={styles.dayNum}>{date.getDate()}</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className={styles.grid}>
-                <div className={styles.timeCol}>
-                  {Array.from({ length: END_HOUR - START_HOUR }, (_, i) => {
-                    const hour = START_HOUR + i;
-                    const label = formatTime(hour);
-                    return (
-                      <div key={i} className={styles.timeCell}>
-                        <span>{label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {weekDates.map((date, dayIndex) => {
-                  const dateKey = formatDay(date);
-                  const isToday = dateKey === nowDayKey;
-                  const dayTasks = (tasksByDay.get(dateKey) ?? []).filter((task) =>
-                    visibleCircleIds.includes(task.group_id),
-                  );
-
-                  const routineEvents: Array<{
-                    id: string;
-                    top: number;
-                    height: number;
-                    startHour: number;
-                    endHour: number;
-                    title: string;
-                    sub: string;
-                    color: string;
-                    compact: boolean;
-                  }> = [];
-
-                  const taskEvents: Array<{
-                    id: string;
-                    top: number;
-                    height: number;
-                    startHour: number;
-                    endHour: number;
-                    left: number;
-                    width: number;
-                    title: string;
-                    sub: string;
-                    color: string;
-                    compact: boolean;
-                  }> = [];
-
-                  if (density !== "tasks") {
-                    for (const routine of routines) {
-                      if (!routine.days.includes(dayIndex)) {
-                        continue;
-                      }
-                      routineEvents.push({
-                        id: routine.id,
-                        top: (routine.startHour - START_HOUR) * SLOT,
-                        height: (routine.endHour - routine.startHour) * SLOT,
-                        startHour: routine.startHour,
-                        endHour: routine.endHour,
-                        title: routine.label,
-                        sub: routine.sub,
-                        color: routine.color,
-                        compact: routine.endHour - routine.startHour <= 0.85,
-                      });
-                    }
-                  }
-
-                  if (density !== "routines") {
-                    dayTasks.forEach((task, index) => {
-                      const circle = circleMap.get(task.group_id);
-                      const color = circle?.color ?? "#4f46e5";
-                      const startAt = task.starts_at ? new Date(task.starts_at) : null;
-                      const endAt = task.ends_at ? new Date(task.ends_at) : null;
-
-                      const startHour =
-                        startAt && !Number.isNaN(startAt.getTime())
-                          ? startAt.getHours() + startAt.getMinutes() / 60
-                          : 9 + index * 0.6;
-
-                      const endHour =
-                        endAt && !Number.isNaN(endAt.getTime())
-                          ? endAt.getHours() + endAt.getMinutes() / 60
-                          : startHour + 1;
-
-                      taskEvents.push({
-                        id: task.id,
-                        top: (startHour - START_HOUR) * SLOT,
-                        height: Math.max((endHour - startHour) * SLOT, 36),
-                        startHour,
-                        endHour,
-                        left: 0,
-                        width: 100,
-                        title: task.title,
-                        sub: `${circle?.name ?? "Circle"} · ${task.status}`,
-                        color,
-                        compact: endHour - startHour <= 0.85,
-                      });
-                    });
-
-                    const sorted = [...taskEvents].sort((a, b) =>
-                      a.startHour !== b.startHour ? a.startHour - b.startHour : b.endHour - a.endHour,
-                    );
-
-                    const slotEndTimes: number[] = [];
-                    for (const event of sorted) {
-                      let slot = -1;
-                      for (let idx = 0; idx < slotEndTimes.length; idx += 1) {
-                        if (slotEndTimes[idx] <= event.startHour + 0.01) {
-                          slot = idx;
-                          break;
-                        }
-                      }
-                      if (slot === -1) {
-                        slot = slotEndTimes.length;
-                        slotEndTimes.push(event.endHour);
-                      } else {
-                        slotEndTimes[slot] = event.endHour;
-                      }
-                      event.left = slot;
-                    }
-
-                    for (const event of sorted) {
-                      let maxSlot = event.left;
-                      for (const other of sorted) {
-                        const overlap = other.startHour < event.endHour && other.endHour > event.startHour;
-                        if (overlap) {
-                          maxSlot = Math.max(maxSlot, other.left);
-                        }
-                      }
-                      const cols = maxSlot + 1;
-                      event.width = 100 / cols;
-                      event.left = (event.left * 100) / cols;
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={dateKey}
-                      className={`${styles.dayCol} ${isToday ? styles.todayCol : ""}`}
-                      style={{ height: (END_HOUR - START_HOUR) * SLOT }}
-                    >
-                      {Array.from({ length: END_HOUR - START_HOUR }, (_, i) => (
-                        <div key={i} className={styles.hrLine} style={{ top: i * SLOT }} />
-                      ))}
-                      <div className={styles.hrLine} style={{ top: (END_HOUR - START_HOUR) * SLOT }} />
-
-                      {isToday && nowVisible ? (
-                        <div className={styles.nowIndicator} style={{ top: nowTop }} aria-hidden="true">
-                          <span className={styles.nowDot} />
-                          <span className={styles.nowLine} />
-                        </div>
-                      ) : null}
-
-                      {routineEvents.map((event) => (
-                        <div
-                          key={event.id}
-                          className={`${styles.eventBlock} ${styles.routinePattern} ${event.compact ? styles.eventCompact : ""}`}
-                          style={{
-                            top: event.top,
-                            height: event.height,
-                            left: "2%",
-                            width: "96%",
-                            backgroundColor: toRgba(event.color, 0.18),
-                            borderColor: toRgba(event.color, 0.4),
-                          }}
-                          onMouseEnter={(e) => {
-                            openTooltip(e, {
-                              title: event.title,
-                              rows: [
-                                { dot: event.color, text: event.sub },
-                                { text: `${formatTooltipTime(event.startHour)} - ${formatTooltipTime(event.endHour)}` },
-                                { text: "Recurring routine" },
-                              ],
-                            });
-                          }}
-                          onMouseMove={trackTooltip}
-                          onMouseLeave={closeTooltip}
-                        >
-                          <div className={styles.eventInner}>
-                            <div className={styles.eventTitle}>{event.title}</div>
-                            {!event.compact ? <div className={styles.eventSub}>{event.sub}</div> : null}
-                            {!event.compact ? <div className={styles.eventTag}>Personal</div> : null}
-                          </div>
-                        </div>
-                      ))}
-
-                      {taskEvents.map((event) => (
-                        <div
-                          key={event.id}
-                          className={`${styles.eventBlock} ${event.compact ? styles.eventCompact : ""}`}
-                          style={{
-                            top: event.top,
-                            height: event.height,
-                            left: `${event.left + 1}%`,
-                            width: `${Math.max(event.width - 2, 20)}%`,
-                            backgroundColor: `${event.color}f0`,
-                          }}
-                          onMouseEnter={(e) => {
-                            openTooltip(e, {
-                              title: event.title,
-                              rows: [
-                                { dot: event.color, text: event.sub },
-                                { text: `${formatTooltipTime(event.startHour)} - ${formatTooltipTime(event.endHour)}` },
-                                { text: "Manual block" },
-                              ],
-                            });
-                          }}
-                          onMouseMove={trackTooltip}
-                          onMouseLeave={closeTooltip}
-                        >
-                          <div className={styles.eventInner}>
-                            <div className={styles.eventTitle}>{event.title}</div>
-                            {!event.compact ? <div className={styles.eventSub}>{event.sub}</div> : null}
-                            {!event.compact ? <div className={styles.eventTag}>Task</div> : null}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </>
+          <WeekCalendarGrid
+            weekDates={weekDates}
+            foregroundEvents={taskEvents}
+            backgroundEvents={routineEvents}
+            now={now}
+            tooltipClassName={ds.calendar.tooltip}
+            tooltipTitleClassName={ds.calendar.tooltipTitle}
+            tooltipRowClassName={ds.calendar.tooltipRow}
+            tooltipDotClassName={ds.calendar.tooltipDot}
+          />
         ) : (
           <div className={styles.focusWrap}>
             <div className={styles.focusGrid}>
@@ -989,15 +734,6 @@ export default function MainCalendarPage() {
         </div>
       </div>
 
-      <FloatingTooltip
-        ref={tooltipElementRef}
-        tooltip={hoverTooltip}
-        className={cn(styles.tooltip, ds.calendar.tooltip)}
-        titleClassName={cn(styles.tooltipTitle, ds.calendar.tooltipTitle)}
-        rowClassName={cn(styles.tooltipRow, ds.calendar.tooltipRow)}
-        dotClassName={cn(styles.tooltipDot, ds.calendar.tooltipDot)}
-      />
-
       {showRoutineDialog && (
         <div className={styles.modalOverlay} onClick={() => setShowRoutineDialog(false)}>
           <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
@@ -1045,7 +781,7 @@ export default function MainCalendarPage() {
                     value={newRoutineStart}
                     onChange={(event) => handleRoutineStartChange(event.target.value)}
                     className={`${styles.modalInput} ${styles.modalTimeInput}`}
-                    min="06:00"
+                    min="00:00"
                     max="23:00"
                     required
                   />
@@ -1061,7 +797,7 @@ export default function MainCalendarPage() {
                     value={newRoutineEnd}
                     onChange={(event) => setNewRoutineEnd(event.target.value)}
                     className={`${styles.modalInput} ${styles.modalTimeInput}`}
-                    min="06:00"
+                    min="00:00"
                     max="23:00"
                     step={60}
                     required

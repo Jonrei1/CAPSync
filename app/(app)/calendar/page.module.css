@@ -376,7 +376,7 @@
 .grid {
   display: grid;
   grid-template-columns: 52px repeat(7, minmax(0, 1fr));
-  min-height: calc((23 - 6) * 52px + 1px);
+  /* removed: min-height: calc(24 * 52px + 1px); */
 }
 
 .timeCol {
@@ -506,6 +506,15 @@
   z-index: 20;
 }
 
+.windowBlock .eventInner {
+  color: #065f46;
+}
+
+.windowBlock .eventTag {
+  background: rgba(16, 185, 129, 0.2);
+  color: #065f46;
+}
+
 .eventInner {
   height: 100%;
   padding: 5px 7px;
@@ -552,6 +561,21 @@
   padding: 1px 5px;
   background: rgba(255, 255, 255, 0.25);
   margin-top: 2px;
+}
+
+.deadlineBadge {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 5;
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-size: 8px;
+  font-weight: 600;
+  background: #dc2626;
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(17, 24, 39, 0.15);
+  white-space: nowrap;
 }
 
 .statusBar {

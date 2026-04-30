@@ -6,6 +6,10 @@ import { ChevronDownIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import FloatingTooltip, { type FloatingTooltipContent } from "@/components/calendar/FloatingTooltip";
+import WeekCalendarGrid, {
+  type CalendarGridBadge,
+  type CalendarGridEvent,
+} from "@/components/calendar/WeekCalendarGrid";
 import AddMeetingDialog from "@/components/circle-calendar/AddMeetingDialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -40,23 +44,7 @@ type MeetingPrefill = {
   end?: number;
 };
 
-type DayBlock = CalendarBlock & {
-  member: CalendarMember;
-};
-
-type LayoutEvent = DayBlock & {
-  top: number;
-  height: number;
-  left: number;
-  width: number;
-  startHour: number;
-  endHour: number;
-  compact: boolean;
-};
-
-const SLOT = 52;
-const START_HOUR = 6;
-const END_HOUR = 23;
+const ROUTINE_END_HOUR = 23;
 const HEAT_START_HOUR = 7;
 const HEAT_END_HOUR = 20;
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -72,9 +60,9 @@ function pad(value: number) {
 
 function formatTime(hour: number) {
   const whole = Math.floor(hour);
-  const period = whole >= 12 ? "P" : "A";
-  const display = whole > 12 ? whole - 12 : whole === 0 ? 12 : whole;
-  return `${display}${period}`;
+  const period = whole >= 12 ? "PM" : "AM";
+  const display = whole % 12 === 0 ? 12 : whole % 12;
+  return `${display} ${period}`;
 }
 
 function formatTooltipTime(hour: number) {
@@ -116,29 +104,6 @@ function formatRange(start: Date, end: Date) {
   return `${start.toLocaleDateString("en-PH", options)} - ${end.toLocaleDateString("en-PH", options)}`;
 }
 
-function toRgba(color: string, alpha: number) {
-  const cleaned = color.trim();
-  const hex = cleaned.startsWith("#") ? cleaned.slice(1) : cleaned;
-  const normalized =
-    hex.length === 3
-      ? `${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
-      : hex;
-
-  if (normalized.length !== 6) {
-    return `rgba(55, 65, 81, ${alpha})`;
-  }
-
-  const value = Number.parseInt(normalized, 16);
-  if (Number.isNaN(value)) {
-    return `rgba(55, 65, 81, ${alpha})`;
-  }
-
-  const red = (value >> 16) & 255;
-  const green = (value >> 8) & 255;
-  const blue = value & 255;
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-}
-
 function getDayKey(date: Date) {
   return DAY_KEYS[date.getDay()];
 }
@@ -154,53 +119,6 @@ function getWeekOffsetForDate(date: Date) {
   const currentWeekStart = startOfWeek(new Date());
   const targetWeekStart = startOfWeek(date);
   return Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
-}
-
-function layoutEvents(events: LayoutEvent[]) {
-  if (!events.length) {
-    return [] as LayoutEvent[];
-  }
-
-  const sorted = [...events].sort((left, right) =>
-    left.startHour !== right.startHour ? left.startHour - right.startHour : right.endHour - left.endHour,
-  );
-
-  const slotEnds: number[] = [];
-
-  sorted.forEach((event) => {
-    let slot = -1;
-    for (let index = 0; index < slotEnds.length; index += 1) {
-      if (slotEnds[index] <= event.startHour + 0.01) {
-        slot = index;
-        break;
-      }
-    }
-
-    if (slot === -1) {
-      slot = slotEnds.length;
-      slotEnds.push(event.endHour);
-    } else {
-      slotEnds[slot] = event.endHour;
-    }
-
-    event.left = slot;
-  });
-
-  sorted.forEach((event) => {
-    let maxSlot = event.left;
-    sorted.forEach((other) => {
-      const overlap = other.startHour < event.endHour && other.endHour > event.startHour;
-      if (overlap) {
-        maxSlot = Math.max(maxSlot, other.left);
-      }
-    });
-
-    const cols = maxSlot + 1;
-    event.width = 100 / cols;
-    event.left = (event.left * 100) / cols;
-  });
-
-  return sorted;
 }
 
 export default function CalendarShell({
@@ -265,25 +183,6 @@ export default function CalendarShell({
     () => blocks.filter((block) => visibleMemberSet.has(block.memberId)),
     [blocks, visibleMemberSet],
   );
-
-  const blocksByDay = useMemo(() => {
-    const map = new Map<string, DayBlock[]>();
-
-    for (const block of visibleBlocks) {
-      const member = memberMap.get(block.memberId);
-      if (!member) {
-        continue;
-      }
-
-      for (const day of block.days) {
-        const dayBlocks = map.get(day) ?? [];
-        dayBlocks.push({ ...block, member });
-        map.set(day, dayBlocks);
-      }
-    }
-
-    return map;
-  }, [memberMap, visibleBlocks]);
 
   const minFreeMembers = Math.max(2, visibleCount - 1);
   const visibleFreeWindows = useMemo(
@@ -506,7 +405,7 @@ export default function CalendarShell({
     const currentEndMinutes = Number.parseInt(endHoursPart ?? "0", 10) * 60 + Number.parseInt(endMinutesPart ?? "0", 10);
 
     if (currentEndMinutes <= nextStartMinutes) {
-      const nextEndMinutes = Math.min(nextStartMinutes + 60, END_HOUR * 60);
+      const nextEndMinutes = Math.min(nextStartMinutes + 60, ROUTINE_END_HOUR * 60);
       const hours = Math.floor(nextEndMinutes / 60);
       const minutes = nextEndMinutes % 60;
       setNewRoutineEnd(`${pad(hours)}:${pad(minutes)}`);
@@ -514,10 +413,98 @@ export default function CalendarShell({
   }
 
   const weekView = useMemo(() => {
-    const today = new Date();
-    const nowHour = nowTick.getHours() + nowTick.getMinutes() / 60;
-    const nowVisible = nowHour >= START_HOUR && nowHour <= END_HOUR;
-    const nowTop = Math.max(0, Math.min((nowHour - START_HOUR) * SLOT, (END_HOUR - START_HOUR) * SLOT));
+    const dayIndexByKey = new Map<string, number>(DAY_KEYS.map((key, index) => [key, index]));
+    const foregroundEvents: CalendarGridEvent[] = [];
+    const backgroundEvents: CalendarGridEvent[] = [];
+    const deadlineBadges: CalendarGridBadge[] = [];
+
+    for (const block of visibleBlocks) {
+      const member = memberMap.get(block.memberId);
+      if (!member) {
+        continue;
+      }
+
+      for (const dayKey of block.days) {
+        const dayIndex = dayIndexByKey.get(dayKey);
+        if (dayIndex === undefined) {
+          continue;
+        }
+
+        const tooltipRows = [
+          { dot: member.bg, text: `${member.name} - ${member.role}` },
+          { text: `${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}` },
+          ...(block.sub ? [{ text: block.sub }] : []),
+          { text: block.routine ? "Recurring routine" : "Manual block" },
+        ];
+
+        foregroundEvents.push({
+          id: `${block.memberId}-${dayKey}-${block.s}-${block.e}-${block.lbl}`,
+          dayIndex,
+          startHour: block.s,
+          endHour: block.e,
+          title: block.lbl,
+          subtitle: block.sub,
+          tag: member.name,
+          color: member.bg,
+          variant: block.routine ? "pattern" : "solid",
+          tooltip: { title: block.lbl, rows: tooltipRows },
+        });
+      }
+    }
+
+    for (const window of visibleFreeWindows) {
+      for (const dayKey of window.days) {
+        const dayIndex = dayIndexByKey.get(dayKey);
+        if (dayIndex === undefined) {
+          continue;
+        }
+
+        const visibleMembersInWindow = window.memberIds.filter((memberId) => visibleMemberSet.has(memberId));
+        const isAllVisible = visibleMembersInWindow.length >= visibleCount;
+        const memberRows = visibleMembersInWindow
+          .map((memberId) => memberMap.get(memberId))
+          .filter((member): member is CalendarMember => Boolean(member))
+          .map((member) => ({ dot: member.bg, text: `${member.name} is free` }));
+
+        backgroundEvents.push({
+          id: `window-${dayKey}-${window.s}-${window.e}`,
+          dayIndex,
+          startHour: window.s,
+          endHour: window.e,
+          title: isAllVisible ? "All free" : "Available",
+          subtitle: `${formatTooltipTime(window.s)} - ${formatTooltipTime(window.e)}`,
+          tag: window.dur,
+          color: "#16a34a",
+          variant: "window",
+          onClick: () => openAddMeeting(dayKey, window.s, window.e),
+          tooltip: {
+            title: "Free window",
+            rows: [
+              { dot: "#16a34a", text: `${formatTooltipTime(window.s)} - ${formatTooltipTime(window.e)}` },
+              { text: window.dur },
+              ...memberRows,
+            ],
+          },
+        });
+      }
+    }
+
+    deadlines.forEach((deadline, index) => {
+      deadline.days.forEach((dayKey) => {
+        const dayIndex = dayIndexByKey.get(dayKey);
+        if (dayIndex === undefined) {
+          return;
+        }
+
+        deadlineBadges.push({
+          id: `deadline-${dayKey}-${index}`,
+          dayIndex,
+          label: deadline.lbl,
+          color: "#dc2626",
+          tooltip: { title: "Deadline", rows: [{ dot: "#dc2626", text: deadline.lbl }] },
+        });
+      });
+    });
 
     return (
       <div className="space-y-3">
@@ -636,193 +623,21 @@ export default function CalendarShell({
           </div>
 
           <div>
-          {layout === "week" ? (
-            <div className="max-h-142 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]">
-              <div className="min-w-240">
-                  <div className="sticky top-0 z-10 grid grid-cols-[52px_repeat(7,minmax(0,1fr))] border-b border-border/70 bg-background">
-                    <div className="h-12 border-r border-border/70" />
-                    {weekDates.map((date, index) => {
-                      const dayKey = getDayKey(date);
-                      const isToday = date.toDateString() === today.toDateString();
+            {layout === "week" ? (
+              <WeekCalendarGrid
+                weekDates={weekDates}
+                foregroundEvents={foregroundEvents}
+                backgroundEvents={backgroundEvents}
+                badges={deadlineBadges}
+                now={nowTick}
+                tooltipClassName={ds.calendar.tooltip}
+                tooltipTitleClassName={ds.calendar.tooltipTitle}
+                tooltipRowClassName={ds.calendar.tooltipRow}
+                tooltipDotClassName={ds.calendar.tooltipDot}
+              />
+            ) : null}
 
-                      return (
-                        <div key={dayKey} className="border-l border-border/70 px-2 py-1.5 text-center">
-                          <div className={cn("text-[10px] uppercase tracking-[0.05em]", isToday ? "text-primary" : "text-muted-foreground")}>
-                            {DAY_LABELS[index]}
-                          </div>
-                          <div className={cn("mx-auto mt-1 flex h-8 w-8 items-center justify-center rounded-full text-[16px] font-bold", isToday ? "bg-primary text-primary-foreground" : "text-foreground") }>
-                            {date.getDate()}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="grid grid-cols-[52px_repeat(7,minmax(0,1fr))]">
-                    <div className="border-r border-border/70 bg-background">
-                      {Array.from({ length: END_HOUR - START_HOUR }, (_, index) => {
-                        const hour = START_HOUR + index;
-                        return (
-                          <div key={hour} className="flex h-13 items-start justify-end border-b border-border/70 px-2 pt-0.5 text-right text-[10px] text-muted-foreground">
-                            <span className="leading-none">{formatTime(hour)}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {weekDates.map((date) => {
-                      const dayKey = getDayKey(date);
-                      const isToday = date.toDateString() === today.toDateString();
-                      const dayBlocks = blocksByDay.get(dayKey) ?? [];
-                      const laidEvents = layoutEvents(
-                        dayBlocks.map((block) => {
-                          const startHour = block.s;
-                          const endHour = block.e;
-                          return {
-                            ...block,
-                            top: (startHour - START_HOUR) * SLOT,
-                            height: Math.max((endHour - startHour) * SLOT, 36),
-                            left: 0,
-                            width: 100,
-                            startHour,
-                            endHour,
-                            compact: endHour - startHour <= 0.85,
-                          };
-                        }),
-                      );
-
-                      const dayFreeWindows = visibleFreeWindows.filter((window) => window.days.includes(dayKey));
-                      const dayDeadlines = deadlines.filter((deadline) => deadline.days.includes(dayKey));
-
-                      return (
-                        <div
-                          key={dayKey}
-                          className={cn("relative border-l border-border/70 bg-background", isToday && "bg-primary/5")}
-                          style={{ height: (END_HOUR - START_HOUR) * SLOT }}
-                        >
-                          {Array.from({ length: END_HOUR - START_HOUR }, (_, index) => (
-                            <div key={index} className="absolute left-0 right-0 border-t border-border/70" style={{ top: index * SLOT }} />
-                          ))}
-                          <div className="absolute left-0 right-0 border-t border-border/70" style={{ top: (END_HOUR - START_HOUR) * SLOT }} />
-
-                          {isToday && nowVisible ? (
-                            <div className="pointer-events-none absolute left-0 right-0 z-20 flex items-center" style={{ top: nowTop }}>
-                              <span className="h-2 w-2 shrink-0 rounded-full bg-red-600" />
-                              <span className="h-px flex-1 bg-red-600" />
-                            </div>
-                          ) : null}
-
-                          {dayFreeWindows.map((window) => {
-                            const visibleMembersInWindow = window.memberIds.filter((memberId) => visibleMemberSet.has(memberId));
-                            const isAllVisible = visibleMembersInWindow.length >= visibleCount;
-
-                            return (
-                              <button
-                                key={`${dayKey}-${window.s}-${window.e}`}
-                                type="button"
-                                className="absolute inset-x-1.5 z-0 flex cursor-pointer flex-col justify-center gap-1 overflow-hidden rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1 text-left transition-colors hover:border-emerald-400 hover:bg-emerald-100"
-                                style={{ top: (window.s - START_HOUR) * SLOT, height: Math.max((window.e - window.s) * SLOT, 24) }}
-                                onClick={() => openAddMeeting(window.days[0] ?? dayKey, window.s, window.e)}
-                                onMouseEnter={(event) =>
-                                  showTip(event, "Free window", [
-                                    { dot: "#16a34a", txt: `${formatTooltipTime(window.s)} - ${formatTooltipTime(window.e)}` },
-                                    { txt: window.dur },
-                                    ...visibleMembersInWindow
-                                      .map((memberId) => memberMap.get(memberId))
-                                      .filter((member): member is CalendarMember => Boolean(member))
-                                      .map((member) => ({ dot: member.bg, txt: `${member.name} is free` })),
-                                  ])
-                                }
-                                onMouseMove={trackTip}
-                                onMouseLeave={hideTip}
-                              >
-                                <div className="flex gap-1">
-                                  {visibleMembersInWindow.map((memberId) => {
-                                    const member = memberMap.get(memberId);
-                                    return member ? (
-                                      <span key={memberId} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: member.bg }} />
-                                    ) : null;
-                                  })}
-                                </div>
-                                <div className="text-[10px] font-semibold text-emerald-700">
-                                  {isAllVisible ? "All free" : "Available"}
-                                </div>
-                                <div className="text-[9px] text-emerald-600">{formatTooltipTime(window.s)} - {formatTooltipTime(window.e)}</div>
-                              </button>
-                            );
-                          })}
-
-                          {laidEvents.map((event) => {
-                            const blockColor = event.member.bg;
-                            const blockText = event.routine ? event.member.tc : "#ffffff";
-                            const blockMuted = event.routine ? `${event.member.tc}99` : "rgba(255,255,255,.75)";
-                            const tagBg = event.routine ? `${event.member.bg}20` : "rgba(255,255,255,.18)";
-                            const tagFg = event.routine ? event.member.bg : "#ffffff";
-
-                            return (
-                              <div
-                                key={`${event.memberId}-${event.days.join("-")}-${event.s}-${event.e}-${event.lbl}`}
-                                className="absolute z-10 overflow-hidden rounded-md border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                                style={{
-                                  top: event.top,
-                                  height: event.height,
-                                  left: `calc(${event.left}% + 2px)`,
-                                  width: `calc(${Math.max(event.width - 2, 20)}% - 4px)`,
-                                  backgroundColor: event.routine ? toRgba(blockColor, 0.16) : blockColor,
-                                  borderColor: event.routine ? toRgba(blockColor, 0.38) : blockColor,
-                                }}
-                                onMouseEnter={(mouseEvent) =>
-                                  showTip(mouseEvent, event.lbl, [
-                                    { dot: event.member.bg, txt: `${event.member.name} - ${event.member.role}` },
-                                    { txt: `${formatTooltipTime(event.s)} - ${formatTooltipTime(event.e)}` },
-                                    event.sub ? { txt: event.sub } : null,
-                                    { txt: event.routine ? "Recurring routine" : "Manual block" },
-                                  ].filter(Boolean) as TipRow[])
-                                }
-                                onMouseMove={trackTip}
-                                onMouseLeave={hideTip}
-                              >
-                                <div className="flex h-full flex-col gap-0.5 border-l-4 px-2 py-1" style={{ borderLeftColor: event.member.bg }}>
-                                  <div className="truncate text-[10px] font-semibold leading-tight" style={{ color: blockText }}>
-                                    {event.lbl}
-                                  </div>
-                                  {!event.compact && event.sub ? (
-                                    <div className="truncate text-[9px] leading-tight" style={{ color: blockMuted }}>
-                                      {event.sub}
-                                    </div>
-                                  ) : null}
-                                  {!event.compact ? (
-                                    <div className="mt-auto inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[8px] font-semibold" style={{ backgroundColor: tagBg, color: tagFg }}>
-                                      {event.member.name}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            );
-                          })}
-
-                          {dayDeadlines.map((deadline, index) => (
-                            <button
-                              key={`${dayKey}-${deadline.lbl}-${index}`}
-                              type="button"
-                              className="absolute right-2 top-2 z-30 rounded-full bg-red-600 px-2 py-1 text-[8px] font-semibold text-white shadow-sm"
-                              onMouseEnter={(event) => showTip(event, "Deadline", [{ dot: "#dc2626", txt: deadline.lbl }])}
-                              onMouseMove={trackTip}
-                              onMouseLeave={hideTip}
-                            >
-                              {deadline.lbl}
-                            </button>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-              </div>
-
-            </div>
-          ) : null}
-
-          {layout === "heat" ? (
+            {layout === "heat" ? (
             <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 [scrollbar-gutter:stable]">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Color shows how many visible members are busy each hour. Green means everyone is free.
@@ -928,14 +743,14 @@ export default function CalendarShell({
             </div>
           ) : null}
 
-          {layout === "dots" ? (
+            {layout === "dots" ? (
             <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 [scrollbar-gutter:stable]">
               <div className="overflow-x-auto">
                 <div className="min-w-205 space-y-5">
                   <div className="flex pl-24 pb-1 text-[8px] uppercase tracking-[0.08em] text-muted-foreground">
                     {Array.from({ length: 13 }, (_, index) => index + 7).map((hour) => (
                       <div key={hour} className="flex-1 text-center">
-                        {hour === 12 ? "12P" : hour > 12 ? `${hour - 12}P` : `${hour}A`}
+                        {formatTime(hour)}
                       </div>
                     ))}
                   </div>
@@ -1015,7 +830,7 @@ export default function CalendarShell({
             </div>
           ) : null}
 
-          {layout === "free" ? (
+            {layout === "free" ? (
             <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 [scrollbar-gutter:stable]">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Busy blocks are hidden. Only shared free windows are shown here.
@@ -1094,7 +909,7 @@ export default function CalendarShell({
                 })}
               </div>
             </div>
-          ) : null}
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 bg-muted/30 px-4 py-3 text-[10px] text-muted-foreground sm:px-5">
@@ -1125,12 +940,15 @@ export default function CalendarShell({
     );
   }, [
     blocks,
-    blocksByDay,
     deadlines,
+    ds,
     layout,
+    memberBlockCounts,
     memberMap,
+    members,
     nowTick,
     sharedFreeWindowCount,
+    visibleBlocks,
     visibleCount,
     visibleFreeWindows,
     visibleMembers,
@@ -1190,14 +1008,16 @@ export default function CalendarShell({
 
       {weekView}
 
-      <FloatingTooltip
-        ref={tooltipElementRef}
-        tooltip={hoverTooltip}
-        className={cn(ds.calendar.tooltip, "min-w-44")}
-        titleClassName={cn(ds.calendar.tooltipTitle)}
-        rowClassName={cn(ds.calendar.tooltipRow)}
-        dotClassName={cn(ds.calendar.tooltipDot)}
-      />
+      {layout === "week" ? null : (
+        <FloatingTooltip
+          ref={tooltipElementRef}
+          tooltip={hoverTooltip}
+          className={cn(ds.calendar.tooltip, "min-w-44")}
+          titleClassName={cn(ds.calendar.tooltipTitle)}
+          rowClassName={cn(ds.calendar.tooltipRow)}
+          dotClassName={cn(ds.calendar.tooltipDot)}
+        />
+      )}
 
       {showRoutineDialog ? (
         <div className={cn(ds.modal.overlay)} onClick={() => setShowRoutineDialog(false)}>
@@ -1246,7 +1066,7 @@ export default function CalendarShell({
                     value={newRoutineStart}
                     onChange={(event) => handleRoutineStartChange(event.target.value)}
                     className={cn(ds.field.input)}
-                    min="06:00"
+                    min="00:00"
                     max="23:00"
                     required
                   />
@@ -1262,7 +1082,7 @@ export default function CalendarShell({
                     value={newRoutineEnd}
                     onChange={(event) => setNewRoutineEnd(event.target.value)}
                     className={cn(ds.field.input)}
-                    min="06:00"
+                    min="00:00"
                     max="23:00"
                     step={60}
                     required
