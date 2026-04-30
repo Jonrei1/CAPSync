@@ -782,7 +782,7 @@ export default function MainCalendarPage() {
     }
 
     if (editScope === "all") {
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from("personal_routines")
         .update({
           label: editLabel.trim(),
@@ -793,9 +793,19 @@ export default function MainCalendarPage() {
         })
         .eq("id", editingRoutine.id);
 
-      if (error) {
+      if (updateError) {
         alert("Failed to update routine.");
         return;
+      }
+
+      // Clear all overrides for this routine so all occurrences use the new routine values
+      const { error: deleteError } = await supabase
+        .from("routine_overrides")
+        .delete()
+        .eq("routine_id", editingRoutine.id);
+
+      if (deleteError) {
+        alert("Warning: Updated routine but failed to clear overrides.");
       }
 
       setRoutines((previous) =>
@@ -812,6 +822,9 @@ export default function MainCalendarPage() {
             : routine,
         ),
       );
+
+      // Remove all overrides for this routine from local state
+      setOverrides((previous) => previous.filter((entry) => entry.routineId !== editingRoutine.id));
     } else {
       if (!editOccurrenceDate) {
         return;
