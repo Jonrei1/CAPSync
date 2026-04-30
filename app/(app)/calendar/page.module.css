@@ -531,13 +531,14 @@
   position: absolute;
   top: 4px;
   right: 4px;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border: none;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.25);
-  color: inherit;
-  font-size: 13px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.12);
+  color: #374151;
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -545,11 +546,31 @@
   justify-content: center;
   z-index: 10;
   padding: 0;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.eventBlock:hover .eventMenuBtn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.eventMenuBtn:focus,
+.eventMenuBtn:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: none;
+}
+
+.eventMenuBtn[data-open="true"] {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .eventMenuBtn:hover {
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.22);
+  color: #111827;
 }
 
 .eventMenu {
@@ -592,6 +613,96 @@
 
 .eventMenuItem:last-child:hover {
   background: #fef2f2;
+}
+
+/* Scope modal option cards */
+.modalScopeOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 20px 16px;
+}
+
+.scopeOptionCard {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 10px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: inherit;
+}
+
+.scopeOptionCard:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.scopeOptionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.scopeOptionSub {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.scopeOptionCardDark {
+  background: #111827;
+  border-color: #111827;
+}
+
+.scopeOptionCardDark:hover {
+  background: #1f2937;
+  border-color: #1f2937;
+}
+
+.scopeOptionCardDark .scopeOptionTitle {
+  color: #fff;
+}
+
+.scopeOptionCardDark .scopeOptionSub {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.scopeOptionCardDanger {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.scopeOptionCardDanger:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.modalScopeCancel {
+  display: flex;
+  justify-content: center;
+  padding: 0 20px 18px;
+}
+
+.scopeCancelBtn {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+
+.scopeCancelBtn:hover {
+  color: #111827;
 }
 
 .routinePattern .eventInner {

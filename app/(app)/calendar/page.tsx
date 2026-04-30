@@ -1638,11 +1638,10 @@ export default function MainCalendarPage() {
               </p>
             </div>
 
-            <div className={styles.modalActions} style={{ flexDirection: "column", gap: 8 }}>
-              <Button
+            <div className={styles.modalScopeOptions}>
+              <button
                 type="button"
-                variant="outline"
-                className="cursor-pointer w-full justify-start"
+                className={styles.scopeOptionCard}
                 onClick={() => {
                   setShowScopeModal(false);
                   if (scopeTarget.action === "edit") {
@@ -1652,16 +1651,14 @@ export default function MainCalendarPage() {
                   }
                 }}
               >
-                <span style={{ fontWeight: 600 }}>This occurrence only</span>
-                <span style={{ fontSize: 11, color: "#6b7280", marginLeft: 6 }}>
-                  - {scopeTarget.occurrenceDate}
-                </span>
-              </Button>
+                <span className={styles.scopeOptionTitle}>This occurrence only</span>
+                <span className={styles.scopeOptionSub}>- {scopeTarget.occurrenceDate}</span>
+              </button>
 
-              <Button
+              <button
                 type="button"
-                className={`cursor-pointer w-full justify-start ${
-                  scopeTarget.action === "delete" ? "bg-red-600 hover:bg-red-700" : ""
+                className={`${styles.scopeOptionCard} ${styles.scopeOptionCardDark} ${
+                  scopeTarget.action === "delete" ? styles.scopeOptionCardDanger : ""
                 }`}
                 onClick={() => {
                   setShowScopeModal(false);
@@ -1672,20 +1669,15 @@ export default function MainCalendarPage() {
                   }
                 }}
               >
-                <span style={{ fontWeight: 600 }}>All occurrences</span>
-                <span style={{ fontSize: 11, opacity: 0.75, marginLeft: 6 }}>
-                  - entire recurring routine
-                </span>
-              </Button>
+                <span className={styles.scopeOptionTitle}>All occurrences</span>
+                <span className={styles.scopeOptionSub}>- entire recurring routine</span>
+              </button>
+            </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowScopeModal(false)}
-                className="cursor-pointer"
-              >
+            <div className={styles.modalScopeCancel}>
+              <button type="button" className={styles.scopeCancelBtn} onClick={() => setShowScopeModal(false)}>
                 Cancel
-              </Button>
+              </button>
             </div>
           </div>
         </div>

@@ -284,6 +284,7 @@ export default function WeekCalendarGrid({
         <button
           type="button"
           className={styles.eventMenuBtn}
+          data-open={openMenuId === event.id ? "true" : "false"}
           onClick={(mouseEvent) => {
             mouseEvent.stopPropagation();
             setOpenMenuId((current) => (current === event.id ? null : event.id));
