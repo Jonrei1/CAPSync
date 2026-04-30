@@ -42,16 +42,18 @@ function parseHour(value: unknown) {
   }
 
   if (typeof value === "string") {
+    if (value.includes(":")) {
+      const [hourPart = "0", minutePart = "0"] = value.split(":");
+      const hours = Number.parseInt(hourPart, 10);
+      const minutes = Number.parseInt(minutePart, 10);
+      if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+        return hours + minutes / 60;
+      }
+    }
+
     const numeric = Number.parseFloat(value);
     if (!Number.isNaN(numeric)) {
       return numeric;
-    }
-
-    const [hourPart = "0", minutePart = "0"] = value.split(":");
-    const hours = Number.parseInt(hourPart, 10);
-    const minutes = Number.parseInt(minutePart, 10);
-    if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
-      return hours + minutes / 60;
     }
   }
 

@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import styles from "@/app/(app)/calendar/page.module.css";
 
 const SLOT = 52;
-const DEFAULT_START_HOUR = 6;
-const DEFAULT_END_HOUR = 23;
+const DEFAULT_START_HOUR = 5;
+const DEFAULT_END_HOUR = 24;
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export type CalendarGridEvent = {
@@ -57,8 +57,9 @@ type LayoutEvent = CalendarGridEvent & {
 
 function formatHourLabel(hour: number) {
   const whole = Math.floor(hour);
-  const period = whole >= 12 ? "PM" : "AM";
-  const display = whole % 12 === 0 ? 12 : whole % 12;
+  const normalized = ((whole % 24) + 24) % 24;
+  const period = normalized >= 12 ? "PM" : "AM";
+  const display = normalized % 12 === 0 ? 12 : normalized % 12;
   return `${display} ${period}`;
 }
 
@@ -334,10 +335,9 @@ export default function WeekCalendarGrid({
                 className={cn(styles.dayCol, isToday && styles.todayCol)}
                 style={{ height: hours * SLOT }}
               >
-                {Array.from({ length: hours }, (_, index) => (
+                {Array.from({ length: hours + 1 }, (_, index) => (
                   <div key={index} className={styles.hrLine} style={{ top: index * SLOT }} />
                 ))}
-                <div className={styles.hrLine} style={{ top: hours * SLOT }} />
 
                 {isToday && nowVisible ? (
                   <div className={styles.nowIndicator} style={{ top: nowTop }} aria-hidden="true">

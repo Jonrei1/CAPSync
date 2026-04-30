@@ -390,6 +390,7 @@
   justify-content: flex-end;
   padding: 2px 8px 0;
   border-top: 1px solid #e5e7eb;
+  box-sizing: border-box;
 }
 
 .timeCell:last-child {
@@ -401,6 +402,7 @@
   color: #9ca3af;
   white-space: nowrap;
 }
+
 
 .dayCol {
   position: relative;

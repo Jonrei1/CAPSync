@@ -44,7 +44,7 @@ type MeetingPrefill = {
   end?: number;
 };
 
-const ROUTINE_END_HOUR = 23;
+const ROUTINE_END_MINUTES = 23 * 60 + 59;
 const HEAT_START_HOUR = 7;
 const HEAT_END_HOUR = 20;
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -72,6 +72,10 @@ function formatTooltipTime(hour: number) {
   const period = whole >= 12 ? "PM" : "AM";
   const display = whole > 12 ? whole - 12 : whole === 0 ? 12 : whole;
   return `${display}:${pad(minutes)} ${period}`;
+}
+
+function displayWindowEnd(end: number) {
+  return end === 24 ? 23 + 59 / 60 : end;
 }
 
 function startOfWeek(date: Date) {
@@ -405,7 +409,7 @@ export default function CalendarShell({
     const currentEndMinutes = Number.parseInt(endHoursPart ?? "0", 10) * 60 + Number.parseInt(endMinutesPart ?? "0", 10);
 
     if (currentEndMinutes <= nextStartMinutes) {
-      const nextEndMinutes = Math.min(nextStartMinutes + 60, ROUTINE_END_HOUR * 60);
+      const nextEndMinutes = Math.min(nextStartMinutes + 60, ROUTINE_END_MINUTES);
       const hours = Math.floor(nextEndMinutes / 60);
       const minutes = nextEndMinutes % 60;
       setNewRoutineEnd(`${pad(hours)}:${pad(minutes)}`);
@@ -466,13 +470,15 @@ export default function CalendarShell({
           .filter((member): member is CalendarMember => Boolean(member))
           .map((member) => ({ dot: member.bg, text: `${member.name} is free` }));
 
+        const windowEnd = displayWindowEnd(window.e);
+
         backgroundEvents.push({
           id: `window-${dayKey}-${window.s}-${window.e}`,
           dayIndex,
           startHour: window.s,
           endHour: window.e,
           title: isAllVisible ? "All free" : "Available",
-          subtitle: `${formatTooltipTime(window.s)} - ${formatTooltipTime(window.e)}`,
+          subtitle: `${formatTooltipTime(window.s)} - ${formatTooltipTime(windowEnd)}`,
           tag: window.dur,
           color: "#16a34a",
           variant: "window",
@@ -480,7 +486,7 @@ export default function CalendarShell({
           tooltip: {
             title: "Free window",
             rows: [
-              { dot: "#16a34a", text: `${formatTooltipTime(window.s)} - ${formatTooltipTime(window.e)}` },
+              { dot: "#16a34a", text: `${formatTooltipTime(window.s)} - ${formatTooltipTime(windowEnd)}` },
               { text: window.dur },
               ...memberRows,
             ],
@@ -630,6 +636,8 @@ export default function CalendarShell({
                 backgroundEvents={backgroundEvents}
                 badges={deadlineBadges}
                 now={nowTick}
+                startHour={5}
+                endHour={24}
                 tooltipClassName={ds.calendar.tooltip}
                 tooltipTitleClassName={ds.calendar.tooltipTitle}
                 tooltipRowClassName={ds.calendar.tooltipRow}
@@ -1067,7 +1075,7 @@ export default function CalendarShell({
                     onChange={(event) => handleRoutineStartChange(event.target.value)}
                     className={cn(ds.field.input)}
                     min="00:00"
-                    max="23:00"
+                    max="23:59"
                     required
                   />
                 </div>
@@ -1083,7 +1091,7 @@ export default function CalendarShell({
                     onChange={(event) => setNewRoutineEnd(event.target.value)}
                     className={cn(ds.field.input)}
                     min="00:00"
-                    max="23:00"
+                    max="23:59"
                     step={60}
                     required
                   />

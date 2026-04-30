@@ -1,6 +1,8 @@
 import type { CalendarBlock, CalendarMember, FreeWindow } from "@/types";
 
 const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+const WINDOW_START_HOUR = 5;
+const WINDOW_END_HOUR = 24;
 const DAY_LABELS: Record<(typeof DAY_KEYS)[number], string> = {
   sun: "Sun",
   mon: "Mon",
@@ -38,6 +40,10 @@ function formatDuration(start: number, end: number) {
   return `${hours} hr${hours === 1 ? "" : "s"} ${minutes} min`;
 }
 
+function formatWindowEnd(end: number) {
+  return end === WINDOW_END_HOUR ? WINDOW_END_HOUR - 1 / 60 : end;
+}
+
 function covers(block: CalendarBlock, day: string, hour: number) {
   return block.days.includes(day) && hour >= block.s && hour < block.e;
 }
@@ -59,7 +65,7 @@ export function computeFreeWindows(
     let activeStart: number | null = null;
     let activeMembers: string[] = [];
 
-    for (let hour = 7; hour < 21; hour += 0.5) {
+    for (let hour = WINDOW_START_HOUR; hour < WINDOW_END_HOUR; hour += 0.5) {
       const freeMembers = visibleMembers.filter(
         (memberId) => !dayBlocks.some((block) => covers(block, day, hour)),
       );
@@ -75,13 +81,14 @@ export function computeFreeWindows(
           const start = activeStart;
           const end = hour;
           if (end - start >= 1) {
+            const displayEnd = formatWindowEnd(end);
             windows.push({
               days: [day],
               s: start,
               e: end,
               memberIds: activeMembers,
-              lbl: `${DAY_LABELS[day]} ${formatTime(start)}–${formatTime(end)}`,
-              dur: formatDuration(start, end),
+              lbl: `${DAY_LABELS[day]} ${formatTime(start)}–${formatTime(displayEnd)}`,
+              dur: formatDuration(start, displayEnd),
             });
           }
         }
@@ -92,15 +99,16 @@ export function computeFreeWindows(
     }
 
     if (activeStart !== null && activeMembers.length >= 2) {
-      const end = 21;
+      const end = WINDOW_END_HOUR;
       if (end - activeStart >= 1) {
+        const displayEnd = formatWindowEnd(end);
         windows.push({
           days: [day],
           s: activeStart,
           e: end,
           memberIds: activeMembers,
-          lbl: `${DAY_LABELS[day]} ${formatTime(activeStart)}–${formatTime(end)}`,
-          dur: formatDuration(activeStart, end),
+          lbl: `${DAY_LABELS[day]} ${formatTime(activeStart)}–${formatTime(displayEnd)}`,
+          dur: formatDuration(activeStart, displayEnd),
         });
       }
     }

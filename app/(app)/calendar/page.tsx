@@ -45,7 +45,7 @@ type Density = "all" | "tasks" | "routines";
 type Layout = "week" | "focus";
 
 const INPUT_START_HOUR = 0;
-const INPUT_END_HOUR = 23;
+const INPUT_END_MINUTES = 23 * 60 + 59;
 const PH_TIME_ZONE = "Asia/Manila";
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const ROUTINE_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "#ca8a04"];
@@ -70,13 +70,13 @@ function parseTimeMinutes(value: string) {
 
   const totalMinutes = hours * 60 + minutes;
   const minMinutes = INPUT_START_HOUR * 60;
-  const maxMinutes = INPUT_END_HOUR * 60;
+  const maxMinutes = INPUT_END_MINUTES;
 
   return Math.max(minMinutes, Math.min(totalMinutes, maxMinutes));
 }
 
 function toTimeInputValue(totalMinutes: number) {
-  const clamped = Math.max(INPUT_START_HOUR * 60, Math.min(totalMinutes, INPUT_END_HOUR * 60));
+  const clamped = Math.max(INPUT_START_HOUR * 60, Math.min(totalMinutes, INPUT_END_MINUTES));
   const hours = Math.floor(clamped / 60);
   const minutes = clamped % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
@@ -782,7 +782,7 @@ export default function MainCalendarPage() {
                     onChange={(event) => handleRoutineStartChange(event.target.value)}
                     className={`${styles.modalInput} ${styles.modalTimeInput}`}
                     min="00:00"
-                    max="23:00"
+                    max="23:59"
                     required
                   />
                 </div>
@@ -798,7 +798,7 @@ export default function MainCalendarPage() {
                     onChange={(event) => setNewRoutineEnd(event.target.value)}
                     className={`${styles.modalInput} ${styles.modalTimeInput}`}
                     min="00:00"
-                    max="23:00"
+                    max="23:59"
                     step={60}
                     required
                   />
