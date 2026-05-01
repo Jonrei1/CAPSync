@@ -5,7 +5,7 @@ import FloatingTooltip, { type FloatingTooltipContent } from "@/components/calen
 import { cn } from "@/lib/utils";
 import styles from "@/app/(app)/calendar/page.module.css";
 
-const SLOT = 52;
+const SLOT = 60;
 const DEFAULT_START_HOUR = 5;
 const DEFAULT_END_HOUR = 24;
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -158,10 +158,10 @@ function layoutEvents(events: CalendarGridEvent[], startHour: number) {
       : right.endHour - left.endHour,
   );
 
-  const positioned: LayoutEvent[] = sorted.map((event) => ({
+    const positioned: LayoutEvent[] = sorted.map((event) => ({
     ...event,
     top: (event.startHour - startHour) * SLOT,
-    height: Math.max((event.endHour - event.startHour) * SLOT, 36),
+    height: Math.max((event.endHour - event.startHour) * SLOT, 44),
     left: 0,
     width: 100,
     compact: event.endHour - event.startHour <= 0.85,

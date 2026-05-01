@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { ChevronDownIcon } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import FloatingTooltip, { type FloatingTooltipContent } from "@/components/calendar/FloatingTooltip";
@@ -53,6 +54,13 @@ const ROUTINE_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "
 const HEAT_COLORS = ["#f0fdf4", "#dbeafe", "#93c5fd", "#3b82f6", "#1e3a8a"];
 const HEAT_BORDERS = ["#86efac", "#bfdbfe", "#60a5fa", "#1d4ed8", "#172554"];
 const HEAT_TEXT = ["#15803d", "#1e40af", "#1e40af", "#ffffff", "#ffffff"];
+
+const VIEW_TABS = [
+  { key: "week" as Layout, label: "Calendar",     icon: "📅" },
+  { key: "heat" as Layout, label: "Heat map",     icon: "▦"  },
+  { key: "dots" as Layout, label: "Availability", icon: "⠿"  },
+  { key: "free" as Layout, label: "Free windows", icon: "◈"  },
+] as const;
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
@@ -515,61 +523,6 @@ export default function CalendarShell({
     return (
       <div className="min-h-0 flex-1 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-3 py-1.5 sm:px-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" size="icon-sm" onClick={() => navigateToWeek(weekOffset - 1)}>
-                &#8249;
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => navigateToWeek(0)}>
-                Today
-              </Button>
-              <Button type="button" variant="outline" size="icon-sm" onClick={() => navigateToWeek(weekOffset + 1)}>
-                &#8250;
-              </Button>
-              <span className="text-sm font-semibold tracking-tight text-foreground">{weekLabel}</span>
-              <div className="inline-flex items-center gap-1.5 border-l border-border/70 pl-2">
-                <span className="text-[11px] text-muted-foreground">Go to date</span>
-                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        variant="outline"
-                        data-empty={!weekStart}
-                        className="w-53 justify-between text-left font-normal data-[empty=true]:text-muted-foreground"
-                      >
-                        {weekStart ? format(weekStart, "PPP") : <span>Pick a date</span>}
-                        <ChevronDownIcon data-icon="inline-end" />
-                      </Button>
-                    }
-                  />
-                  <PopoverContent className={cn(ds.calendar.dateJumpPopover)} align="start">
-                    <Calendar
-                      mode="single"
-                      selected={weekStart}
-                      defaultMonth={weekStart}
-                      onSelect={(nextDate) => {
-                        if (!nextDate) {
-                          return;
-                        }
-                        navigateToWeek(getWeekOffsetForDate(nextDate));
-                        setDatePickerOpen(false);
-                      }}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowRoutineDialog(true)}>
-                Add routine
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={doSuggest}>
-                Suggest meeting
-              </Button>
-            </div>
-          </div>
-
           <div className="flex flex-wrap items-center gap-2 border-b border-border/70 bg-muted/30 px-3 py-1.5 sm:px-4">
             <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Members</span>
             <div className="flex flex-1 flex-wrap gap-2">
@@ -967,52 +920,96 @@ export default function CalendarShell({
   ]);
 
   return (
-    <div className={cn(ds.layout.page, "max-w-none flex h-full flex-col gap-2 py-0")}>
-      <header className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border/70 bg-card p-2 shadow-sm sm:p-3">
-        <div className="flex items-start gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground shadow-sm">
-            {groupName
-              .split(/\s+/)
-              .filter(Boolean)
-              .slice(0, 2)
-              .map((part) => part[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase() || "GC"}
+    <div className={cn(ds.layout.page, "max-w-none flex h-full flex-col gap-1 py-0")}>
+      <div className="rounded-2xl border border-border/70 bg-card shadow-sm overflow-hidden mb-2">
+        <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border/70">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link
+              href="/dashboard"
+              className="inline-flex h-7 items-center justify-center rounded-md border border-border bg-background px-2 text-[11px] font-medium whitespace-nowrap text-foreground transition-all hover:bg-muted hover:text-foreground"
+            >
+              <span className="mr-1" aria-hidden="true">&larr;</span>
+              Back
+            </Link>
+
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-[10px] font-bold text-primary-foreground">
+              {groupName
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase() || "GC"}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold tracking-tight text-foreground truncate max-w-[220px]">{groupName}</div>
+              <div className="hidden sm:block text-[11px] text-muted-foreground truncate">{groupSubject} · {weekLabel}</div>
+            </div>
           </div>
-          <div>
-            <div className="text-sm font-semibold tracking-tight text-foreground">{groupName}</div>
-            <div className="text-[11px] text-muted-foreground">{groupSubject?.trim() || "Group calendar"} - {weekLabel}</div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {VIEW_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setLayout(tab.key)}
+                className={cn(
+                  "flex items-center gap-2 rounded-md border px-3 py-1.5 text-[11px] font-medium transition-all",
+                  layout === tab.key
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-transparent text-muted-foreground hover:border-border/70 hover:text-foreground",
+                )}
+              >
+                <span className="text-xs leading-none">{tab.icon}</span>
+                <span className="hidden md:inline">{tab.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[
-            { key: "week", label: "Calendar", hint: "Week grid", icon: "📅" },
-            { key: "heat", label: "Heat map", hint: "Density", icon: "▦" },
-            { key: "dots", label: "Availability", hint: "Dot grid", icon: "⠿" },
-            { key: "free", label: "Free windows", hint: "Clutter-free", icon: "◈" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setLayout(item.key as Layout)}
-              className={cn(
-                "flex min-w-16 flex-col items-center gap-0.5 rounded-lg border px-2 py-1 text-center transition-all duration-150",
-                layout === item.key
-                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                  : "border-border/70 bg-background text-muted-foreground hover:-translate-y-0.5 hover:border-border hover:text-foreground",
-              )}
-            >
-              <span className="text-xs leading-none">{item.icon}</span>
-              <span className="text-[10px] font-medium">{item.label}</span>
-              <span className={cn("text-[9px]", layout === item.key ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                {item.hint}
-              </span>
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-2 px-4 py-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="outline" size="icon-sm" onClick={() => navigateToWeek(weekOffset - 1)}>&#8249;</Button>
+            <Button variant="outline" size="sm"      onClick={() => navigateToWeek(0)}>Today</Button>
+            <Button variant="outline" size="icon-sm" onClick={() => navigateToWeek(weekOffset + 1)}>&#8250;</Button>
+
+            <span className="text-sm font-medium text-foreground min-w-[120px] text-center hidden sm:inline">{weekLabel}</span>
+
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger render={
+                <Button variant="outline" size="sm" className="gap-1 text-[11px] text-muted-foreground font-normal">
+                  {weekStart ? format(weekStart, "MMM d, yyyy") : "Pick date"}
+                  <ChevronDownIcon data-icon="inline-end" />
+                </Button>
+              } />
+              <PopoverContent className={cn(ds.calendar.dateJumpPopover)} align="start">
+                <Calendar
+                  mode="single"
+                  selected={weekStart}
+                  defaultMonth={weekStart}
+                  onSelect={(nextDate) => {
+                    if (!nextDate) return;
+                    navigateToWeek(getWeekOffsetForDate(nextDate));
+                    setDatePickerOpen(false);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline"   size="sm" onClick={() => setShowRoutineDialog(true)}>
+              <span className="hidden sm:inline">Add routine</span>
+              <span className="sm:hidden">+ Routine</span>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={doSuggest}>
+              <span className="hidden md:inline">Suggest meeting</span>
+              <span className="md:hidden">Suggest</span>
+            </Button>
+          </div>
         </div>
-      </header>
+      </div>
 
       {weekView}
 

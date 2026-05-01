@@ -320,7 +320,7 @@
 
 .weekHead {
   display: grid;
-  grid-template-columns: 52px repeat(7, minmax(0, 1fr));
+  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid #e5e7eb;
   background: #fff;
   position: sticky;
@@ -329,7 +329,7 @@
 }
 
 .weekHeadSpacer {
-  height: 48px;
+  height: 76px;
   border-right: 1px solid #e5e7eb;
 }
 
@@ -368,14 +368,13 @@
 .scroll {
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: 568px;
   position: relative;
   scrollbar-gutter: stable;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: 52px repeat(7, minmax(0, 1fr));
+  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   /* removed: min-height: calc(24 * 52px + 1px); */
 }
 
@@ -384,7 +383,7 @@
 }
 
 .timeCell {
-  height: 52px;
+  height: 60px;
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
