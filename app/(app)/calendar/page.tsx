@@ -178,8 +178,11 @@ export default function MainCalendarPage() {
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showScopeModal, setShowScopeModal] = useState(false);
+  const [showDeleteRoutineModal, setShowDeleteRoutineModal] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [scopeTarget, setScopeTarget] = useState<ScopeTarget | null>(null);
+  const [scopeChoice, setScopeChoice] = useState<"occurrence" | "all">("occurrence");
+  const [deleteChoice, setDeleteChoice] = useState<"occurrence" | "all" | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<RoutineRow | null>(null);
   const [editScope, setEditScope] = useState<"occurrence" | "all">("all");
   const [editOccurrenceDate, setEditOccurrenceDate] = useState<string | null>(null);
@@ -759,6 +762,37 @@ export default function MainCalendarPage() {
     setShowEditDialog(true);
   }
 
+  function openScopeModal(target: ScopeTarget) {
+    setScopeTarget(target);
+    setScopeChoice("occurrence");
+    setShowScopeModal(true);
+  }
+
+  function handleScopeModalConfirm() {
+    if (!scopeTarget) {
+      return;
+    }
+
+    setShowScopeModal(false);
+
+    if (scopeChoice === "occurrence") {
+      if (scopeTarget.action === "edit") {
+        openEditForOccurrence(scopeTarget);
+      } else {
+        setDeleteChoice("occurrence");
+        setShowDeleteRoutineModal(true);
+      }
+      return;
+    }
+
+    if (scopeTarget.action === "edit") {
+      openEditForAll(scopeTarget.routineId);
+    } else {
+      setDeleteChoice("all");
+      setShowDeleteRoutineModal(true);
+    }
+  }
+
   async function updateRoutine() {
     if (!editingRoutine) {
       return;
@@ -895,7 +929,7 @@ export default function MainCalendarPage() {
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData.user?.id;
     if (!userId) {
-      return;
+      return false;
     }
 
     const { data: upserted, error } = await supabase
@@ -914,7 +948,7 @@ export default function MainCalendarPage() {
 
     if (error || !upserted) {
       alert("Failed to remove occurrence.");
-      return;
+      return false;
     }
 
     setOverrides((previous) => {
@@ -942,24 +976,20 @@ export default function MainCalendarPage() {
           )
         : [...previous, next];
     });
+
+    return true;
   }
 
   async function deleteAllOccurrences(routineId: string) {
-    const confirmed = window.confirm(
-      "This will permanently delete the entire recurring routine. Continue?",
-    );
-    if (!confirmed) {
-      return;
-    }
-
     const { error } = await supabase.from("personal_routines").delete().eq("id", routineId);
     if (error) {
       alert("Failed to delete routine.");
-      return;
+      return false;
     }
 
     setRoutines((previous) => previous.filter((routine) => routine.id !== routineId));
     setOverrides((previous) => previous.filter((entry) => entry.routineId !== routineId));
+    return true;
   }
 
   function resetScheduleForm() {
@@ -1249,8 +1279,7 @@ export default function MainCalendarPage() {
             backgroundEvents={routineEvents}
             now={now}
             onRoutineAction={(routineId, action, occurrenceDate, dayIndex) => {
-              setScopeTarget({ routineId, action, occurrenceDate, dayIndex });
-              setShowScopeModal(true);
+              openScopeModal({ routineId, action, occurrenceDate, dayIndex });
             }}
             onScheduleAction={(blockId, action) => {
               if (action === "delete") {
@@ -1616,9 +1645,22 @@ export default function MainCalendarPage() {
       )}
 
       {showScopeModal && scopeTarget && (
-        <div className={styles.modalOverlay} onClick={() => setShowScopeModal(false)}>
+        <div
+          className={styles.modalOverlay}
+          onClick={() => {
+            setShowScopeModal(false);
+            setDeleteChoice(null);
+          }}
+        >
           <div className={styles.modalCard} style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
-            <button type="button" className={styles.modalClose} onClick={() => setShowScopeModal(false)}>
+            <button
+              type="button"
+              className={styles.modalClose}
+              onClick={() => {
+                setShowScopeModal(false);
+                setDeleteChoice(null);
+              }}
+            >
               ×
             </button>
 
@@ -1628,55 +1670,155 @@ export default function MainCalendarPage() {
               </div>
               <h2 className={styles.modalTitle}>
                 {scopeTarget.action === "edit"
-                  ? "What would you like to edit?"
-                  : "What would you like to delete?"}
+                  ? "Choose what to edit"
+                  : "Choose what to delete"}
               </h2>
               <p className={styles.modalDesc}>
                 {scopeTarget.action === "edit"
-                  ? "Choose whether to edit only this day's occurrence or update the entire recurring routine."
-                  : "Choose whether to remove only this day's occurrence or delete the entire recurring routine."}
+                  ? "Pick a scope before continuing."
+                  : "Pick a scope before continuing."}
               </p>
             </div>
 
-            <div className={styles.modalScopeOptions}>
-              <button
-                type="button"
-                className={styles.scopeOptionCard}
-                onClick={() => {
-                  setShowScopeModal(false);
-                  if (scopeTarget.action === "edit") {
-                    openEditForOccurrence(scopeTarget);
-                  } else {
-                    void deleteOccurrence(scopeTarget);
-                  }
-                }}
-              >
-                <span className={styles.scopeOptionTitle}>This occurrence only</span>
-                <span className={styles.scopeOptionSub}>- {scopeTarget.occurrenceDate}</span>
-              </button>
+            <div className={styles.modalBody}>
+              <div className={styles.scopeRadioGroup} role="radiogroup" aria-label="Choose scope">
+                <label
+                  className={`${styles.scopeOptionCard} ${scopeChoice === "occurrence" ? styles.scopeOptionCardSelected : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="scope-choice"
+                    className={styles.scopeOptionInput}
+                    checked={scopeChoice === "occurrence"}
+                    onChange={() => setScopeChoice("occurrence")}
+                  />
+                  <span className={styles.scopeOptionBody}>
+                    <span className={styles.scopeOptionTitle}>This occurrence only</span>
+                    <span className={styles.scopeOptionSub}>{scopeTarget.occurrenceDate}</span>
+                  </span>
+                  <span className={styles.scopeRadio} aria-hidden="true">
+                    <span className={styles.scopeRadioDot} />
+                  </span>
+                </label>
 
-              <button
-                type="button"
-                className={`${styles.scopeOptionCard} ${styles.scopeOptionCardDark} ${
-                  scopeTarget.action === "delete" ? styles.scopeOptionCardDanger : ""
-                }`}
-                onClick={() => {
-                  setShowScopeModal(false);
-                  if (scopeTarget.action === "edit") {
-                    openEditForAll(scopeTarget.routineId);
-                  } else {
-                    void deleteAllOccurrences(scopeTarget.routineId);
-                  }
-                }}
-              >
-                <span className={styles.scopeOptionTitle}>All occurrences</span>
-                <span className={styles.scopeOptionSub}>- entire recurring routine</span>
-              </button>
+                <label
+                  className={`${styles.scopeOptionCard} ${styles.scopeOptionCardDark} ${
+                    scopeTarget.action === "delete" ? styles.scopeOptionCardDanger : ""
+                  } ${scopeChoice === "all" ? styles.scopeOptionCardSelected : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="scope-choice"
+                    className={styles.scopeOptionInput}
+                    checked={scopeChoice === "all"}
+                    onChange={() => setScopeChoice("all")}
+                  />
+                  <span className={styles.scopeOptionBody}>
+                    <span className={styles.scopeOptionTitle}>All occurrences</span>
+                    <span className={styles.scopeOptionSub}>Entire recurring routine</span>
+                  </span>
+                  <span className={`${styles.scopeRadio} ${styles.scopeRadioDark}`} aria-hidden="true">
+                    <span className={styles.scopeRadioDot} />
+                  </span>
+                </label>
+              </div>
             </div>
 
-            <div className={styles.modalScopeCancel}>
-              <button type="button" className={styles.scopeCancelBtn} onClick={() => setShowScopeModal(false)}>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.scopeCancelBtn}
+                onClick={() => {
+                  setShowScopeModal(false);
+                  setDeleteChoice(null);
+                }}
+              >
                 Cancel
+              </button>
+              <button type="button" className={styles.scopeConfirmBtn} onClick={handleScopeModalConfirm}>
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteRoutineModal && scopeTarget && scopeTarget.action === "delete" && deleteChoice && (
+        <div
+          className={styles.modalOverlay}
+          onClick={() => {
+            setShowDeleteRoutineModal(false);
+            setDeleteChoice(null);
+          }}
+        >
+          <div className={styles.modalCard} style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className={styles.modalClose}
+              onClick={() => {
+                setShowDeleteRoutineModal(false);
+                setDeleteChoice(null);
+              }}
+            >
+              ×
+            </button>
+
+            <div className={styles.modalHeader}>
+              <div className={styles.modalBadge}>Confirm delete</div>
+              <h2 className={styles.modalTitle}>
+                {deleteChoice === "occurrence" ? "Delete this occurrence?" : "Delete this routine?"}
+              </h2>
+              <p className={styles.modalDesc}>
+                {deleteChoice === "occurrence"
+                  ? "This will permanently remove only this occurrence."
+                  : "This will permanently delete the entire recurring routine and all of its future occurrences."}
+              </p>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.scopeRadioGroup}>
+                <div className={`${styles.scopeOptionCard} ${styles.scopeOptionCardDanger}`} style={{ cursor: "default" }}>
+                  <span className={styles.scopeOptionBody}>
+                    <span className={styles.scopeOptionTitle}>
+                      {deleteChoice === "occurrence" ? "Occurrence to delete" : "Routine to delete"}
+                    </span>
+                    <span className={styles.scopeOptionSub}>
+                      {deleteChoice === "occurrence"
+                        ? scopeTarget.occurrenceDate
+                        : `${scopeTarget.occurrenceDate} and all future repeats`}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.scopeCancelBtn}
+                onClick={() => {
+                  setShowDeleteRoutineModal(false);
+                  setDeleteChoice(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.scopeConfirmBtn}
+                onClick={async () => {
+                  const deleted =
+                    deleteChoice === "occurrence"
+                      ? await deleteOccurrence(scopeTarget)
+                      : await deleteAllOccurrences(scopeTarget.routineId);
+                  if (deleted) {
+                    setShowDeleteRoutineModal(false);
+                    setScopeTarget(null);
+                    setDeleteChoice(null);
+                  }
+                }}
+              >
+                {deleteChoice === "occurrence" ? "Delete occurrence" : "Delete routine"}
               </button>
             </div>
           </div>
