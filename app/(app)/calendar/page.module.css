@@ -1,6 +1,10 @@
 .page {
   background: transparent;
-  min-height: auto;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 0;
   color: #111827;
 }
@@ -99,6 +103,10 @@
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -328,6 +336,14 @@
   z-index: 10;
 }
 
+.calendarViewport {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .weekHeadSpacer {
   height: 76px;
   border-right: 1px solid #e5e7eb;
@@ -369,6 +385,8 @@
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
+  flex: 1;
+  min-height: 0;
   scrollbar-gutter: stable;
 }
 

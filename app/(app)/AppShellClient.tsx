@@ -41,6 +41,7 @@ function AppShell({ children }: AppLayoutProps) {
   const pathname = usePathname();
   const { activeCircle, dialogOpen, setDialogOpen, dialogTab } = useCircle();
   const isPersonalCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/");
+  const isAnyCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/") || pathname.endsWith("/calendar");
   const showCircleChrome = Boolean(activeCircle) && !isPersonalCalendarRoute;
   const headerTitle = isPersonalCalendarRoute ? "My Calendar" : activeCircle?.name ?? "";
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -227,7 +228,14 @@ function AppShell({ children }: AppLayoutProps) {
           <div className="flex items-center gap-2" />
         </header>
 
-        <main className="p-4 md:p-6">{children}</main>
+        <main
+          className={[
+            "p-4 md:p-6",
+            isAnyCalendarRoute ? "h-[calc(100dvh-3.5rem)] overflow-hidden" : "",
+          ].join(" ")}
+        >
+          {children}
+        </main>
       </div>
       </div>
   </>

@@ -379,7 +379,7 @@ export default function WeekCalendarGrid({
   }
 
   return (
-    <div>
+    <div className={styles.calendarViewport}>
       <div className={styles.scroll}>
         <div className={styles.weekHead}>
           <div className={styles.weekHeadSpacer} />

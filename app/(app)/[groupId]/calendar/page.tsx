@@ -370,7 +370,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
   const deadlineData = deadlines.map(mapDeadline).filter((deadline): deadline is CalendarDeadline => Boolean(deadline));
 
   return (
-    <div className="flex h-[calc(100dvh-5.5rem)] flex-col gap-1 md:h-[calc(100dvh-6.5rem)]">
+    <div className="flex h-full min-h-0 flex-col gap-1">
       
 
       <div className="min-h-0 flex-1">
