@@ -30,6 +30,7 @@ type CalendarShellProps = {
   groupName: string;
   groupSubject?: string | null;
   weekOffset: number;
+  selectedDate: string;
 };
 
 type Layout = "week" | "heat" | "dots" | "free";
@@ -99,9 +100,9 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
-function getWeekDates(offset = 0) {
-  const current = new Date();
-  current.setDate(current.getDate() + offset * 7);
+function getWeekDates(anchorDate: Date) {
+  const current = new Date(anchorDate);
+  current.setHours(12, 0, 0, 0);
   const dayOfWeek = current.getDay();
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(current);
@@ -127,10 +128,38 @@ function getTooltipPoint(clientX: number, clientY: number) {
   };
 }
 
-function getWeekOffsetForDate(date: Date) {
-  const currentWeekStart = startOfWeek(new Date());
-  const targetWeekStart = startOfWeek(date);
-  return Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+function parseDateParam(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, yearPart, monthPart, dayPart] = match;
+  const parsed = new Date(
+    Number.parseInt(yearPart, 10),
+    Number.parseInt(monthPart, 10) - 1,
+    Number.parseInt(dayPart, 10),
+    12,
+    0,
+    0,
+    0,
+  );
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function toDateParam(date: Date) {
+  const normalized = new Date(date);
+  normalized.setHours(12, 0, 0, 0);
+  return `${normalized.getFullYear()}-${pad(normalized.getMonth() + 1)}-${pad(normalized.getDate())}`;
 }
 
 export default function CalendarShell({
@@ -141,7 +170,8 @@ export default function CalendarShell({
   groupId,
   groupName,
   groupSubject,
-  weekOffset,
+  weekOffset: _weekOffset,
+  selectedDate,
 }: CalendarShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -165,7 +195,8 @@ export default function CalendarShell({
   const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const tooltipVisibleRef = useRef(false);
 
-  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const activeDate = useMemo(() => parseDateParam(selectedDate) ?? new Date(), [selectedDate]);
+  const weekDates = useMemo(() => getWeekDates(activeDate), [activeDate]);
   const weekStart = weekDates[0];
   const weekLabel = useMemo(() => formatRange(weekDates[0], weekDates[6]), [weekDates]);
   const visibleMemberSet = useMemo(() => new Set(visibleMemberIds), [visibleMemberIds]);
@@ -272,13 +303,10 @@ export default function CalendarShell({
     };
   }, [groupId, memberIds, router]);
 
-  function navigateToWeek(nextOffset: number) {
+  function navigateToDate(nextDate: Date) {
     const nextParams = new URLSearchParams(searchParams.toString());
-    if (nextOffset === 0) {
-      nextParams.delete("week");
-    } else {
-      nextParams.set("week", String(nextOffset));
-    }
+    nextParams.delete("week");
+    nextParams.set("date", toDateParam(nextDate));
 
     const query = nextParams.toString();
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -916,7 +944,6 @@ export default function CalendarShell({
     visibleMemberSet,
     weekDates,
     weekLabel,
-    weekOffset,
   ]);
 
   return (
@@ -943,7 +970,7 @@ export default function CalendarShell({
                 .toUpperCase() || "GC"}
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-semibold tracking-tight text-foreground truncate max-w-[220px]">{groupName}</div>
+              <div className="text-sm font-semibold tracking-tight text-foreground truncate max-w-55">{groupName}</div>
               <div className="hidden sm:block text-[11px] text-muted-foreground truncate">{groupSubject} · {weekLabel}</div>
             </div>
           </div>
@@ -970,32 +997,45 @@ export default function CalendarShell({
 
         <div className="flex items-center justify-between gap-2 px-4 py-2">
           <div className="flex items-center gap-3 min-w-0">
-            <Button variant="outline" size="icon-sm" onClick={() => navigateToWeek(weekOffset - 1)}>&#8249;</Button>
-            <Button variant="outline" size="sm"      onClick={() => navigateToWeek(0)}>Today</Button>
-            <Button variant="outline" size="icon-sm" onClick={() => navigateToWeek(weekOffset + 1)}>&#8250;</Button>
+            <Button variant="outline" size="icon-sm" onClick={() => navigateToDate(addDays(activeDate, -7))}>&#8249;</Button>
+            <Button variant="outline" size="sm"      onClick={() => navigateToDate(new Date())}>Today</Button>
+            <Button variant="outline" size="icon-sm" onClick={() => navigateToDate(addDays(activeDate, 7))}>&#8250;</Button>
 
-            <span className="text-sm font-medium text-foreground min-w-[120px] text-center hidden sm:inline">{weekLabel}</span>
+            <span className="text-sm font-medium text-foreground min-w-30 text-center hidden sm:inline">{weekLabel}</span>
 
-            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-              <PopoverTrigger render={
-                <Button variant="outline" size="sm" className="gap-1 text-[11px] text-muted-foreground font-normal">
-                  {weekStart ? format(weekStart, "MMM d, yyyy") : "Pick date"}
-                  <ChevronDownIcon data-icon="inline-end" />
-                </Button>
-              } />
-              <PopoverContent className={cn(ds.calendar.dateJumpPopover)} align="start">
-                <Calendar
-                  mode="single"
-                  selected={weekStart}
-                  defaultMonth={weekStart}
-                  onSelect={(nextDate) => {
-                    if (!nextDate) return;
-                    navigateToWeek(getWeekOffsetForDate(nextDate));
-                    setDatePickerOpen(false);
-                  }}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground">Go to date</span>
+
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger
+                  render={(
+                    <Button
+                      variant="outline"
+                      data-empty={!activeDate}
+                      className="w-53 justify-between text-left font-normal data-[empty=true]:text-muted-foreground"
+                    >
+                      {activeDate ? format(activeDate, "PPP") : <span>Pick a date</span>}
+                      <ChevronDownIcon data-icon="inline-end" />
+                    </Button>
+                  )}
                 />
-              </PopoverContent>
-            </Popover>
+                <PopoverContent className={cn(ds.calendar.dateJumpPopover)} align="start">
+                  <Calendar
+                    mode="single"
+                    selected={activeDate}
+                    defaultMonth={activeDate}
+                    onSelect={(nextDate) => {
+                      if (!nextDate) {
+                        return;
+                      }
+
+                      navigateToDate(nextDate);
+                      setDatePickerOpen(false);
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">

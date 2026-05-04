@@ -8,7 +8,9 @@ import type { CalendarBlock, CalendarDeadline, CalendarMember } from "@/types";
 
 type PageProps = {
   params: { groupId: string } | Promise<{ groupId: string }>;
-  searchParams?: { week?: string | string[] } | Promise<{ week?: string | string[] }>;
+  searchParams?:
+    | { week?: string | string[]; date?: string | string[] }
+    | Promise<{ week?: string | string[]; date?: string | string[] }>;
 };
 
 type MemberRow = {
@@ -70,6 +72,35 @@ function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+function parseDateParam(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, yearPart, monthPart, dayPart] = match;
+  const year = Number.parseInt(yearPart, 10);
+  const month = Number.parseInt(monthPart, 10);
+  const day = Number.parseInt(dayPart, 10);
+  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function toDateParam(date: Date) {
+  const normalized = new Date(date);
+  normalized.setHours(12, 0, 0, 0);
+  return `${normalized.getFullYear()}-${String(normalized.getMonth() + 1).padStart(2, "0")}-${String(normalized.getDate()).padStart(2, "0")}`;
 }
 
 function toDayKey(date: Date) {
@@ -231,9 +262,11 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
     .maybeSingle();
 
   const rawWeekOffset = Array.isArray(resolvedSearchParams?.week) ? resolvedSearchParams.week[0] : resolvedSearchParams?.week;
+  const rawDate = Array.isArray(resolvedSearchParams?.date) ? resolvedSearchParams.date[0] : resolvedSearchParams?.date;
   const weekOffset = Number.parseInt(rawWeekOffset ?? "0", 10);
   const safeWeekOffset = Number.isNaN(weekOffset) ? 0 : weekOffset;
-  const weekStart = addDays(startOfWeek(new Date()), safeWeekOffset * 7);
+  const selectedDate = parseDateParam(rawDate) ?? addDays(startOfWeek(new Date()), safeWeekOffset * 7);
+  const weekStart = startOfWeek(selectedDate);
   const weekEnd = addDays(weekStart, 6);
   weekEnd.setHours(23, 59, 59, 999);
 
@@ -383,6 +416,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         groupName={group?.name ?? "Circle"}
         groupSubject={group?.subject ?? null}
         weekOffset={safeWeekOffset}
+        selectedDate={toDateParam(selectedDate)}
       />
       </div>
     </div>
