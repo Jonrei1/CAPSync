@@ -564,30 +564,31 @@ export default function CalendarShell({
                     type="button"
                     onClick={() => toggleMember(member.id)}
                     className={cn(
-                      "group flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all duration-150",
+                      "group flex items-center gap-[7px] rounded-[7px] border-[1.5px] min-h-[34px] px-[10px] py-[5px] pl-[8px] text-left transition-all duration-150 select-none",
                       visible
-                        ? "bg-background shadow-sm hover:-translate-y-0.5"
-                        : "border-border/70 bg-muted/60 opacity-50",
+                        ? "bg-background shadow-sm hover:-translate-y-0.5 hover:shadow-md"
+                        : "border-border/70 bg-muted/60 opacity-45",
                     )}
                     style={{ borderColor: visible ? member.bd : undefined }}
                   >
                     <div
-                      className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                      className="h-2 w-2 shrink-0 rounded-full"
                       style={{ backgroundColor: member.bg, opacity: visible ? 1 : 0.45 }}
-                    >
-                      {member.ini}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-[12px] font-semibold text-foreground">{member.name}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {member.role} - {blockCount} blocks this week
-                      </div>
+                    />
+                    <div className="min-w-0 flex-1 flex flex-col items-start">
+                      <span className="truncate text-[11px] font-semibold leading-[1.2] text-foreground" style={{ color: visible ? member.bg : undefined }}>
+                        {member.name}
+                      </span>
+                      <span className="text-[9px] leading-[1.2] text-muted-foreground mt-px">
+                        {member.role} · {blockCount} blocks
+                      </span>
                     </div>
                     <div
                       className={cn(
-                        "ml-1 flex h-4 w-4 items-center justify-center rounded-full border text-[9px] font-bold transition-colors",
-                        visible ? "border-emerald-500 bg-emerald-500 text-white" : "border-border/70 bg-transparent text-muted-foreground",
+                        "ml-[2px] flex h-3 w-3 shrink-0 items-center justify-center rounded-full border-[1.5px] text-[8px] font-bold transition-colors",
+                        visible ? "text-white" : "border-border/70 bg-transparent text-muted-foreground",
                       )}
+                      style={visible ? { borderColor: member.bg, backgroundColor: member.bg } : undefined}
                     >
                       {visible ? "✓" : ""}
                     </div>
@@ -609,7 +610,7 @@ export default function CalendarShell({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto">
+          <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
             {layout === "week" ? (
               <WeekCalendarGrid
                 weekDates={weekDates}
@@ -617,6 +618,7 @@ export default function CalendarShell({
                 backgroundEvents={backgroundEvents}
                 badges={deadlineBadges}
                 now={nowTick}
+                selectedDate={activeDate}
                 startHour={5}
                 endHour={24}
                 tooltipClassName={ds.calendar.tooltip}

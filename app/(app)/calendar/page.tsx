@@ -1278,6 +1278,7 @@ export default function MainCalendarPage() {
             foregroundEvents={[...taskEvents, ...scheduleEvents]}
             backgroundEvents={routineEvents}
             now={now}
+            selectedDate={activeDate}
             onRoutineAction={(routineId, action, occurrenceDate, dayIndex) => {
               openScopeModal({ routineId, action, occurrenceDate, dayIndex });
             }}

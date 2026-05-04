@@ -43,6 +43,7 @@ type WeekCalendarGridProps = {
   backgroundEvents?: CalendarGridEvent[];
   badges?: CalendarGridBadge[];
   now?: Date;
+  selectedDate?: Date;
   startHour?: number;
   endHour?: number;
   tooltipClassName?: string;
@@ -218,6 +219,7 @@ export default function WeekCalendarGrid({
   backgroundEvents = [],
   badges = [],
   now,
+  selectedDate,
   startHour = DEFAULT_START_HOUR,
   endHour = DEFAULT_END_HOUR,
   tooltipClassName,
@@ -229,6 +231,7 @@ export default function WeekCalendarGrid({
 }: WeekCalendarGridProps) {
   const [hoverTooltip, setHoverTooltip] = useState<FloatingTooltipContent | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const tooltipElementRef = useRef<HTMLDivElement | null>(null);
   const tooltipRafRef = useRef<number | null>(null);
   const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -236,6 +239,9 @@ export default function WeekCalendarGrid({
 
   const hours = Math.max(0, endHour - startHour);
   const todayKey = now ? now.toDateString() : "";
+  // Defer selectedKey to client-only to avoid hydration mismatch when
+  // server and client Date.now() differ across timezone boundaries.
+  const selectedKey = mounted && selectedDate ? selectedDate.toDateString() : "";
   const nowHour = now ? now.getHours() + now.getMinutes() / 60 : null;
   const nowVisible = nowHour !== null && nowHour >= startHour && nowHour < endHour;
   const nowTop = nowHour === null ? 0 : Math.max(0, Math.min((nowHour - startHour) * SLOT, hours * SLOT));
@@ -253,6 +259,7 @@ export default function WeekCalendarGrid({
   const badgesByDay = useMemo(() => groupBadgesByDay(badges), [badges]);
 
   useEffect(() => {
+    setMounted(true);
     return () => {
       if (tooltipRafRef.current) {
         cancelAnimationFrame(tooltipRafRef.current);
@@ -385,11 +392,16 @@ export default function WeekCalendarGrid({
           <div className={styles.weekHeadSpacer} />
           {weekDates.map((date, index) => {
             const isToday = date.toDateString() === todayKey;
+            const isSelected = selectedKey !== "" && date.toDateString() === selectedKey;
             return (
               <div key={date.toISOString()} className={styles.dayHeader}>
                 <div className={styles.dayName}>{DAY_LABELS[index] ?? DAY_LABELS[date.getDay()]}</div>
-                {isToday ? (
+                {isToday && isSelected ? (
+                  <div className={cn(styles.dayNumSelected, styles.dayNumSelectedToday)}>{date.getDate()}</div>
+                ) : isToday ? (
                   <div className={styles.dayNumToday}>{date.getDate()}</div>
+                ) : isSelected ? (
+                  <div className={styles.dayNumSelected}>{date.getDate()}</div>
                 ) : (
                   <div className={styles.dayNum}>{date.getDate()}</div>
                 )}
@@ -412,6 +424,7 @@ export default function WeekCalendarGrid({
 
           {weekDates.map((date, dayIndex) => {
             const isToday = date.toDateString() === todayKey;
+            const isDaySelected = selectedKey !== "" && date.toDateString() === selectedKey;
             const dayBackground = backgroundByDay.get(dayIndex) ?? [];
             const dayForeground = layoutEvents(foregroundByDay.get(dayIndex) ?? [], startHour);
             const dayBadges = badgesByDay.get(dayIndex) ?? [];
@@ -419,7 +432,7 @@ export default function WeekCalendarGrid({
             return (
               <div
                 key={`${date.toISOString()}-day`}
-                className={cn(styles.dayCol, isToday && styles.todayCol)}
+                className={cn(styles.dayCol, isToday && styles.todayCol, isDaySelected && styles.selectedCol)}
                 style={{ height: hours * SLOT }}
               >
                 {Array.from({ length: hours + 1 }, (_, index) => (
