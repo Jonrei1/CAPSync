@@ -394,7 +394,7 @@ export default function WeekCalendarGrid({
             const isToday = date.toDateString() === todayKey;
             const isSelected = selectedKey !== "" && date.toDateString() === selectedKey;
             return (
-              <div key={date.toISOString()} className={styles.dayHeader}>
+              <div key={date.toISOString()} className={cn(styles.dayHeader, isSelected && styles.selectedCol)}>
                 <div className={styles.dayName}>{DAY_LABELS[index] ?? DAY_LABELS[date.getDay()]}</div>
                 {isToday && isSelected ? (
                   <div className={cn(styles.dayNumSelected, styles.dayNumSelectedToday)}>{date.getDate()}</div>
