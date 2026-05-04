@@ -12,7 +12,13 @@ export async function POST() {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo },
+    options: {
+      redirectTo,
+      queryParams: {
+        prompt: "select_account",
+        access_type: "offline",
+      },
+    },
   });
 
   if (error || !data.url) {

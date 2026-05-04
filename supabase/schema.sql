@@ -103,7 +103,7 @@ begin
     new.email
   )
   on conflict (id) do update
-    set full_name = excluded.full_name,
+    set full_name = coalesce(excluded.full_name, public.profiles.full_name),
         email = excluded.email;
 
   return new;
@@ -114,6 +114,17 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
+
+-- Backfill any auth users that exist before this migration is applied.
+insert into public.profiles (id, full_name, email)
+select
+  u.id,
+  coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name'),
+  u.email
+from auth.users u
+on conflict (id) do update
+  set full_name = coalesce(excluded.full_name, public.profiles.full_name),
+      email = excluded.email;
 
 -- Non-recursive membership helper used by RLS policies.
 create or replace function public.is_group_member(target_group_id uuid, target_user_id uuid)

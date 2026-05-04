@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
-import { ensureProfile } from "@/lib/auth/ensureProfile";
 
 type SignupRequest = {
   email?: string;
@@ -78,14 +77,20 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
+    const normalizedMessage = error.message.toLowerCase();
 
-  if (data.user) {
-    const { error: profileError } = await ensureProfile(supabase, data.user);
-    if (profileError) {
-      return NextResponse.json({ error: profileError }, { status: 500 });
+    if (
+      normalizedMessage.includes("already registered") ||
+      normalizedMessage.includes("already exists") ||
+      normalizedMessage.includes("user already registered")
+    ) {
+      return NextResponse.json(
+        { error: "An account with this email already exists. Please sign in instead." },
+        { status: 409 },
+      );
     }
+
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
   return NextResponse.json({

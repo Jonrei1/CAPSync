@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,8 +15,68 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { designStandard } from "@/components/ui/design-standard";
+import { cn } from "@/lib/utils";
 
 type LoadingState = "google" | "email" | null;
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function getPasswordError(password: string) {
+  if (!password) return "";
+  if (password.length < 12) return "Password must be at least 12 characters long.";
+  if (!/[a-z]/.test(password)) return "Password must include at least one lowercase letter.";
+  if (!/[A-Z]/.test(password)) return "Password must include at least one uppercase letter.";
+  if (!/\d/.test(password)) return "Password must include at least one number.";
+  if (!/[`~!@#$%^&*()_\-+={[}\]|\\:;\"'<,>.?/]/.test(password)) {
+    return "Password must include at least one special character.";
+  }
+  if (/\s/.test(password)) return "Password must not contain spaces.";
+  return "";
+}
+
+function getConfirmPasswordError(password: string, confirmPassword: string) {
+  if (!confirmPassword) return "";
+  if (password !== confirmPassword) return "Passwords do not match.";
+  return "";
+}
+
+function MessageBanner({
+  tone,
+  title,
+  message,
+}: {
+  tone: "error" | "success";
+  title: string;
+  message: string;
+}) {
+  const isError = tone === "error";
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-sm",
+        isError
+          ? "border-red-200 bg-red-50/90 text-red-950"
+          : "border-emerald-200 bg-emerald-50/90 text-emerald-950",
+      )}
+    >
+      <div
+        className={cn(
+          "mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          isError ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600",
+        )}
+      >
+        {isError ? <AlertCircle className="h-4 w-4" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{title}</p>
+        <p className="mt-0.5 text-sm leading-relaxed opacity-90">{message}</p>
+      </div>
+    </div>
+  );
+}
 
 function Spinner() {
   return (
@@ -34,11 +94,18 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState<LoadingState>(null);
 
-  const isBusy = loading !== null;
+  const emailError = email && !isValidEmail(email) ? "Please enter a valid email address." : "";
+  const passwordError = getPasswordError(password);
+  const liveConfirmPasswordError = getConfirmPasswordError(password, confirmPassword);
+  const formBusy = loading !== null;
+
+  const isBusy = formBusy;
 
   async function handleGoogleSignIn() {
     setError("");
@@ -67,6 +134,13 @@ export default function SignupPage() {
     event.preventDefault();
     setError("");
     setInfo("");
+    setConfirmPasswordError(liveConfirmPasswordError);
+
+    if (emailError || passwordError || liveConfirmPasswordError) {
+      setLoading(null);
+      return;
+    }
+
     setLoading("email");
 
     const cleanedFullName = fullName.trim();
@@ -94,23 +168,30 @@ export default function SignupPage() {
       return;
     }
 
+    setFullName("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setConfirmPasswordError("");
+
     if (!payload.requiresEmailConfirmation) {
+      setInfo("Account created successfully.");
       router.replace("/dashboard");
       router.refresh();
       return;
     }
 
-    setInfo("Account created. Check your email to confirm your account, then sign in.");
+    setInfo("Account created successfully.");
     setLoading(null);
   }
 
   return (
     <div className="font-sans flex min-h-screen flex-col bg-[radial-gradient(circle_at_0%_0%,rgba(219,234,254,0.9),transparent_45%),radial-gradient(circle_at_100%_100%,rgba(224,231,255,0.8),transparent_45%),radial-gradient(circle_at_100%_0%,rgba(240,249,255,0.9),transparent_40%),radial-gradient(circle_at_0%_100%,rgba(239,246,255,0.9),transparent_40%)]">
       <main className="flex flex-1 items-center justify-center px-5 py-16 md:px-8">
-        <Card className="w-full max-w-110 gap-0 py-8 shadow-lg">
+        <Card className="w-full max-w-md gap-0 overflow-hidden border-border/70 bg-card/95 py-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur">
           <CardHeader className="space-y-3.5 px-7 text-center md:px-8">
             <div className="mb-3 flex items-center justify-center">
-              <div className="rounded-lg bg-primary p-2.5 text-primary-foreground shadow-sm">
+              <div className="rounded-2xl bg-primary p-2.5 text-primary-foreground shadow-sm">
                 <RefreshCw className="h-6 w-6" aria-hidden="true" />
               </div>
             </div>
@@ -122,8 +203,8 @@ export default function SignupPage() {
 
           <CardContent className="space-y-7 px-7 md:px-8">
             <form className="grid gap-6" onSubmit={handleEmailSignUp}>
-              <div className="grid gap-3 text-left">
-                <label htmlFor="fullName" className="text-sm font-medium mt-3">
+              <div className="grid gap-2 text-left">
+                <label htmlFor="fullName" className={designStandard.field.label}>
                   Full name
                 </label>
                 <Input
@@ -137,8 +218,8 @@ export default function SignupPage() {
                 />
               </div>
 
-              <div className="grid gap-3 text-left">
-                <label htmlFor="email" className="text-sm font-medium">
+              <div className="grid gap-2 text-left">
+                <label htmlFor="email" className={designStandard.field.label}>
                   Email address
                 </label>
                 <Input
@@ -146,15 +227,19 @@ export default function SignupPage() {
                   type="email"
                   placeholder="name@company.com"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    if (error) setError("");
+                  }}
                   autoComplete="email"
                   required
                   disabled={isBusy}
                 />
+                {emailError ? <p className={designStandard.field.help}>{emailError}</p> : null}
               </div>
 
-              <div className="grid gap-3 text-left">
-                <label htmlFor="password" className="text-sm font-medium">
+              <div className="grid gap-2 text-left">
+                <label htmlFor="password" className={designStandard.field.label}>
                   Password
                 </label>
                 <Input
@@ -162,12 +247,39 @@ export default function SignupPage() {
                   type="password"
                   placeholder="At least 12 chars with upper/lower/number/symbol"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (error) setError("");
+                    if (confirmPasswordError) setConfirmPasswordError("");
+                  }}
                   autoComplete="new-password"
                   minLength={12}
                   required
                   disabled={isBusy}
                 />
+                {passwordError ? <p className={designStandard.field.help}>{passwordError}</p> : null}
+              </div>
+
+              <div className="grid gap-2 text-left">
+                <label htmlFor="confirmPassword" className={designStandard.field.label}>
+                  Re-enter password
+                </label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (confirmPasswordError) setConfirmPasswordError("");
+                    if (error) setError("");
+                  }}
+                  placeholder="Re-enter your password"
+                  disabled={isBusy}
+                />
+                {confirmPasswordError ? (
+                  <p className={designStandard.field.help}>{confirmPasswordError}</p>
+                ) : null}
               </div>
 
               <Button
@@ -186,8 +298,12 @@ export default function SignupPage() {
               </Button>
             </form>
 
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            {info ? <p className="text-sm text-green-700">{info}</p> : null}
+            {error ? (
+              <MessageBanner tone="error" title="Sign up failed" message={error} />
+            ) : null}
+            {info ? (
+              <MessageBanner tone="success" title="Account created" message={info} />
+            ) : null}
 
             <div className="relative py-2">
               <div className="absolute inset-0 flex items-center">
