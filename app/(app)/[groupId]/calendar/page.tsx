@@ -32,6 +32,7 @@ type MemberRow = {
 type ScheduleRow = {
   member_id?: string | null;
   created_by?: string | null;
+  created_by_name?: string | null;
   day?: string | null;
   start_hour?: number | string | null;
   end_hour?: number | string | null;
@@ -209,13 +210,16 @@ function mapSchedule(row: ScheduleRow): CalendarBlock | null {
     return null;
   }
 
+  // Include creator name in subtitle if present
+  const creatorSuffix = row.created_by_name ? ` · by ${row.created_by_name}` : "";
+
   return {
     memberId,
     days: [day],
     s: start,
     e: end,
     lbl: row.label ?? "Meeting",
-    sub: row.sub ?? "",
+    sub: (row.sub ?? "") + creatorSuffix,
     routine: false,
   };
 }

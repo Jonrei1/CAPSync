@@ -358,3 +358,86 @@ on scheduled_blocks
 for all
 using (user_id = auth.uid())
 with check (user_id = auth.uid());
+
+-- ============================================================
+-- SCHEDULES TABLE (group meetings/manual blocks)
+-- ============================================================
+create table if not exists schedules (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  member_id uuid not null references profiles(id) on delete cascade,
+  created_by_name text,
+  day date not null,
+  start_hour numeric not null,
+  end_hour numeric not null,
+  label text not null,
+  sub text default '',
+  type text default 'meeting',
+  created_at timestamptz default now()
+);
+
+alter table schedules enable row level security;
+
+drop policy if exists "group members can view schedules" on schedules;
+drop policy if exists "group members can insert schedules" on schedules;
+drop policy if exists "creators can delete schedules" on schedules;
+
+create policy "group members can view schedules"
+on schedules for select
+using (public.is_group_member(group_id, auth.uid()));
+
+create policy "group members can insert schedules"
+on schedules for insert
+with check (
+  member_id = auth.uid()
+  and public.is_group_member(group_id, auth.uid())
+);
+
+create policy "creators can delete schedules"
+on schedules for delete
+using (member_id = auth.uid());
+
+-- ============================================================
+-- SCHEDULE_INVITES TABLE
+-- ============================================================
+create table if not exists schedule_invites (
+  id uuid primary key default gen_random_uuid(),
+  schedule_id uuid not null references schedules(id) on delete cascade,
+  member_id uuid not null references profiles(id) on delete cascade,
+  status text default 'pending',
+  read_at timestamptz,
+  created_at timestamptz default now(),
+  unique(schedule_id, member_id)
+);
+
+alter table schedule_invites enable row level security;
+
+drop policy if exists "members can view own invites" on schedule_invites;
+drop policy if exists "schedule creators can insert invites" on schedule_invites;
+drop policy if exists "members can update own invites" on schedule_invites;
+
+create policy "members can view own invites"
+on schedule_invites for select
+using (
+  member_id = auth.uid()
+  or exists (
+    select 1 from schedules s
+    where s.id = schedule_invites.schedule_id
+      and s.member_id = auth.uid()
+  )
+);
+
+create policy "schedule creators can insert invites"
+on schedule_invites for insert
+with check (
+  exists (
+    select 1 from schedules s
+    where s.id = schedule_invites.schedule_id
+      and s.member_id = auth.uid()
+  )
+);
+
+create policy "members can update own invites"
+on schedule_invites for update
+using (member_id = auth.uid())
+with check (member_id = auth.uid());

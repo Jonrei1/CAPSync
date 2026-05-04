@@ -182,6 +182,17 @@ export default function CalendarShell({
   const [addMeetingOpen, setAddMeetingOpen] = useState(false);
   const [meetingPrefill, setMeetingPrefill] = useState<MeetingPrefill>({});
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState("Unknown");
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [newScheduleLabel, setNewScheduleLabel] = useState("");
+  const [newScheduleDate, setNewScheduleDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${pad(String(now.getMonth() + 1))}-${pad(String(now.getDate()))}`;
+  });
+  const [newScheduleStart, setNewScheduleStart] = useState("09:00");
+  const [newScheduleEnd, setNewScheduleEnd] = useState("10:00");
+  const [newScheduleColor, setNewScheduleColor] = useState(ROUTINE_COLORS[0]);
+  const [newScheduleDetails, setNewScheduleDetails] = useState("");
   const [newRoutineLabel, setNewRoutineLabel] = useState("");
   const [newRoutineStart, setNewRoutineStart] = useState("09:00");
   const [newRoutineEnd, setNewRoutineEnd] = useState("10:00");
@@ -250,6 +261,26 @@ export default function CalendarShell({
       return next.length > 0 ? next : members.map((member) => member.id);
     });
   }, [members]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadUserName() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !mounted) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", user.id)
+        .single();
+      if (mounted) {
+        setCurrentUserName(
+          data?.full_name?.trim() || data?.email?.split("@")[0] || "Unknown"
+        );
+      }
+    }
+    void loadUserName();
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -379,6 +410,55 @@ export default function CalendarShell({
 
   function doSuggest() {
     toast({ title: "AI meeting suggester coming soon" });
+  }
+
+  function resetScheduleForm() {
+    setNewScheduleLabel("");
+    setNewScheduleDetails("");
+    const now = new Date();
+    setNewScheduleDate(
+      `${now.getFullYear()}-${pad(String(now.getMonth() + 1))}-${pad(String(now.getDate()))}`
+    );
+    setNewScheduleStart("09:00");
+    setNewScheduleEnd("10:00");
+    setNewScheduleColor(ROUTINE_COLORS[0]);
+  }
+
+  async function saveSchedule() {
+    if (!newScheduleLabel.trim()) {
+      toast({ title: "Please enter an activity name." });
+      return;
+    }
+    const [sh, sm] = newScheduleStart.split(":").map(Number);
+    const [eh, em] = newScheduleEnd.split(":").map(Number);
+    const startHour = (sh ?? 0) + (sm ?? 0) / 60;
+    const endHour = (eh ?? 0) + (em ?? 0) / 60;
+    if (endHour <= startHour) {
+      toast({ title: "End time must be after start time." });
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase.from("scheduled_blocks").insert({
+      user_id: user.id,
+      label: newScheduleLabel.trim(),
+      details: newScheduleDetails.trim() || null,
+      color: newScheduleColor,
+      scheduled_date: newScheduleDate,
+      start_time: newScheduleStart,
+      end_time: newScheduleEnd,
+    });
+
+    if (error) {
+      toast({ title: "Failed to save schedule.", description: error.message });
+      return;
+    }
+
+    toast.success("Schedule added");
+    setShowScheduleDialog(false);
+    resetScheduleForm();
+    router.refresh();
   }
 
   async function saveRoutine() {
@@ -1041,7 +1121,11 @@ export default function CalendarShell({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline"   size="sm" onClick={() => setShowRoutineDialog(true)}>
+            <Button variant="outline" size="sm" onClick={() => setShowScheduleDialog(true)}>
+              <span className="hidden sm:inline">Add schedule</span>
+              <span className="sm:hidden">+ Schedule</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowRoutineDialog(true)}>
               <span className="hidden sm:inline">Add routine</span>
               <span className="sm:hidden">+ Routine</span>
             </Button>
@@ -1209,6 +1293,137 @@ export default function CalendarShell({
         </div>
       ) : null}
 
+      {showScheduleDialog && (
+        <div
+          className={cn(ds.modal.overlay)}
+          onClick={() => { setShowScheduleDialog(false); resetScheduleForm(); }}
+        >
+          <div className={cn(ds.modal.card)} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className={cn(ds.modal.closeButton)}
+              onClick={() => { setShowScheduleDialog(false); resetScheduleForm(); }}
+              aria-label="Close"
+            >×</button>
+
+            <div className={cn(ds.modal.header)}>
+              <div className={cn(ds.modal.badge)}>One-off Schedule</div>
+              <h2 className={cn(ds.modal.title)}>Add schedule</h2>
+              <p className={cn(ds.modal.description)}>
+                Add a personal one-time activity block to this week. It will not repeat.
+              </p>
+            </div>
+
+            <div className={cn(ds.modal.body, "px-4 pb-4 sm:px-6")}>
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="cs-sched-label" className={cn(ds.field.label)}>Activity name</label>
+                <input
+                  id="cs-sched-label"
+                  type="text"
+                  value={newScheduleLabel}
+                  onChange={(e) => setNewScheduleLabel(e.target.value)}
+                  placeholder="e.g. Research review"
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="cs-sched-details" className={cn(ds.field.label)}>Details (optional)</label>
+                <input
+                  id="cs-sched-details"
+                  type="text"
+                  value={newScheduleDetails}
+                  onChange={(e) => setNewScheduleDetails(e.target.value)}
+                  placeholder="e.g. Library session"
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="cs-sched-date" className={cn(ds.field.label)}>Date</label>
+                <input
+                  id="cs-sched-date"
+                  type="date"
+                  value={newScheduleDate}
+                  onChange={(e) => setNewScheduleDate(e.target.value)}
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="cs-sched-start" className={cn(ds.field.label)}>Start time</label>
+                  <input
+                    id="cs-sched-start"
+                    type="time"
+                    value={newScheduleStart}
+                    onChange={(e) => {
+                      setNewScheduleStart(e.target.value);
+                      const [sh, sm] = e.target.value.split(":").map(Number);
+                      const [eh, em] = newScheduleEnd.split(":").map(Number);
+                      if ((eh ?? 0) * 60 + (em ?? 0) <= (sh ?? 0) * 60 + (sm ?? 0)) {
+                        const next = (sh ?? 0) * 60 + (sm ?? 0) + 60;
+                        setNewScheduleEnd(`${pad(Math.floor(next / 60))}:${pad(next % 60)}`);
+                      }
+                    }}
+                    className={cn(ds.field.input)}
+                    min="00:00" max="23:59" step={60}
+                  />
+                </div>
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="cs-sched-end" className={cn(ds.field.label)}>End time</label>
+                  <input
+                    id="cs-sched-end"
+                    type="time"
+                    value={newScheduleEnd}
+                    onChange={(e) => setNewScheduleEnd(e.target.value)}
+                    className={cn(ds.field.input)}
+                    min="00:00" max="23:59" step={60}
+                  />
+                </div>
+              </div>
+
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="cs-sched-color" className={cn(ds.field.label)}>Color</label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    id="cs-sched-color"
+                    type="color"
+                    value={newScheduleColor}
+                    onChange={(e) => setNewScheduleColor(e.target.value)}
+                    className="h-9 w-11 cursor-pointer rounded-md border border-border/70 bg-background p-1"
+                  />
+                  {ROUTINE_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setNewScheduleColor(color)}
+                      className={cn(
+                        "h-7 w-7 rounded-full border border-border/70 transition-all hover:-translate-y-0.5",
+                        newScheduleColor === color && "ring-2 ring-ring ring-offset-2 ring-offset-background",
+                      )}
+                      style={{ backgroundColor: color }}
+                      aria-label={`Pick color ${color}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className={cn(ds.modal.actions, "px-4 pb-4 sm:px-6")}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setShowScheduleDialog(false); resetScheduleForm(); }}
+              >Cancel</Button>
+              <Button type="button" onClick={() => void saveSchedule()}>
+                Add to calendar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AddMeetingDialog
         open={addMeetingOpen}
         onOpenChange={setAddMeetingOpen}
@@ -1218,6 +1433,7 @@ export default function CalendarShell({
         prefillDay={meetingPrefill.day}
         prefillStart={meetingPrefill.start}
         prefillEnd={meetingPrefill.end}
+        creatorName={currentUserName}
       />
     </div>
   );

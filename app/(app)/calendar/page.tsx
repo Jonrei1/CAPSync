@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDesignStandard } from "@/components/ui/design-standard";
+import { useUnreadMeetings } from "@/hooks/useUnreadMeetings";
 import WeekCalendarGrid, {
   type CalendarGridEvent,
 } from "../../../components/calendar/WeekCalendarGrid";
@@ -163,6 +164,7 @@ function getPhilippineNow() {
 
 export default function MainCalendarPage() {
   const ds = useDesignStandard();
+  const { count: unreadMeetingCount } = useUnreadMeetings();
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("Personal Calendar");
   const [layout] = useState<Layout>("week");
@@ -1164,7 +1166,14 @@ export default function MainCalendarPage() {
                 .toUpperCase() || "PV"}
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-semibold tracking-tight text-foreground truncate max-w-55">{userName}</div>
+              <div className="text-sm font-semibold tracking-tight text-foreground truncate max-w-55">
+                {userName}
+              </div>
+              {unreadMeetingCount > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-[9px] font-bold text-white">
+                  {unreadMeetingCount > 9 ? "9+" : unreadMeetingCount}
+                </span>
+              )}
             </div>
           </div>
 

@@ -7,6 +7,7 @@ import { CalendarDays, LogOut, Menu } from "lucide-react";
 import JoinCreateDialog from "@/components/circles/JoinCreateDialog";
 import CircleSwitcher from "@/components/circles/CircleSwitcher";
 import MemberList from "@/components/circles/MemberList";
+import MeetingNotificationBell from "@/components/circles/MeetingNotificationBell";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toast";
 import { CircleProvider, useCircle } from "@/contexts/CircleContext";
@@ -165,6 +166,9 @@ function AppShell({ children }: AppLayoutProps) {
         <CircleSwitcher />
 
         <div className="mt-auto">
+          {/* Notification bell — always visible */}
+          <MeetingNotificationBell />
+
           {showCircleChrome ? <MemberList /> : null}
 
           <div className="mt-2 border-t px-2 pt-3 pb-1">
