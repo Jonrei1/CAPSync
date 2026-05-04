@@ -91,6 +91,14 @@ export type CalendarBlock = {
 	lbl: string;
 	sub: string;
 	routine: boolean;
+	// optional: schedule id for meetings
+	id?: string;
+	// creator user id for permissions
+	creatorId?: string;
+	// longer description / agenda
+	description?: string;
+	// creator display name
+	creatorName?: string;
 };
 
 export type FreeWindow = {

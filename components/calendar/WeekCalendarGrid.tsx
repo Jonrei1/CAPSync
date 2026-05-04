@@ -26,6 +26,8 @@ export type CalendarGridEvent = {
   isSchedule?: boolean;
   routineId?: string;
   occurrenceDate?: string;
+  createdById?: string;
+  scheduleId?: string;
 };
 
 export type CalendarGridBadge = {
@@ -57,6 +59,7 @@ type WeekCalendarGridProps = {
     dayIndex: number,
   ) => void;
   onScheduleAction?: (scheduleId: string, action: "edit" | "delete") => void;
+  currentUserId?: string;
 };
 
 type LayoutEvent = CalendarGridEvent & {
@@ -228,6 +231,7 @@ export default function WeekCalendarGrid({
   tooltipDotClassName,
   onRoutineAction,
   onScheduleAction,
+  currentUserId,
 }: WeekCalendarGridProps) {
   const [hoverTooltip, setHoverTooltip] = useState<FloatingTooltipContent | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -286,6 +290,18 @@ export default function WeekCalendarGrid({
       return null;
     }
 
+    // Only show schedule menu to the creator
+    if (event.isSchedule && event.createdById && currentUserId && event.createdById !== currentUserId) {
+      return null;
+    }
+
+    // Only the schedule creator can edit/delete meetings
+    if (event.isSchedule && typeof event.createdById === "string") {
+      if (event.createdById !== (arguments[0] as any)?.currentUserId && (typeof (event as any).currentUserId === 'undefined')) {
+        // will defer check below where we have access to prop; keep rendering logic below
+      }
+    }
+
     return (
       <div>
         <button
@@ -312,7 +328,7 @@ export default function WeekCalendarGrid({
                   onRoutineAction(event.routineId, "edit", event.occurrenceDate, event.dayIndex);
                 }
                 if (event.isSchedule && onScheduleAction) {
-                  onScheduleAction(event.id, "edit");
+                  onScheduleAction(event.scheduleId ?? event.id, "edit");
                 }
               }}
             >
@@ -328,7 +344,7 @@ export default function WeekCalendarGrid({
                   onRoutineAction(event.routineId, "delete", event.occurrenceDate, event.dayIndex);
                 }
                 if (event.isSchedule && onScheduleAction) {
-                  onScheduleAction(event.id, "delete");
+                  onScheduleAction(event.scheduleId ?? event.id, "delete");
                 }
               }}
             >

@@ -128,6 +128,12 @@ function getTooltipPoint(clientX: number, clientY: number) {
   };
 }
 
+function truncateText(text: string | undefined, max = 120) {
+  if (!text) return "";
+  if (text.length <= max) return text;
+  return text.slice(0, max - 3) + "...";
+}
+
 function parseDateParam(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -183,6 +189,7 @@ export default function CalendarShell({
   const [meetingPrefill, setMeetingPrefill] = useState<MeetingPrefill>({});
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [currentUserName, setCurrentUserName] = useState("Unknown");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [newScheduleLabel, setNewScheduleLabel] = useState("");
   const [newScheduleDate, setNewScheduleDate] = useState(() => {
@@ -267,6 +274,7 @@ export default function CalendarShell({
     async function loadUserName() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !mounted) return;
+      setCurrentUserId(user.id);
       const { data } = await supabase
         .from("profiles")
         .select("full_name, email")
@@ -550,12 +558,18 @@ export default function CalendarShell({
           continue;
         }
 
-        const tooltipRows = [
-          { dot: member.bg, text: `${member.name} - ${member.role}` },
-          { text: `${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}` },
-          ...(block.sub ? [{ text: block.sub }] : []),
-          { text: block.routine ? "Recurring routine" : "Manual block" },
-        ];
+        const tooltipRows = [] as TipRow[];
+        tooltipRows.push({ dot: member.bg, txt: `${member.name} - ${member.role}` });
+        if (block.description) {
+          tooltipRows.push({ txt: truncateText(block.description, 140) });
+        }
+        if (block.sub) {
+          tooltipRows.push({ txt: truncateText(block.sub, 100) });
+        }
+        tooltipRows.push({ txt: `${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}` });
+        if (block.creatorName) {
+          tooltipRows.push({ txt: `Added by ${block.creatorName}` });
+        }
 
         foregroundEvents.push({
           id: `${block.memberId}-${dayKey}-${block.s}-${block.e}-${block.lbl}`,
@@ -567,6 +581,9 @@ export default function CalendarShell({
           tag: member.name,
           color: member.bg,
           variant: block.routine ? "pattern" : "solid",
+          isSchedule: !block.routine,
+          createdById: block.creatorId,
+          scheduleId: block.id ?? undefined,
           tooltip: { title: block.lbl, rows: tooltipRows },
         });
       }
@@ -705,6 +722,7 @@ export default function CalendarShell({
                 tooltipTitleClassName={ds.calendar.tooltipTitle}
                 tooltipRowClassName={ds.calendar.tooltipRow}
                 tooltipDotClassName={ds.calendar.tooltipDot}
+                  currentUserId={currentUserId ?? undefined}
               />
             ) : null}
 

@@ -194,6 +194,7 @@ export default function AddMeetingDialog({
         end_hour: endDecimal,
         label: title.trim(),
         sub: location.trim() || "",
+        description: description.trim() || "",
         type: "meeting",
       })
       .select()
@@ -278,7 +279,10 @@ export default function AddMeetingDialog({
                   id="meeting-date"
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={(e) => {
+                    if (!prefillDay) setSelectedDate(e.target.value);
+                  }}
+                  disabled={Boolean(prefillDay)}
                   required
                 />
               </div>

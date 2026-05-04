@@ -30,14 +30,15 @@ type MemberRow = {
 };
 
 type ScheduleRow = {
-  member_id?: string | null;
-  created_by?: string | null;
+  id?: string | null;
+  member_id?: string | null; // creator id
   created_by_name?: string | null;
   day?: string | null;
   start_hour?: number | string | null;
   end_hour?: number | string | null;
   label?: string | null;
-  sub?: string | null;
+  sub?: string | null; // location / link
+  description?: string | null;
   type?: string | null;
 };
 
@@ -210,16 +211,18 @@ function mapSchedule(row: ScheduleRow): CalendarBlock | null {
     return null;
   }
 
-  // Include creator name in subtitle if present
-  const creatorSuffix = row.created_by_name ? ` · by ${row.created_by_name}` : "";
-
+  // include creator name and description separately
   return {
     memberId,
     days: [day],
     s: start,
     e: end,
     lbl: row.label ?? "Meeting",
-    sub: (row.sub ?? "") + creatorSuffix,
+    sub: row.sub ?? "",
+    description: row.description ?? "",
+    id: row.id ?? undefined,
+    creatorId: row.member_id ?? undefined,
+    creatorName: row.created_by_name ?? undefined,
     routine: false,
   };
 }

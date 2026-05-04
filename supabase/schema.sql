@@ -372,6 +372,7 @@ create table if not exists schedules (
   end_hour numeric not null,
   label text not null,
   sub text default '',
+  description text default '',
   type text default 'meeting',
   created_at timestamptz default now()
 );
