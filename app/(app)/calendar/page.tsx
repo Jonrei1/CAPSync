@@ -7,6 +7,7 @@ import supabase from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDesignStandard } from "@/components/ui/design-standard";
 import WeekCalendarGrid, {
@@ -163,6 +164,7 @@ function getPhilippineNow() {
 export default function MainCalendarPage() {
   const ds = useDesignStandard();
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("Personal Calendar");
   const [layout] = useState<Layout>("week");
   const [density, setDensity] = useState<Density>("all");
   const [activeDate, setActiveDate] = useState(() => {
@@ -241,7 +243,7 @@ export default function MainCalendarPage() {
         return;
       }
 
-      const [circlesResult, routinesResult] = await Promise.all([
+      const [circlesResult, routinesResult, profileResult] = await Promise.all([
         supabase
           .from("group_members")
           .select("group_id, groups(id, name, color)")
@@ -251,10 +253,19 @@ export default function MainCalendarPage() {
           .select("id, label, details, color, days_of_week, start_time, end_time, is_active")
           .eq("user_id", userId)
           .eq("is_active", true),
+        supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", userId)
+          .single(),
       ]);
 
       if (!mounted) {
         return;
+      }
+
+      if (profileResult.data?.full_name) {
+        setUserName(profileResult.data.full_name);
       }
 
       const normalizedCircles = (circlesResult.data ?? [])
@@ -1138,36 +1149,40 @@ export default function MainCalendarPage() {
   }
 
   return (
-    <div className={styles.page}>
-      <header className={styles.appBar}>
-        <div className={styles.appId}>
-          <div>
-            <div className={styles.appSub}>Personal view - Week of {weekLabel}</div>
+    <div className={cn(ds.layout.page, "max-w-none flex h-full flex-col gap-1 py-0")}>
+      <div className="rounded-2xl border border-border/70 bg-card shadow-sm overflow-hidden mb-2">
+        <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border/70">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-[10px] font-bold text-primary-foreground">
+              {userName
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase() || "PV"}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold tracking-tight text-foreground truncate max-w-55">{userName}</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
           </div>
         </div>
-      </header>
 
-      <div className={styles.card}>
-        <div className={styles.toolbar}>
-          <div className={styles.toolbarRow}>
-            <button
-              className={`${styles.btn} ${styles.btnGhost}`}
-              onClick={() => syncCalendarDate(addDays(activeDate, -7))}
-            >
-              &lt;
-            </button>
-            <button className={`${styles.btn} ${styles.btnOutline}`} onClick={() => syncCalendarDate(new Date())}>
-              Today
-            </button>
-            <button
-              className={`${styles.btn} ${styles.btnGhost}`}
-              onClick={() => syncCalendarDate(addDays(activeDate, 7))}
-            >
-              &gt;
-            </button>
-            <span style={{ fontSize: 14, fontWeight: 600 }}>{weekLabel}</span>
-            <div className={styles.dateJump}>
-              <span className={styles.dateJumpLabel}>Go to date</span>
+        <div className="flex items-center justify-between gap-2 px-4 py-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="outline" size="icon-sm" onClick={() => syncCalendarDate(addDays(activeDate, -7))}>&#8249;</Button>
+            <Button variant="outline" size="sm"      onClick={() => syncCalendarDate(new Date())}>Today</Button>
+            <Button variant="outline" size="icon-sm" onClick={() => syncCalendarDate(addDays(activeDate, 7))}>&#8250;</Button>
+
+            <span className="text-sm font-medium text-foreground min-w-30 text-center hidden sm:inline">{weekLabel}</span>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground">Go to date</span>
+
               <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                 <PopoverTrigger
                   render={(
@@ -1198,13 +1213,20 @@ export default function MainCalendarPage() {
             </div>
           </div>
 
-          <div className={styles.toolbarRow}>
-            <button className={`${styles.btn} ${styles.btnOutline}`} onClick={openScheduleDialogForCreate}>
-              + Add schedule
-            </button>
-            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => setShowRoutineDialog(true)}>+ Add routine</button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={openScheduleDialogForCreate}>
+              <span className="hidden sm:inline">Add schedule</span>
+              <span className="sm:hidden">+ Schedule</span>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowRoutineDialog(true)}>
+              <span className="hidden md:inline">Add routine</span>
+              <span className="md:hidden">+ Routine</span>
+            </Button>
           </div>
         </div>
+      </div>
+
+      <div className={cn(styles.card, "min-h-0 flex-1 flex flex-col")}>
 
         <div className={styles.filterPanel}>
           <span className={styles.filterLabel}>Circles</span>

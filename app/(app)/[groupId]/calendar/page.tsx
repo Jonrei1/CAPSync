@@ -265,7 +265,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
   const rawDate = Array.isArray(resolvedSearchParams?.date) ? resolvedSearchParams.date[0] : resolvedSearchParams?.date;
   const weekOffset = Number.parseInt(rawWeekOffset ?? "0", 10);
   const safeWeekOffset = Number.isNaN(weekOffset) ? 0 : weekOffset;
-  const selectedDate = parseDateParam(rawDate) ?? addDays(startOfWeek(new Date()), safeWeekOffset * 7);
+  const selectedDate = parseDateParam(rawDate) ?? addDays(new Date(), safeWeekOffset * 7);
   const weekStart = startOfWeek(selectedDate);
   const weekEnd = addDays(weekStart, 6);
   weekEnd.setHours(23, 59, 59, 999);
