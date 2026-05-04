@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
-import { ensureProfile } from "@/lib/auth/ensureProfile";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-// Handles OAuth callback from Supabase.
-// 1) Exchanges the auth code for a session.
-// 2) Ensures profile exists in public.profiles.
-// 3) Redirects to dashboard on success.
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
 
   if (!code) {
-    return NextResponse.redirect(new URL("/login?error=missing_code", requestUrl.origin));
+    return NextResponse.redirect(
+      new URL("/login?error=missing_code", requestUrl.origin),
+    );
   }
 
   const supabase = await createClient();
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  const { error: exchangeError } =
+    await supabase.auth.exchangeCodeForSession(code);
 
   if (exchangeError) {
     return NextResponse.redirect(
@@ -29,13 +28,30 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return NextResponse.redirect(new URL("/login?error=invalid_session", requestUrl.origin));
+    return NextResponse.redirect(
+      new URL("/login?error=invalid_session", requestUrl.origin),
+    );
   }
 
-  const { error: profileError } = await ensureProfile(supabase, user);
+  // Admin upsert — bypasses RLS, handles both new and returning OAuth users.
+  const { error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .upsert(
+      {
+        id:        user.id,
+        full_name: (user.user_metadata?.full_name as string | undefined) ??
+                   (user.user_metadata?.name as string | undefined) ??
+                   null,
+        email:     user.email ?? null,
+      },
+      { onConflict: "id" },
+    );
 
   if (profileError) {
-    return NextResponse.redirect(new URL("/login?error=profile_sync_failed", requestUrl.origin));
+    console.error("[oauth-callback] profile upsert failed:", profileError.message);
+    return NextResponse.redirect(
+      new URL("/login?error=profile_sync_failed", requestUrl.origin),
+    );
   }
 
   return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));

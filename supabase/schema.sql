@@ -89,6 +89,7 @@ alter table sprints enable row level security;
 alter table task_comments enable row level security;
 alter table group_fund enable row level security;
 
+-- Re-create the profile trigger with safe conflict handling.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -104,7 +105,7 @@ begin
   )
   on conflict (id) do update
     set full_name = coalesce(excluded.full_name, public.profiles.full_name),
-        email = excluded.email;
+        email     = excluded.email;
 
   return new;
 end;
@@ -112,10 +113,10 @@ $$;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
-after insert on auth.users
-for each row execute function public.handle_new_user();
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
--- Backfill any auth users that exist before this migration is applied.
+-- Backfill any existing auth users that have no profile yet.
 insert into public.profiles (id, full_name, email)
 select
   u.id,
@@ -124,7 +125,7 @@ select
 from auth.users u
 on conflict (id) do update
   set full_name = coalesce(excluded.full_name, public.profiles.full_name),
-      email = excluded.email;
+      email     = excluded.email;
 
 -- Non-recursive membership helper used by RLS policies.
 create or replace function public.is_group_member(target_group_id uuid, target_user_id uuid)
