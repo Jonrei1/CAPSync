@@ -583,9 +583,6 @@ export default function CalendarShell({
           subtitleParts.push("📅 Meeting");
         }
         subtitleParts.push(`${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}`);
-        if (block.sub) {
-          subtitleParts.push(`• ${block.sub}`);
-        }
         const enhancedSubtitle = subtitleParts.join(" ");
 
         foregroundEvents.push({
@@ -602,6 +599,7 @@ export default function CalendarShell({
           isSchedule: !block.routine,
           createdById: block.creatorId,
           scheduleId: block.id ?? undefined,
+          link: (block.sub && block.sub !== "Personal" && block.sub !== "Routine" && block.sub !== "Personal routine") ? block.sub : undefined,
           tooltip: { title: block.lbl, rows: tooltipRows },
         });
       }

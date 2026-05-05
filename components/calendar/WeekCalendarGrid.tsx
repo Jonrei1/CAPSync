@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import FloatingTooltip, { type FloatingTooltipContent } from "@/components/calendar/FloatingTooltip";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 import styles from "@/app/(app)/calendar/page.module.css";
 
 const SLOT = 60;
@@ -30,6 +31,7 @@ export type CalendarGridEvent = {
   createdById?: string;
   scheduleId?: string;
   readOnly?: boolean;
+  link?: string;
 };
 
 export type CalendarGridBadge = {
@@ -168,7 +170,7 @@ function layoutEvents(events: CalendarGridEvent[], startHour: number) {
     const positioned: LayoutEvent[] = sorted.map((event) => ({
     ...event,
     top: (event.startHour - startHour) * SLOT,
-    height: Math.max((event.endHour - event.startHour) * SLOT, 44),
+    height: (event.endHour - event.startHour) * SLOT,
     left: 0,
     width: 100,
     compact: event.endHour - event.startHour <= 0.85,
@@ -438,8 +440,10 @@ export default function WeekCalendarGrid({
           {weekDates.map((date, dayIndex) => {
             const isToday = date.toDateString() === todayKey;
             const isDaySelected = selectedKey !== "" && date.toDateString() === selectedKey;
-            const dayBackground = backgroundByDay.get(dayIndex) ?? [];
-            const dayForeground = layoutEvents(foregroundByDay.get(dayIndex) ?? [], startHour);
+            const dayAllEvents = layoutEvents([
+              ...(backgroundByDay.get(dayIndex) ?? []),
+              ...(foregroundByDay.get(dayIndex) ?? [])
+            ], startHour);
             const dayBadges = badgesByDay.get(dayIndex) ?? [];
 
             return (
@@ -459,63 +463,7 @@ export default function WeekCalendarGrid({
                   </div>
                 ) : null}
 
-                {dayBackground.map((event) => {
-                  const isPattern = event.variant === "pattern";
-                  const isWindow = event.variant === "window";
-                  const tooltip = event.tooltip;
-                  const backgroundColor = isPattern
-                    ? toRgba(event.color, 0.18)
-                    : isWindow
-                      ? toRgba(event.color, 0.12)
-                      : toRgba(event.color, 0.94);
-                  const borderColor = isPattern
-                    ? toRgba(event.color, 0.4)
-                    : isWindow
-                      ? toRgba(event.color, 0.35)
-                      : event.color;
-
-                  return (
-                    <div
-                      key={event.id}
-                      className={cn(
-                        styles.eventBlock,
-                        isPattern && styles.routinePattern,
-                        isWindow && styles.windowBlock,
-                        event.endHour - event.startHour <= 0.85 && styles.eventCompact,
-                      )}
-                      style={{
-                        top: (event.startHour - startHour) * SLOT,
-                        height: (event.endHour - event.startHour) * SLOT,
-                        left: "2%",
-                        width: "96%",
-                        backgroundColor,
-                        borderColor,
-                      }}
-                      onClick={event.onClick}
-                      onMouseEnter={
-                        tooltip ? (mouseEvent) => openTooltip(mouseEvent, tooltip) : undefined
-                      }
-                      onMouseMove={tooltip ? trackTooltip : undefined}
-                      onMouseLeave={tooltip ? closeTooltip : undefined}
-                    >
-                      {eventMenu(event)}
-                      <div className={styles.eventInner}>
-                        <div className={styles.eventTitle}>{event.title}</div>
-                        {event.endHour - event.startHour > 0.85 && event.subtitle ? (
-                          <div className={styles.eventSub}>{event.subtitle}</div>
-                        ) : null}
-                        {event.endHour - event.startHour > 0.85 && (event.tag || event.tag2) ? (
-                          <div className="flex flex-wrap gap-1">
-                            {event.tag && <div className={styles.eventTag}>{event.tag}</div>}
-                            {event.tag2 && <div className={styles.eventTag}>{event.tag2}</div>}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {dayForeground.map((event) => {
+                {dayAllEvents.map((event) => {
                   const isPattern = event.variant === "pattern";
                   const isWindow = event.variant === "window";
                   const tooltip = event.tooltip;
@@ -554,11 +502,27 @@ export default function WeekCalendarGrid({
                       onMouseMove={tooltip ? trackTooltip : undefined}
                       onMouseLeave={tooltip ? closeTooltip : undefined}
                     >
-                      {eventMenu(event)}
-                      <div className={styles.eventInner}>
+                      {!isWindow && eventMenu(event)}
+                      <div
+                        className={styles.eventInner}
+                        onClick={(e) => {
+                          if (event.isSchedule && event.link) {
+                            e.stopPropagation();
+                            void navigator.clipboard.writeText(event.link);
+                            toast.success("Link copied to clipboard");
+                          } else if (event.onClick) {
+                            event.onClick();
+                          }
+                        }}
+                      >
                         <div className={styles.eventTitle}>{event.title}</div>
                         {!event.compact && event.subtitle ? (
                           <div className={styles.eventSub}>{event.subtitle}</div>
+                        ) : null}
+                        {!event.compact && event.link ? (
+                          <div className={cn(styles.eventSub, "truncate text-blue-100 underline opacity-90")}>
+                            {event.link}
+                          </div>
                         ) : null}
                         {!event.compact && (event.tag || event.tag2) ? (
                           <div className="flex flex-wrap gap-1">

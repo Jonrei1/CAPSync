@@ -400,7 +400,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         s: startHour,
         e: endHour,
         lbl: routine.label ?? "Routine",
-        sub: routine.details ?? "Personal routine",
+        sub: routine.details === "Personal routine" || routine.details === "Personal" ? "" : (routine.details ?? ""),
         routine: true,
       },
     ];

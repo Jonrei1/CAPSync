@@ -549,7 +549,6 @@ export default function MainCalendarPage() {
           title,
           subtitle: routine.sub,
           color,
-          tag: "Personal",
           variant: "pattern",
           tooltip: {
             title,
