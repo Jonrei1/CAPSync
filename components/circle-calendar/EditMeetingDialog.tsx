@@ -371,6 +371,23 @@ export default function EditMeetingDialog({
                   </div>
                 </div>
               </div>
+              <div className="mt-6 flex justify-end gap-3">
+                {schedule && user && schedule.member_id === user.id ? (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="px-8"
+                    onClick={() => void handleDelete()}
+                    disabled={deleting}
+                  >
+                    {deleting ? "Deleting..." : "Delete meeting"}
+                  </Button>
+                ) : (
+                  <div className="text-[11px] text-muted-foreground italic self-center pb-2">
+                    Only the creator can delete this meeting.
+                  </div>
+                )}
+              </div>
             </div>
           </DialogBody>
         ) : (
@@ -501,32 +518,6 @@ export default function EditMeetingDialog({
           </DialogBody>
         )}
 
-        {isDeleteMode && (
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={deleting}
-            >
-              Keep meeting
-            </Button>
-            {schedule && user && schedule.member_id === user.id ? (
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => void handleDelete()}
-                disabled={deleting}
-              >
-                {deleting ? "Deleting..." : "Delete meeting"}
-              </Button>
-            ) : (
-              <div className="text-[11px] text-muted-foreground italic self-center">
-                Only the creator can delete this meeting.
-              </div>
-            )}
-          </DialogFooter>
-        )}
       </DialogContent>
     </Dialog>
   );
