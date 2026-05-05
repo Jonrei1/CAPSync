@@ -295,13 +295,6 @@ export default function WeekCalendarGrid({
       return null;
     }
 
-    // Only the schedule creator can edit/delete meetings
-    if (event.isSchedule && typeof event.createdById === "string") {
-      if (event.createdById !== (arguments[0] as any)?.currentUserId && (typeof (event as any).currentUserId === 'undefined')) {
-        // will defer check below where we have access to prop; keep rendering logic below
-      }
-    }
-
     return (
       <div>
         <button

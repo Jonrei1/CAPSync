@@ -12,6 +12,7 @@ import WeekCalendarGrid, {
   type CalendarGridEvent,
 } from "@/components/calendar/WeekCalendarGrid";
 import AddMeetingDialog from "@/components/circle-calendar/AddMeetingDialog";
+import EditMeetingDialog from "@/components/circle-calendar/EditMeetingDialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -128,12 +129,6 @@ function getTooltipPoint(clientX: number, clientY: number) {
   };
 }
 
-function truncateText(text: string | undefined, max = 120) {
-  if (!text) return "";
-  if (text.length <= max) return text;
-  return text.slice(0, max - 3) + "...";
-}
-
 function parseDateParam(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -187,6 +182,9 @@ export default function CalendarShell({
   const [visibleMemberIds, setVisibleMemberIds] = useState<string[]>(() => members.map((member) => member.id));
   const [addMeetingOpen, setAddMeetingOpen] = useState(false);
   const [meetingPrefill, setMeetingPrefill] = useState<MeetingPrefill>({});
+  const [editMeetingOpen, setEditMeetingOpen] = useState(false);
+  const [editMeetingId, setEditMeetingId] = useState<string | null>(null);
+  const [editMeetingMode, setEditMeetingMode] = useState<"edit" | "delete">("edit");
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [currentUserName, setCurrentUserName] = useState("Unknown");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -402,6 +400,12 @@ export default function CalendarShell({
     setAddMeetingOpen(true);
   }
 
+  function handleScheduleAction(scheduleId: string, action: "edit" | "delete") {
+    setEditMeetingId(scheduleId);
+    setEditMeetingMode(action);
+    setEditMeetingOpen(true);
+  }
+
   function toggleMember(memberId: string) {
     setVisibleMemberIds((current) =>
       current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId],
@@ -558,18 +562,27 @@ export default function CalendarShell({
           continue;
         }
 
-        const tooltipRows = [] as TipRow[];
-        tooltipRows.push({ dot: member.bg, txt: `${member.name} - ${member.role}` });
-        if (block.description) {
-          tooltipRows.push({ txt: truncateText(block.description, 140) });
+        const tooltipRows = [
+          { dot: member.bg, text: `${member.name} - ${member.role}` },
+          { text: `${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}` },
+          ...(block.sub ? [{ text: block.sub }] : []),
+          { text: block.routine ? "Recurring routine" : "Manual block" },
+        ];
+
+        // Build enhanced subtitle with time and meeting indicator for schedules
+        const durationHours = Math.floor(block.e - block.s);
+        const durationMinutes = Math.round((block.e - block.s - durationHours) * 60);
+        const durationStr = durationMinutes > 0 ? `${durationHours}h ${durationMinutes}m` : `${durationHours}h`;
+        
+        const subtitleParts = [];
+        if (!block.routine) {
+          subtitleParts.push("📅");
         }
+        subtitleParts.push(`${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}`);
         if (block.sub) {
-          tooltipRows.push({ txt: truncateText(block.sub, 100) });
+          subtitleParts.push(`• ${block.sub}`);
         }
-        tooltipRows.push({ txt: `${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}` });
-        if (block.creatorName) {
-          tooltipRows.push({ txt: `Added by ${block.creatorName}` });
-        }
+        const enhancedSubtitle = subtitleParts.join(" ");
 
         foregroundEvents.push({
           id: `${block.memberId}-${dayKey}-${block.s}-${block.e}-${block.lbl}`,
@@ -577,7 +590,7 @@ export default function CalendarShell({
           startHour: block.s,
           endHour: block.e,
           title: block.lbl,
-          subtitle: block.sub,
+          subtitle: enhancedSubtitle,
           tag: member.name,
           color: member.bg,
           variant: block.routine ? "pattern" : "solid",
@@ -723,6 +736,7 @@ export default function CalendarShell({
                 tooltipRowClassName={ds.calendar.tooltipRow}
                 tooltipDotClassName={ds.calendar.tooltipDot}
                   currentUserId={currentUserId ?? undefined}
+                  onScheduleAction={handleScheduleAction}
               />
             ) : null}
 
@@ -1452,6 +1466,15 @@ export default function CalendarShell({
         prefillStart={meetingPrefill.start}
         prefillEnd={meetingPrefill.end}
         creatorName={currentUserName}
+      />
+
+      <EditMeetingDialog
+        open={editMeetingOpen}
+        onOpenChange={setEditMeetingOpen}
+        groupId={groupId}
+        members={members}
+        scheduleId={editMeetingId}
+        mode={editMeetingMode}
       />
     </div>
   );

@@ -381,6 +381,7 @@ alter table schedules enable row level security;
 
 drop policy if exists "group members can view schedules" on schedules;
 drop policy if exists "group members can insert schedules" on schedules;
+drop policy if exists "creators can update schedules" on schedules;
 drop policy if exists "creators can delete schedules" on schedules;
 
 create policy "group members can view schedules"
@@ -390,13 +391,19 @@ using (public.is_group_member(group_id, auth.uid()));
 create policy "group members can insert schedules"
 on schedules for insert
 with check (
-  member_id = auth.uid()
+  auth.uid() is not null
+  and member_id = auth.uid()
   and public.is_group_member(group_id, auth.uid())
 );
 
+create policy "creators can update schedules"
+on schedules for update
+using (auth.uid() is not null and member_id = auth.uid())
+with check (auth.uid() is not null and member_id = auth.uid());
+
 create policy "creators can delete schedules"
 on schedules for delete
-using (member_id = auth.uid());
+using (auth.uid() is not null and member_id = auth.uid());
 
 -- ============================================================
 -- SCHEDULE_INVITES TABLE
@@ -416,6 +423,7 @@ alter table schedule_invites enable row level security;
 drop policy if exists "members can view own invites" on schedule_invites;
 drop policy if exists "schedule creators can insert invites" on schedule_invites;
 drop policy if exists "members can update own invites" on schedule_invites;
+drop policy if exists "schedule creators can delete invites" on schedule_invites;
 
 create policy "members can view own invites"
 on schedule_invites for select
@@ -442,3 +450,13 @@ create policy "members can update own invites"
 on schedule_invites for update
 using (member_id = auth.uid())
 with check (member_id = auth.uid());
+
+create policy "schedule creators can delete invites"
+on schedule_invites for delete
+using (
+  exists (
+    select 1 from schedules s
+    where s.id = schedule_invites.schedule_id
+      and s.member_id = auth.uid()
+  )
+);

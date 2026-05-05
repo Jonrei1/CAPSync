@@ -183,26 +183,64 @@ export default function AddMeetingDialog({
       profileData?.email?.split("@")[0] ||
       creatorName;
 
+    // Verify user is a group member before attempting insert
+    const { data: membership, error: membershipError } = await supabase
+      .from("group_members")
+      .select("id")
+      .eq("group_id", groupId)
+      .eq("member_id", user.id)
+      .single();
+
+    if (membershipError || !membership) {
+      console.error("[AddMeeting] user is not a member of this group", {
+        groupId,
+        userId: user.id,
+        membershipError,
+      });
+      toast.error("You are not a member of this group");
+      setSaving(false);
+      return;
+    }
+
+    const insertData = {
+      group_id: groupId,
+      member_id: user.id,
+      created_by_name: resolvedName,
+      day: selectedDate,
+      start_hour: startDecimal,
+      end_hour: endDecimal,
+      label: title.trim(),
+      sub: location.trim() || "",
+      type: "meeting",
+    };
+
+    console.log("[AddMeeting] inserting with data:", insertData);
+
     const { data: newSchedule, error: scheduleError } = await supabase
       .from("schedules")
-      .insert({
-        group_id: groupId,
-        member_id: user.id,
-        created_by_name: resolvedName,
-        day: selectedDate,
-        start_hour: startDecimal,
-        end_hour: endDecimal,
-        label: title.trim(),
-        sub: location.trim() || "",
-        description: description.trim() || "",
-        type: "meeting",
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (scheduleError || !newSchedule) {
-      console.error("[AddMeeting] insert error:", scheduleError);
-      toast.error("Something went wrong — please try again");
+      console.error("[AddMeeting] insert error:", {
+        scheduleError,
+        errorCode: scheduleError?.code,
+        errorMessage: scheduleError?.message,
+        errorDetails: scheduleError?.details,
+        insertData,
+      });
+      
+      let errorMsg = "Failed to create meeting. Please check your permissions and try again.";
+      if (scheduleError?.message) {
+        errorMsg = scheduleError.message;
+      } else if (scheduleError?.code === "23503") {
+        errorMsg = "Invalid group or user ID. Please refresh and try again.";
+      } else if (scheduleError?.code === "42501") {
+        errorMsg = "Permission denied. Make sure you are a member of this group.";
+      }
+      
+      toast.error(errorMsg);
       setSaving(false);
       return;
     }
