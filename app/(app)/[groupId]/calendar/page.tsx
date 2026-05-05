@@ -200,7 +200,7 @@ function mapMember(row: MemberRow, index: number): CalendarMember {
 
 function mapSchedule(row: ScheduleRow): CalendarBlock | null {
   const day = dayFromDateString(row.day);
-  const memberId = row.member_id ?? row.created_by;
+  const memberId = row.member_id;
   if (!day || !memberId) {
     return null;
   }

@@ -192,7 +192,7 @@ export default function CalendarShell({
   const [newScheduleLabel, setNewScheduleLabel] = useState("");
   const [newScheduleDate, setNewScheduleDate] = useState(() => {
     const now = new Date();
-    return `${now.getFullYear()}-${pad(String(now.getMonth() + 1))}-${pad(String(now.getDate()))}`;
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   });
   const [newScheduleStart, setNewScheduleStart] = useState("09:00");
   const [newScheduleEnd, setNewScheduleEnd] = useState("10:00");
@@ -429,7 +429,7 @@ export default function CalendarShell({
     setNewScheduleDetails("");
     const now = new Date();
     setNewScheduleDate(
-      `${now.getFullYear()}-${pad(String(now.getMonth() + 1))}-${pad(String(now.getDate()))}`
+      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
     );
     setNewScheduleStart("09:00");
     setNewScheduleEnd("10:00");
