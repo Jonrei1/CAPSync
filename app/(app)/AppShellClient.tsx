@@ -7,7 +7,7 @@ import { CalendarDays, LogOut, Menu } from "lucide-react";
 import JoinCreateDialog from "@/components/circles/JoinCreateDialog";
 import CircleSwitcher from "@/components/circles/CircleSwitcher";
 import MemberList from "@/components/circles/MemberList";
-import MeetingNotificationBell from "@/components/circles/MeetingNotificationBell";
+import { useUnreadMeetings } from "@/hooks/useUnreadMeetings";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toast";
 import { CircleProvider, useCircle } from "@/contexts/CircleContext";
@@ -41,6 +41,7 @@ function AppShell({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { activeCircle, dialogOpen, setDialogOpen, dialogTab } = useCircle();
+  const { count: unreadMeetingCount } = useUnreadMeetings();
   const isPersonalCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const isAnyCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/") || pathname.endsWith("/calendar");
   const showCircleChrome = Boolean(activeCircle) && !isPersonalCalendarRoute;
@@ -156,7 +157,12 @@ function AppShell({ children }: AppLayoutProps) {
                   ].join(" ")}
                 >
                   {item.icon}
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.label === "Calendar" && unreadMeetingCount > 0 && (
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white leading-none">
+                      {unreadMeetingCount > 9 ? "9+" : unreadMeetingCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -166,8 +172,7 @@ function AppShell({ children }: AppLayoutProps) {
         <CircleSwitcher />
 
         <div className="mt-auto">
-          {/* Notification bell — always visible */}
-          <MeetingNotificationBell />
+          {/* Sidebar content */}
 
           {showCircleChrome ? <MemberList /> : null}
 

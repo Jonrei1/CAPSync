@@ -99,6 +99,8 @@ export type CalendarBlock = {
 	description?: string;
 	// creator display name
 	creatorName?: string;
+	// last edited by display name
+	lastEditedByName?: string;
 };
 
 export type FreeWindow = {

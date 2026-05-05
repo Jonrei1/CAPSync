@@ -91,6 +91,9 @@ type ScheduleData = {
   end_hour: number;
   sub: string;
   description: string;
+  member_id: string;
+  created_by_name: string;
+  last_edited_by_name?: string;
 };
 
 export default function EditMeetingDialog({
@@ -106,6 +109,7 @@ export default function EditMeetingDialog({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   const [title, setTitle] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -126,6 +130,9 @@ export default function EditMeetingDialog({
 
     async function loadSchedule() {
       try {
+        const { data: userData } = await supabase.auth.getUser();
+        setUser(userData.user);
+
         const { data, error } = await supabase
           .from("schedules")
           .select("*")
@@ -138,7 +145,7 @@ export default function EditMeetingDialog({
           return;
         }
 
-        setSchedule(data);
+        setSchedule(data as ScheduleData);
         setTitle(data.label || "");
         setSelectedDate(data.day || "");
         setStartTime(hourToInput(data.start_hour));
@@ -191,6 +198,16 @@ export default function EditMeetingDialog({
     }
 
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      
+      // Get current user profile name for "Edited by" indication
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", userId)
+        .single();
+
       const { error } = await supabase
         .from("schedules")
         .update({
@@ -199,6 +216,7 @@ export default function EditMeetingDialog({
           start_hour: startDecimal,
           end_hour: endDecimal,
           sub: location.trim() || "",
+          last_edited_by_name: profile?.full_name || userData.user?.email || "Someone",
         })
         .eq("id", scheduleId);
 
@@ -493,14 +511,20 @@ export default function EditMeetingDialog({
             >
               Keep meeting
             </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => void handleDelete()}
-              disabled={deleting}
-            >
-              {deleting ? "Deleting..." : "Delete meeting"}
-            </Button>
+            {schedule && user && schedule.member_id === user.id ? (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => void handleDelete()}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete meeting"}
+              </Button>
+            ) : (
+              <div className="text-[11px] text-muted-foreground italic self-center">
+                Only the creator can delete this meeting.
+              </div>
+            )}
           </DialogFooter>
         )}
       </DialogContent>

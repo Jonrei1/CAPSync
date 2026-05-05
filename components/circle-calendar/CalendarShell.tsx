@@ -562,21 +562,25 @@ export default function CalendarShell({
           continue;
         }
 
+        const durationHours = Math.floor(block.e - block.s);
+        const durationMinutes = Math.round((block.e - block.s - durationHours) * 60);
+        const durationStr = durationHours > 0
+          ? `${durationHours} hr${durationHours > 1 ? "s" : ""}${durationMinutes > 0 ? ` ${durationMinutes} min` : ""}`
+          : `${durationMinutes} min`;
+
         const tooltipRows = [
           { dot: member.bg, text: `${member.name} - ${member.role}` },
           { text: `${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}` },
+          { text: durationStr },
           ...(block.sub ? [{ text: block.sub }] : []),
-          { text: block.routine ? "Recurring routine" : "Manual block" },
+          { text: block.routine ? "Recurring routine" : "Scheduled meeting" },
+          ...(block.lastEditedByName ? [{ text: `Edited by ${block.lastEditedByName}`, italic: true }] : []),
         ];
 
         // Build enhanced subtitle with time and meeting indicator for schedules
-        const durationHours = Math.floor(block.e - block.s);
-        const durationMinutes = Math.round((block.e - block.s - durationHours) * 60);
-        const durationStr = durationMinutes > 0 ? `${durationHours}h ${durationMinutes}m` : `${durationHours}h`;
-        
         const subtitleParts = [];
         if (!block.routine) {
-          subtitleParts.push("📅");
+          subtitleParts.push("📅 Meeting");
         }
         subtitleParts.push(`${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}`);
         if (block.sub) {
@@ -592,6 +596,7 @@ export default function CalendarShell({
           title: block.lbl,
           subtitle: enhancedSubtitle,
           tag: member.name,
+          tag2: durationStr,
           color: member.bg,
           variant: block.routine ? "pattern" : "solid",
           isSchedule: !block.routine,

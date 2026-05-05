@@ -40,6 +40,7 @@ type ScheduleRow = {
   sub?: string | null; // location / link
   description?: string | null;
   type?: string | null;
+  last_edited_by_name?: string | null;
 };
 
 type DeadlineRow = {
@@ -223,6 +224,7 @@ function mapSchedule(row: ScheduleRow): CalendarBlock | null {
     id: row.id ?? undefined,
     creatorId: row.member_id ?? undefined,
     creatorName: row.created_by_name ?? undefined,
+    lastEditedByName: row.last_edited_by_name ?? undefined,
     routine: false,
   };
 }

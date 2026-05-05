@@ -164,7 +164,7 @@ function getPhilippineNow() {
 
 export default function MainCalendarPage() {
   const ds = useDesignStandard();
-  const { count: unreadMeetingCount } = useUnreadMeetings();
+  const { count: unreadMeetingCount, markAllRead } = useUnreadMeetings();
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("Personal Calendar");
   const [layout] = useState<Layout>("week");
@@ -178,6 +178,7 @@ export default function MainCalendarPage() {
   const [routines, setRoutines] = useState<RoutineRow[]>([]);
   const [overrides, setOverrides] = useState<RoutineOverride[]>([]);
   const [scheduledBlocks, setScheduledBlocks] = useState<ScheduledBlock[]>([]);
+  const [groupMeetings, setGroupMeetings] = useState<ScheduledBlock[]>([]);
   const [visibleCircleIds, setVisibleCircleIds] = useState<string[]>([]);
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -227,6 +228,13 @@ export default function MainCalendarPage() {
       window.clearInterval(intervalId);
     };
   }, []);
+
+  // Clear notifications when calendar is opened
+  useEffect(() => {
+    if (unreadMeetingCount > 0) {
+      void markAllRead();
+    }
+  }, [unreadMeetingCount, markAllRead]);
 
 
   useEffect(() => {
@@ -381,21 +389,31 @@ export default function MainCalendarPage() {
   useEffect(() => {
     let mounted = true;
 
-    async function loadTasks() {
+    async function loadEvents() {
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id;
-
+ 
       if (!userId) {
         if (mounted) {
           setTasks([]);
+          setScheduledBlocks([]);
+          setGroupMeetings([]);
         }
         return;
       }
-
+ 
       const start = formatDay(weekDates[0]);
       const end = formatDay(weekDates[6]);
-
-      const [tasksResult, schedulesResult] = await Promise.all([
+ 
+      // Need circle IDs for group meetings
+      const { data: userCircles } = await supabase
+        .from("group_members")
+        .select("group_id")
+        .eq("member_id", userId);
+      
+      const circleIds = userCircles?.map(c => c.group_id) || [];
+ 
+      const [tasksResult, schedulesResult, groupMeetingsResult] = await Promise.all([
         supabase
           .from("tasks")
           .select("id, title, due_date, status, group_id, starts_at, ends_at")
@@ -409,18 +427,26 @@ export default function MainCalendarPage() {
           .eq("user_id", userId)
           .gte("scheduled_date", start)
           .lte("scheduled_date", end),
+        circleIds.length > 0 
+          ? supabase
+              .from("schedules")
+              .select("id, label, sub, day, start_hour, end_hour, group_id, member_id, last_edited_by_name")
+              .in("group_id", circleIds)
+              .gte("day", start)
+              .lte("day", end)
+          : Promise.resolve({ data: [] }),
       ]);
-
+ 
       if (!mounted) {
         return;
       }
-
+ 
       setTasks((tasksResult.data as TaskRow[]) ?? []);
-
+ 
       const mappedSchedules = (schedulesResult.data ?? []).map((row) => {
         const startParts = row.start_time.split(":").map(Number);
         const endParts = row.end_time.split(":").map(Number);
-
+ 
         return {
           id: row.id,
           label: row.label,
@@ -431,11 +457,29 @@ export default function MainCalendarPage() {
           endHour: (endParts[0] ?? 0) + (endParts[1] ?? 0) / 60,
         } satisfies ScheduledBlock;
       });
-
+ 
       setScheduledBlocks(mappedSchedules);
-    }
 
-    void loadTasks();
+      const mappedGroupMeetings = (groupMeetingsResult.data ?? []).map((row: any) => {
+        const circle = circleMap.get(row.group_id);
+        return {
+          id: row.id,
+          label: row.label,
+          details: row.sub ?? "",
+          color: circle?.color ?? "#ea580c",
+          scheduledDate: row.day,
+          startHour: row.start_hour,
+          endHour: row.end_hour,
+          groupId: row.group_id,
+          createdById: row.member_id,
+          lastEditedByName: row.last_edited_by_name,
+        } as any;
+      });
+
+      setGroupMeetings(mappedGroupMeetings);
+    }
+ 
+    void loadEvents();
 
     return () => {
       mounted = false;
@@ -588,14 +632,13 @@ export default function MainCalendarPage() {
   }, [circleMap, dayIndexByKey, density, visibleTasks]);
 
   const scheduleEvents = useMemo<CalendarGridEvent[]>(() => {
-    return scheduledBlocks
-      .map((block) => {
-        const dayIndex = dayIndexByKey.get(block.scheduledDate);
-        if (dayIndex === undefined) {
-          return null;
-        }
+    const events: CalendarGridEvent[] = [];
 
-        return {
+    // Personal schedules
+    for (const block of scheduledBlocks) {
+      const dayIndex = dayIndexByKey.get(block.scheduledDate);
+      if (dayIndex !== undefined) {
+        events.push({
           id: block.id,
           dayIndex,
           startHour: block.startHour,
@@ -615,10 +658,52 @@ export default function MainCalendarPage() {
               { text: "One-off · does not repeat" },
             ],
           },
-        } satisfies CalendarGridEvent;
-      })
-      .filter(Boolean) as CalendarGridEvent[];
-  }, [dayIndexByKey, scheduledBlocks]);
+        });
+      }
+    }
+
+    // Group meetings
+    for (const meeting of groupMeetings as any[]) {
+      if (!visibleCircleIds.includes(meeting.groupId)) continue;
+      
+      const dayIndex = dayIndexByKey.get(meeting.scheduledDate);
+      if (dayIndex !== undefined) {
+        const durationHours = Math.floor(meeting.endHour - meeting.startHour);
+        const durationMinutes = Math.round((meeting.endHour - meeting.startHour - durationHours) * 60);
+        const durationStr = durationHours > 0
+          ? `${durationHours} hr${durationHours > 1 ? "s" : ""}${durationMinutes > 0 ? ` ${durationMinutes} min` : ""}`
+          : `${durationMinutes} min`;
+
+        events.push({
+          id: meeting.id,
+          dayIndex,
+          startHour: meeting.startHour,
+          endHour: meeting.endHour,
+          title: meeting.label,
+          subtitle: `📅 Meeting ${formatTooltipTime(meeting.startHour)} - ${formatTooltipTime(meeting.endHour)}`,
+          color: meeting.color,
+          tag: meeting.details,
+          tag2: durationStr,
+          variant: "solid",
+          isSchedule: true,
+          readOnly: true,
+          occurrenceDate: meeting.scheduledDate,
+          tooltip: {
+            title: meeting.label,
+            rows: [
+              { dot: meeting.color, text: meeting.details },
+              { text: `${formatTooltipTime(meeting.startHour)} - ${formatTooltipTime(meeting.endHour)}` },
+              { text: durationStr },
+              { text: "Scheduled meeting" },
+              ...(meeting.lastEditedByName ? [{ text: `Edited by ${meeting.lastEditedByName}`, italic: true }] : []),
+            ],
+          },
+        });
+      }
+    }
+
+    return events;
+  }, [dayIndexByKey, scheduledBlocks, groupMeetings, visibleCircleIds]);
 
   function syncCalendarDate(nextDate: Date) {
     const normalized = new Date(nextDate);
@@ -1169,11 +1254,6 @@ export default function MainCalendarPage() {
               <div className="text-sm font-semibold tracking-tight text-foreground truncate max-w-55">
                 {userName}
               </div>
-              {unreadMeetingCount > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-[9px] font-bold text-white">
-                  {unreadMeetingCount > 9 ? "9+" : unreadMeetingCount}
-                </span>
-              )}
             </div>
           </div>
 

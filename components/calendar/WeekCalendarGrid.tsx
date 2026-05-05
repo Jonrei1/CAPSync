@@ -18,6 +18,7 @@ export type CalendarGridEvent = {
   title: string;
   subtitle?: string;
   tag?: string;
+  tag2?: string;
   color: string;
   variant?: "solid" | "pattern" | "window";
   tooltip?: FloatingTooltipContent;
@@ -28,6 +29,7 @@ export type CalendarGridEvent = {
   occurrenceDate?: string;
   createdById?: string;
   scheduleId?: string;
+  readOnly?: boolean;
 };
 
 export type CalendarGridBadge = {
@@ -60,6 +62,7 @@ type WeekCalendarGridProps = {
   ) => void;
   onScheduleAction?: (scheduleId: string, action: "edit" | "delete") => void;
   currentUserId?: string;
+  readOnly?: boolean;
 };
 
 type LayoutEvent = CalendarGridEvent & {
@@ -286,12 +289,11 @@ export default function WeekCalendarGrid({
   }, []);
 
   function eventMenu(event: CalendarGridEvent) {
-    if (!event.isRoutine && !event.isSchedule) {
+    if (event.readOnly) {
       return null;
     }
 
-    // Only show schedule menu to the creator
-    if (event.isSchedule && event.createdById && currentUserId && event.createdById !== currentUserId) {
+    if (!event.isRoutine && !event.isSchedule) {
       return null;
     }
 
@@ -327,22 +329,24 @@ export default function WeekCalendarGrid({
             >
               {event.isRoutine ? "✏️ Edit routine" : "✏️ Edit schedule"}
             </button>
-            <button
-              type="button"
-              className={styles.eventMenuItem}
-              onClick={(mouseEvent) => {
-                mouseEvent.stopPropagation();
-                setOpenMenuId(null);
-                if (event.isRoutine && event.routineId && event.occurrenceDate && onRoutineAction) {
-                  onRoutineAction(event.routineId, "delete", event.occurrenceDate, event.dayIndex);
-                }
-                if (event.isSchedule && onScheduleAction) {
-                  onScheduleAction(event.scheduleId ?? event.id, "delete");
-                }
-              }}
-            >
-              {event.isRoutine ? "🗑 Delete routine" : "🗑 Delete schedule"}
-            </button>
+            {(!event.isSchedule || !event.createdById || !currentUserId || event.createdById === currentUserId) && (
+              <button
+                type="button"
+                className={styles.eventMenuItem}
+                onClick={(mouseEvent) => {
+                  mouseEvent.stopPropagation();
+                  setOpenMenuId(null);
+                  if (event.isRoutine && event.routineId && event.occurrenceDate && onRoutineAction) {
+                    onRoutineAction(event.routineId, "delete", event.occurrenceDate, event.dayIndex);
+                  }
+                  if (event.isSchedule && onScheduleAction) {
+                    onScheduleAction(event.scheduleId ?? event.id, "delete");
+                  }
+                }}
+              >
+                {event.isRoutine ? "🗑 Delete routine" : "🗑 Delete schedule"}
+              </button>
+            )}
           </div>
         ) : null}
       </div>
@@ -500,8 +504,11 @@ export default function WeekCalendarGrid({
                         {event.endHour - event.startHour > 0.85 && event.subtitle ? (
                           <div className={styles.eventSub}>{event.subtitle}</div>
                         ) : null}
-                        {event.endHour - event.startHour > 0.85 && event.tag ? (
-                          <div className={styles.eventTag}>{event.tag}</div>
+                        {event.endHour - event.startHour > 0.85 && (event.tag || event.tag2) ? (
+                          <div className="flex flex-wrap gap-1">
+                            {event.tag && <div className={styles.eventTag}>{event.tag}</div>}
+                            {event.tag2 && <div className={styles.eventTag}>{event.tag2}</div>}
+                          </div>
                         ) : null}
                       </div>
                     </div>
@@ -553,8 +560,11 @@ export default function WeekCalendarGrid({
                         {!event.compact && event.subtitle ? (
                           <div className={styles.eventSub}>{event.subtitle}</div>
                         ) : null}
-                        {!event.compact && event.tag ? (
-                          <div className={styles.eventTag}>{event.tag}</div>
+                        {!event.compact && (event.tag || event.tag2) ? (
+                          <div className="flex flex-wrap gap-1">
+                            {event.tag && <div className={styles.eventTag}>{event.tag}</div>}
+                            {event.tag2 && <div className={styles.eventTag}>{event.tag2}</div>}
+                          </div>
                         ) : null}
                       </div>
                     </div>

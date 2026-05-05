@@ -5,6 +5,7 @@ import { forwardRef } from "react";
 export type FloatingTooltipRow = {
   text: string;
   dot?: string;
+  italic?: boolean;
 };
 
 export type FloatingTooltipContent = {
@@ -32,7 +33,7 @@ const FloatingTooltip = forwardRef<HTMLDivElement, FloatingTooltipProps>(functio
     <div ref={ref} className={className}>
       <div className={titleClassName}>{tooltip.title}</div>
       {tooltip.rows.map((row, index) => (
-        <div key={`${row.text}-${index}`} className={rowClassName}>
+        <div key={`${row.text}-${index}`} className={rowClassName} style={row.italic ? { fontStyle: "italic", opacity: 0.8, fontSize: "0.9em" } : undefined}>
           {row.dot ? <span className={dotClassName} style={{ backgroundColor: row.dot }} /> : null}
           <span>{row.text}</span>
         </div>
