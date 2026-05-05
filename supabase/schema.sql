@@ -374,6 +374,7 @@ create table if not exists schedules (
   sub text default '',
   description text default '',
   type text default 'meeting',
+  last_edited_by_name text,
   created_at timestamptz default now()
 );
 
@@ -381,6 +382,7 @@ alter table schedules enable row level security;
 
 drop policy if exists "group members can view schedules" on schedules;
 drop policy if exists "group members can insert schedules" on schedules;
+drop policy if exists "group members can update schedules" on schedules;
 drop policy if exists "creators can update schedules" on schedules;
 drop policy if exists "creators can delete schedules" on schedules;
 
@@ -396,10 +398,10 @@ with check (
   and public.is_group_member(group_id, auth.uid())
 );
 
-create policy "creators can update schedules"
+create policy "group members can update schedules"
 on schedules for update
-using (auth.uid() is not null and member_id = auth.uid())
-with check (auth.uid() is not null and member_id = auth.uid());
+using (public.is_group_member(group_id, auth.uid()))
+with check (public.is_group_member(group_id, auth.uid()));
 
 create policy "creators can delete schedules"
 on schedules for delete

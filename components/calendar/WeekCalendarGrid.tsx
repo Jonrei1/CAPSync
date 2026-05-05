@@ -332,7 +332,7 @@ export default function WeekCalendarGrid({
             {(!event.isSchedule || !event.createdById || !currentUserId || event.createdById === currentUserId) && (
               <button
                 type="button"
-                className={styles.eventMenuItem}
+                className={cn(styles.eventMenuItem, styles.eventMenuItemDestructive)}
                 onClick={(mouseEvent) => {
                   mouseEvent.stopPropagation();
                   setOpenMenuId(null);

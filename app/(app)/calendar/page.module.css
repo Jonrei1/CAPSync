@@ -649,12 +649,12 @@
   background: #f3f4f6;
 }
 
-.eventMenuItem:last-child {
-  color: #dc2626;
+.eventMenuItemDestructive {
+  color: #dc2626 !important;
 }
 
-.eventMenuItem:last-child:hover {
-  background: #fef2f2;
+.eventMenuItemDestructive:hover {
+  background: #fef2f2 !important;
 }
 
 /* Scope modal option cards */
