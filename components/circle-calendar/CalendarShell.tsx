@@ -184,7 +184,7 @@ export default function CalendarShell({
   const [meetingPrefill, setMeetingPrefill] = useState<MeetingPrefill>({});
   const [editMeetingOpen, setEditMeetingOpen] = useState(false);
   const [editMeetingId, setEditMeetingId] = useState<string | null>(null);
-  const [editMeetingMode, setEditMeetingMode] = useState<"edit" | "delete">("edit");
+  const [editMeetingMode, setEditMeetingMode] = useState<"edit" | "delete" | "view">("edit");
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [currentUserName, setCurrentUserName] = useState("Unknown");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -400,7 +400,7 @@ export default function CalendarShell({
     setAddMeetingOpen(true);
   }
 
-  function handleScheduleAction(scheduleId: string, action: "edit" | "delete") {
+  function handleScheduleAction(scheduleId: string, action: "edit" | "delete" | "view") {
     setEditMeetingId(scheduleId);
     setEditMeetingMode(action);
     setEditMeetingOpen(true);
@@ -600,6 +600,7 @@ export default function CalendarShell({
           createdById: block.creatorId,
           scheduleId: block.id ?? undefined,
           link: (block.sub && block.sub !== "Personal" && block.sub !== "Routine" && block.sub !== "Personal routine") ? block.sub : undefined,
+          onClick: block.id ? () => handleScheduleAction(block.id!, "view") : undefined,
           tooltip: { title: block.lbl, rows: tooltipRows },
         });
       }

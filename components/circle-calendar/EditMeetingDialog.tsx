@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, Clock3, MapPin, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarDays, Clock3, Copy, MapPin, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -80,7 +80,7 @@ type EditMeetingDialogProps = {
   groupId: string;
   members: CalendarMember[];
   scheduleId: string | null;
-  mode: "edit" | "delete";
+  mode: "edit" | "delete" | "view";
 };
 
 type ScheduleData = {
@@ -216,12 +216,19 @@ export default function EditMeetingDialog({
           start_hour: startDecimal,
           end_hour: endDecimal,
           sub: location.trim() || "",
+          description: description.trim() || "",
           last_edited_by_name: profile?.full_name || userData.user?.email || "Someone",
         })
         .eq("id", scheduleId);
 
       if (error) {
-        console.error("Update error:", error);
+        console.error("Update error object:", error);
+        console.error("Update error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         toast.error(
           error?.message || "Failed to update meeting. Please check your permissions and try again."
         );
@@ -302,6 +309,8 @@ export default function EditMeetingDialog({
   }
 
   const isDeleteMode = mode === "delete";
+  const isViewMode = mode === "view";
+  const isDetailsMode = isDeleteMode || isViewMode;
   const meetingDuration = formatDuration(startTime, endTime);
 
   return (
@@ -309,34 +318,33 @@ export default function EditMeetingDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-            {isDeleteMode ? "Delete meeting" : "Edit meeting"}
+            {isDeleteMode ? "Delete meeting" : isViewMode ? "Meeting details" : "Edit meeting"}
           </div>
-          <DialogTitle>{isDeleteMode ? "Delete this meeting?" : "Edit meeting"}</DialogTitle>
+          <DialogTitle>{isDeleteMode ? "Delete this meeting?" : isViewMode ? "Meeting info" : "Edit meeting"}</DialogTitle>
         </DialogHeader>
 
-        {isDeleteMode ? (
+        {isDetailsMode ? (
           <DialogBody>
             <div className="space-y-5 pb-1">
-              <div className="flex items-start gap-4 rounded-2xl border border-red-200/80 bg-red-50/70 p-4 sm:p-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700">
-                  <AlertTriangle className="size-5" />
+              {isDeleteMode && (
+                <div className="flex items-start gap-4 rounded-2xl border border-red-200/80 bg-red-50/70 p-4 sm:p-5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700">
+                    <AlertTriangle className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-red-700">Permanent action</p>
+                    <p className="mt-1 text-sm leading-6 text-red-900/90">
+                      This meeting will be deleted for everyone and all attendees will be notified.
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-red-700">Permanent action</p>
-                  <p className="mt-1 text-sm leading-6 text-red-900/90">
-                    This meeting will be deleted for everyone and all attendees will be notified.
-                  </p>
-                </div>
-              </div>
+              )}
 
               <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="truncate text-lg font-semibold text-foreground">{title}</p>
                     <p className="mt-1 text-sm text-muted-foreground">Meeting details</p>
-                  </div>
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700">
-                    <Trash2 className="size-4" />
                   </div>
                 </div>
 
@@ -364,28 +372,65 @@ export default function EditMeetingDialog({
                     <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       <MapPin className="size-3.5" />
                       Location / link
+                      {location.trim() && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(location.trim());
+                            toast.success("Link copied");
+                          }}
+                        >
+                          <Copy className="size-3" />
+                        </Button>
+                      )}
                     </div>
                     <p className="mt-1 wrap-break-word text-sm font-medium text-foreground">
                       {location.trim() || "No location added"}
                     </p>
                   </div>
+
+                  {description.trim() && (
+                    <div className="rounded-xl bg-background/80 p-3 sm:col-span-2">
+                      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <CalendarDays className="size-3.5" />
+                        Description
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-foreground/90">
+                        {description.trim()}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
+
               <div className="mt-6 flex justify-end gap-3">
-                {schedule && user && schedule.member_id === user.id ? (
+                {isDeleteMode ? (
+                  schedule && user && schedule.member_id === user.id ? (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      className="px-8"
+                      onClick={() => void handleDelete()}
+                      disabled={deleting}
+                    >
+                      {deleting ? "Deleting..." : "Delete meeting"}
+                    </Button>
+                  ) : (
+                    <div className="text-[11px] text-muted-foreground italic self-center pb-2">
+                      Only the creator can delete this meeting.
+                    </div>
+                  )
+                ) : (
                   <Button
                     type="button"
-                    variant="destructive"
+                    variant="outline"
                     className="px-8"
-                    onClick={() => void handleDelete()}
-                    disabled={deleting}
+                    onClick={() => onOpenChange(false)}
                   >
-                    {deleting ? "Deleting..." : "Delete meeting"}
+                    Close
                   </Button>
-                ) : (
-                  <div className="text-[11px] text-muted-foreground italic self-center pb-2">
-                    Only the creator can delete this meeting.
-                  </div>
                 )}
               </div>
             </div>

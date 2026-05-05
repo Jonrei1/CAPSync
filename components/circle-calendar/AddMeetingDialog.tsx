@@ -211,6 +211,7 @@ export default function AddMeetingDialog({
       end_hour: endDecimal,
       label: title.trim(),
       sub: location.trim() || "",
+      description: description.trim() || "",
       type: "meeting",
     };
 

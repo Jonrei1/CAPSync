@@ -506,11 +506,7 @@ export default function WeekCalendarGrid({
                       <div
                         className={styles.eventInner}
                         onClick={(e) => {
-                          if (event.isSchedule && event.link) {
-                            e.stopPropagation();
-                            void navigator.clipboard.writeText(event.link);
-                            toast.success("Link copied to clipboard");
-                          } else if (event.onClick) {
+                          if (event.onClick) {
                             event.onClick();
                           }
                         }}
