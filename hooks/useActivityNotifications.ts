@@ -117,6 +117,8 @@ export function useActivityNotifications() {
         notification.id === id ? { ...notification, readAt: timestamp } : notification,
       ),
     );
+
+    window.dispatchEvent(new Event("activity-notifications:refresh"));
   }, []);
 
   const markAllRead = useCallback(async () => {
@@ -137,6 +139,7 @@ export function useActivityNotifications() {
       .is("read_at", null);
 
     setNotifications((current) => current.map((notification) => ({ ...notification, readAt: timestamp })));
+    window.dispatchEvent(new Event("activity-notifications:refresh"));
   }, []);
 
   const deleteAll = useCallback(async () => {
@@ -155,6 +158,7 @@ export function useActivityNotifications() {
     }
 
     setNotifications([]);
+    window.dispatchEvent(new Event("activity-notifications:refresh"));
   }, []);
 
   const deleteNotification = useCallback(async (id: string) => {
@@ -165,6 +169,7 @@ export function useActivityNotifications() {
     }
 
     setNotifications((current) => current.filter((notification) => notification.id !== id));
+    window.dispatchEvent(new Event("activity-notifications:refresh"));
   }, []);
 
   useEffect(() => {

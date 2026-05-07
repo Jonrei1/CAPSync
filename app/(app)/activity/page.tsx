@@ -18,7 +18,7 @@ type Tone = {
 function getTone(type: ActivityNotification["type"]): Tone {
   switch (type) {
     case "meeting":
-      return { accent: "#6366f1", icon: CalendarPlus }; // Indigo 500
+      return { accent: "#000000", icon: CalendarPlus }; // Purple 600
     case "deadline":
       return { accent: designTokens.palette.app.status.danger, icon: Flag };
     case "schedule":
@@ -224,7 +224,7 @@ export default function ActivityRoutePage() {
       <div className="flex-1 min-h-0 overflow-y-auto bg-zinc-50/30">
         <div className="border-b border-zinc-200 px-4 py-4 sm:px-6">
           <div className="flex items-center gap-2 text-[13px] font-medium text-zinc-900">
-            <Clock3 className="size-4 text-indigo-500" />
+            <Clock3 className="size-4 text-black" />
             Activities
           </div>
           <p className="mt-1 text-[12px] text-zinc-500">Meetings, deadlines, and scheduled activities with creator, timing, and status.</p>
@@ -250,13 +250,19 @@ export default function ActivityRoutePage() {
               return (
                 <div
                   key={notification.id}
-                  className={[
-                    "flex gap-3 border-b border-zinc-200 px-4 py-3 transition-colors hover:bg-white sm:px-6",
-                    isUnread ? "bg-indigo-50/30" : "",
-                  ].join(" ")}
+                  className={cn(
+                    "relative flex gap-3 border-b border-zinc-200 px-4 py-4 transition-colors hover:bg-white sm:px-6",
+                    isUnread ? "bg-indigo-50/60" : ""
+                  )}
                 >
+                  {isUnread && (
+                    <div className="absolute inset-y-0 left-0 w-0.5 bg-indigo-600" />
+                  )}
                   <span
-                    className={["mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full", isUnread ? "bg-indigo-600" : "bg-transparent"].join(" ")}
+                    className={cn(
+                      "mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                      isUnread ? "bg-indigo-600 animate-pulse" : "bg-transparent"
+                    )}
                   />
 
                   <button
