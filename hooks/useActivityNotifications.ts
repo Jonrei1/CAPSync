@@ -42,12 +42,9 @@ export function useActivityNotifications() {
       return;
     }
 
-    const columns =
-      "id, user_id, group_id, group_name, group_color, type, title, event_date, event_start_hour, event_end_hour, link, created_by_name, created_at, read_at";
-
     const { data, error } = await supabase
       .from("activity_notifications")
-      .select(columns)
+      .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -55,7 +52,7 @@ export function useActivityNotifications() {
     if (error || !data) {
       const fallback = await supabase
         .from("activity_notifications")
-        .select("id, user_id, group_id, group_name, group_color, type, title, event_date, event_start_hour, link, created_by_name, created_at, read_at")
+        .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -76,7 +73,7 @@ export function useActivityNotifications() {
           title: row.title,
           eventDate: row.event_date ?? null,
           eventStartHour: row.event_start_hour ?? null,
-          eventEndHour: null,
+          eventEndHour: row.event_end_hour ?? null,
           link: row.link,
           createdByName: row.created_by_name ?? null,
           createdAt: row.created_at,

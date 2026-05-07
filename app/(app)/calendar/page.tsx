@@ -477,18 +477,18 @@ export default function MainCalendarPage() {
       setScheduledBlocks(mappedSchedules);
 
       const mappedGroupMeetings = ((groupMeetingsResult.data ?? []) as GroupMeetingRow[]).map((row) => {
-        const circle = circleMap.get(row.group_id);
+        const circle = row.group_id ? circleMap.get(row.group_id) : undefined;
         return {
           id: row.id,
-          label: row.label,
+          label: row.label ?? "Meeting",
           details: row.sub ?? "",
           color: circle?.color ?? "#ea580c",
-          scheduledDate: row.day,
-          startHour: row.start_hour,
-          endHour: row.end_hour,
-          groupId: row.group_id,
-          createdById: row.member_id,
-          lastEditedByName: row.last_edited_by_name,
+          scheduledDate: row.day ?? "",
+          startHour: Number(row.start_hour ?? 0),
+          endHour: Number(row.end_hour ?? 0),
+          groupId: row.group_id ?? "",
+          createdById: row.member_id ?? "",
+          lastEditedByName: row.last_edited_by_name ?? undefined,
         } satisfies GroupMeeting;
       });
 

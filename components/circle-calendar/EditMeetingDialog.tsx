@@ -33,6 +33,17 @@ function hourToInput(value?: number) {
   return `${pad(hours)}:${pad(minutes)}`;
 }
 
+function formatTimeForDisplay(value: string) {
+  const [hoursPart = "0", minutesPart = "0"] = value.split(":");
+  const hours = Number.parseInt(hoursPart, 10);
+  const minutes = Number.parseInt(minutesPart, 10);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return value;
+
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+  return `${displayHours}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
 function timeInputToHour(value: string) {
   const [hoursPart = "0", minutesPart = "0"] = value.split(":");
   const hours = Number.parseInt(hoursPart, 10);
@@ -239,9 +250,14 @@ export default function EditMeetingDialog({
         return;
       }
 
+      const recipientIds = Array.from(new Set(members.map((m) => m.id)));
+      if (userId) {
+        recipientIds.push(userId);
+      }
+
       await writeActivityNotification({
         supabase,
-        recipientIds: Array.from(new Set([...members.map((member) => member.id), userId])),
+        recipientIds,
         groupId,
         groupName,
         groupColor,
@@ -381,7 +397,7 @@ export default function EditMeetingDialog({
                       Time
                     </div>
                     <p className="mt-1 text-sm font-medium text-foreground">
-                      {startTime} - {endTime}
+                      {formatTimeForDisplay(startTime)} - {formatTimeForDisplay(endTime)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">Duration: {meetingDuration}</p>
                   </div>

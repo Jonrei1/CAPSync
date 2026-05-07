@@ -64,6 +64,17 @@ function timeInputToHour(value: string) {
   return hours + minutes / 60;
 }
 
+function formatTimeForDisplay(value: string) {
+  const [hoursPart = "0", minutesPart = "0"] = value.split(":");
+  const hours = Number.parseInt(hoursPart, 10);
+  const minutes = Number.parseInt(minutesPart, 10);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return value;
+
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+  return `${displayHours}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
 type AddMeetingDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -311,7 +322,7 @@ export default function AddMeetingDialog({
           <DialogTitle>Create a meeting</DialogTitle>
           {prefillStart !== undefined && prefillEnd !== undefined && (
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Free window: {minTimeStr} – {maxTimeStr} · Times are constrained to this range.
+              Free window: {formatTimeForDisplay(minTimeStr)} – {formatTimeForDisplay(maxTimeStr)} · Times are constrained to this range.
             </p>
           )}
         </DialogHeader>
@@ -363,7 +374,7 @@ export default function AddMeetingDialog({
                   Start time
                   {prefillStart !== undefined && (
                     <span className="ml-1 text-[10px] text-muted-foreground">
-                      (min {minTimeStr})
+                      (min {formatTimeForDisplay(minTimeStr)})
                     </span>
                   )}
                 </Label>
@@ -382,7 +393,7 @@ export default function AddMeetingDialog({
                   End time
                   {prefillEnd !== undefined && (
                     <span className="ml-1 text-[10px] text-muted-foreground">
-                      (max {maxTimeStr})
+                      (max {formatTimeForDisplay(maxTimeStr)})
                     </span>
                   )}
                 </Label>

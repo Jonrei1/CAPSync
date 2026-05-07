@@ -6,6 +6,7 @@ import { Calendar, CalendarPlus, Clock3, Flag, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { designStandard, designTokens } from "@/components/ui/design-standard";
+import { cn } from "@/lib/utils";
 import type { ActivityNotification } from "@/hooks/useActivityNotifications";
 import { useActivityNotifications } from "@/hooks/useActivityNotifications";
 
@@ -17,7 +18,7 @@ type Tone = {
 function getTone(type: ActivityNotification["type"]): Tone {
   switch (type) {
     case "meeting":
-      return { accent: designTokens.palette.app.brandPrimary, icon: CalendarPlus };
+      return { accent: "#6366f1", icon: CalendarPlus }; // Indigo 500
     case "deadline":
       return { accent: designTokens.palette.app.status.danger, icon: Flag };
     case "schedule":
@@ -60,15 +61,19 @@ function formatDuration(startHour: number, endHour: number): string {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
+  if (hours === 0 && minutes === 0) {
+    return "0 min";
+  }
+
   if (hours === 0) {
     return `${minutes} min`;
   }
 
   if (minutes === 0) {
-    return `${hours} hour${hours === 1 ? "" : "s"}`;
+    return `${hours} hr${hours === 1 ? "" : "s"}`;
   }
 
-  return `${hours}h ${minutes}m`;
+  return `${hours} hr${hours === 1 ? "" : "s"} ${minutes} min`;
 }
 
 function getEventStatus(notification: ActivityNotification): string | null {
@@ -119,7 +124,14 @@ function formatNotificationTime(notification: ActivityNotification): string {
     return dateText;
   }
 
-  return `${dateText} · ${formatClock(notification.eventStartHour)}`;
+  const startText = formatClock(notification.eventStartHour).replace(" AM", "").replace(" PM", "");
+  const suffix = formatClock(notification.eventStartHour).slice(-2);
+  
+  if (notification.eventEndHour != null) {
+    return `${dateText} · ${startText}-${formatClock(notification.eventEndHour)}`;
+  }
+
+  return `${dateText} · ${startText} ${suffix}`;
 }
 
 function timeAgo(createdAt: string): string {
@@ -183,21 +195,28 @@ export default function ActivityRoutePage() {
           ) : null}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {notifications.length > 0 ? (
             <button
               type="button"
               onClick={() => setConfirmDeleteOpen(true)}
-              className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
-              aria-label="Delete all activity notifications"
+              className={cn(designStandard.button.icon, "text-zinc-400 hover:text-red-600 hover:bg-red-50")}
+              title="Delete all activity"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           ) : null}
           {unreadCount > 0 ? (
-            <button type="button" onClick={() => void markAllRead()} className={designStandard.clickable.subtle}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="xs" 
+              className={designStandard.button.extraSmall}
+              onClick={() => void markAllRead()}
+              title="Mark all notifications as read"
+            >
               Mark all read
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>
@@ -205,7 +224,7 @@ export default function ActivityRoutePage() {
       <div className="flex-1 min-h-0 overflow-y-auto bg-zinc-50/30">
         <div className="border-b border-zinc-200 px-4 py-4 sm:px-6">
           <div className="flex items-center gap-2 text-[13px] font-medium text-zinc-900">
-            <Clock3 className="size-4 text-zinc-700" />
+            <Clock3 className="size-4 text-indigo-500" />
             Activities
           </div>
           <p className="mt-1 text-[12px] text-zinc-500">Meetings, deadlines, and scheduled activities with creator, timing, and status.</p>
@@ -224,8 +243,8 @@ export default function ActivityRoutePage() {
               const timeLabel = formatNotificationTime(notification);
               const creatorLabel = notification.createdByName?.trim() ? `Created by ${notification.createdByName}` : null;
               const durationLabel =
-                notification.eventDate && notification.eventStartHour != null
-                  ? formatDuration(notification.eventStartHour, notification.eventEndHour ?? notification.eventStartHour + 1)
+                notification.eventDate && notification.eventStartHour != null && notification.eventEndHour != null
+                  ? formatDuration(notification.eventStartHour, notification.eventEndHour)
                   : null;
 
               return (
@@ -243,7 +262,11 @@ export default function ActivityRoutePage() {
                   <button
                     type="button"
                     onClick={() => void handleRowClick(notification)}
-                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                    className={cn(
+                      "flex min-w-0 flex-1 items-start gap-3 text-left",
+                      designStandard.clickable.base
+                    )}
+                    title={`View ${notification.title}`}
                   >
                     <span
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-white"
@@ -286,7 +309,7 @@ export default function ActivityRoutePage() {
                           </span>
                         ) : null}
                         {durationLabel ? (
-                          <span className="rounded-full bg-zinc-100 px-2 py-0.5">Duration: {durationLabel}</span>
+                          <span className="rounded-full bg-zinc-100 px-2 py-0.5">{durationLabel}</span>
                         ) : null}
                         {status ? (
                           <span
@@ -305,8 +328,11 @@ export default function ActivityRoutePage() {
                   <button
                     type="button"
                     onClick={() => void handleDeleteOne(notification.id)}
-                    className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                    aria-label={`Delete notification ${notification.title}`}
+                    className={cn(
+                      "mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600",
+                      designStandard.clickable.base
+                    )}
+                    title="Delete notification"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>

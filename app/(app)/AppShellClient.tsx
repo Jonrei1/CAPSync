@@ -167,11 +167,6 @@ function AppShell({ children }: AppLayoutProps) {
                 >
                   {item.icon}
                   <span className="flex-1">{item.label}</span>
-                  {item.label === "Calendar" && unreadCount > 0 && (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white leading-none">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
                 </Link>
               );
             })}
