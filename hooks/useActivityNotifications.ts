@@ -15,6 +15,7 @@ export type ActivityNotification = {
   title: string;
   eventDate: string | null;
   eventStartHour: number | null;
+  eventEndHour: number | null;
   link: string;
   createdByName: string | null;
   createdAt: string;
@@ -41,15 +42,47 @@ export function useActivityNotifications() {
       return;
     }
 
+    const columns =
+      "id, user_id, group_id, group_name, group_color, type, title, event_date, event_start_hour, event_end_hour, link, created_by_name, created_at, read_at";
+
     const { data, error } = await supabase
       .from("activity_notifications")
-      .select("id, user_id, group_id, group_name, group_color, type, title, event_date, event_start_hour, link, created_by_name, created_at, read_at")
+      .select(columns)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50);
 
     if (error || !data) {
-      setNotifications([]);
+      const fallback = await supabase
+        .from("activity_notifications")
+        .select("id, user_id, group_id, group_name, group_color, type, title, event_date, event_start_hour, link, created_by_name, created_at, read_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (fallback.error || !fallback.data) {
+        setNotifications([]);
+        setLoading(false);
+        return;
+      }
+
+      setNotifications(
+        fallback.data.map((row) => ({
+          id: row.id,
+          groupId: row.group_id ?? null,
+          groupName: row.group_name?.trim() || (row.group_id ? "Circle" : FALLBACK_GROUP_NAME),
+          groupColor: row.group_color ?? FALLBACK_GROUP_COLOR,
+          type: row.type,
+          title: row.title,
+          eventDate: row.event_date ?? null,
+          eventStartHour: row.event_start_hour ?? null,
+          eventEndHour: null,
+          link: row.link,
+          createdByName: row.created_by_name ?? null,
+          createdAt: row.created_at,
+          readAt: row.read_at ?? null,
+        })),
+      );
       setLoading(false);
       return;
     }
@@ -64,6 +97,7 @@ export function useActivityNotifications() {
         title: row.title,
         eventDate: row.event_date ?? null,
         eventStartHour: row.event_start_hour ?? null,
+        eventEndHour: row.event_end_hour ?? null,
         link: row.link,
         createdByName: row.created_by_name ?? null,
         createdAt: row.created_at,
@@ -124,6 +158,16 @@ export function useActivityNotifications() {
     }
 
     setNotifications([]);
+  }, []);
+
+  const deleteNotification = useCallback(async (id: string) => {
+    const { error } = await supabase.from("activity_notifications").delete().eq("id", id);
+
+    if (error) {
+      return;
+    }
+
+    setNotifications((current) => current.filter((notification) => notification.id !== id));
   }, []);
 
   useEffect(() => {
@@ -193,5 +237,6 @@ export function useActivityNotifications() {
     markAllRead,
     reload: load,
     deleteAll,
+    deleteNotification,
   };
 }

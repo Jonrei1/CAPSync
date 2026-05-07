@@ -249,6 +249,7 @@ export default function EditMeetingDialog({
         title: title.trim(),
         eventDate: selectedDate,
         eventStartHour: startDecimal,
+        eventEndHour: endDecimal,
         link: `/${groupId}/calendar?date=${selectedDate}`,
         createdByName: profile?.full_name || userData.user?.email || "Someone",
       });

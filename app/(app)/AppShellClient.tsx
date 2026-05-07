@@ -45,9 +45,15 @@ function AppShell({ children }: AppLayoutProps) {
   const { activeCircle, dialogOpen, setDialogOpen, dialogTab } = useCircle();
   const { notifications, unreadCount, markRead, markAllRead, deleteAll } = useActivityNotifications();
   const isPersonalCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/");
-  const isAnyCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/") || pathname.endsWith("/calendar");
+  const isActivityRoute = pathname === "/activity" || pathname.startsWith("/activity/");
+  const isAnyCalendarRoute =
+    pathname === "/calendar" ||
+    pathname.startsWith("/calendar/") ||
+    pathname.endsWith("/calendar") ||
+    pathname === "/activity" ||
+    pathname.startsWith("/activity/");
   const showCircleChrome = Boolean(activeCircle) && !isPersonalCalendarRoute;
-  const headerTitle = isPersonalCalendarRoute ? "My Calendar" : activeCircle?.name ?? "";
+  const headerTitle = isPersonalCalendarRoute ? "My Calendar" : isActivityRoute ? "Activities" : activeCircle?.name ?? "";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // activity panel is now its own route
   const [signingOut, setSigningOut] = useState(false);
@@ -182,7 +188,7 @@ function AppShell({ children }: AppLayoutProps) {
               ].join(" ")}
             >
               <Bell className="h-3.75 w-3.75 opacity-70" />
-              <span className="flex-1 text-left">Activity</span>
+              <span className="flex-1 text-left">Notifications</span>
               {unreadCount > 0 ? (
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white">
                   {unreadCount > 9 ? "9+" : unreadCount}
@@ -237,7 +243,7 @@ function AppShell({ children }: AppLayoutProps) {
             <div className="flex min-h-5 items-center gap-2">
               {headerTitle ? (
                 <>
-                  {isPersonalCalendarRoute ? (
+                  {isPersonalCalendarRoute || isActivityRoute ? (
                     <span
                       aria-hidden="true"
                       className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-zinc-900 text-[10px] font-bold text-white"

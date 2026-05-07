@@ -87,6 +87,7 @@ create table if not exists activity_notifications (
   title text not null,
   event_date text,
   event_start_hour numeric,
+  event_end_hour numeric,
   link text,
   created_by_name text,
   read_at timestamptz,

@@ -2,26 +2,108 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, CalendarPlus, Flag, Trash2 } from "lucide-react";
+import { Calendar, CalendarPlus, Clock3, Flag, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { designStandard, designTokens } from "@/components/ui/design-standard";
+import type { ActivityNotification } from "@/hooks/useActivityNotifications";
 import { useActivityNotifications } from "@/hooks/useActivityNotifications";
 
-function getTone(type: any) {
-  switch (type as any) {
+type Tone = {
+  accent: string;
+  icon: typeof Calendar;
+};
+
+function getTone(type: ActivityNotification["type"]): Tone {
+  switch (type) {
     case "meeting":
       return { accent: designTokens.palette.app.brandPrimary, icon: CalendarPlus };
     case "deadline":
       return { accent: designTokens.palette.app.status.danger, icon: Flag };
     case "schedule":
       return { accent: designTokens.palette.app.brandAccent, icon: Calendar };
-    default:
-      return { accent: designTokens.palette.app.brandPrimary, icon: Calendar };
   }
 }
 
-function formatEventTime(notification: any): string {
+function formatClock(hour: number): string {
+  const normalized = ((hour % 24) + 24) % 24;
+  const wholeHour = Math.floor(normalized);
+  const minutes = Math.round((normalized - wholeHour) * 60);
+  const suffix = wholeHour >= 12 ? "PM" : "AM";
+  const displayHour = wholeHour > 12 ? wholeHour - 12 : wholeHour === 0 ? 12 : wholeHour;
+
+  return `${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+function buildDateTime(date: string, hour: number): Date {
+  const next = new Date(`${date}T00:00:00`);
+  const wholeHour = Math.floor(hour);
+  const minutes = Math.round((hour - wholeHour) * 60);
+  next.setHours(wholeHour, minutes, 0, 0);
+  return next;
+}
+
+function formatRelativeTime(target: Date, now: Date): string {
+  const diff = target.getTime() - now.getTime();
+  const absMinutes = Math.round(Math.abs(diff) / 60_000);
+
+  if (absMinutes < 60) {
+    return diff >= 0 ? `starts in ${absMinutes} minute${absMinutes === 1 ? "" : "s"}` : `${absMinutes} minute${absMinutes === 1 ? "" : "s"} ago`;
+  }
+
+  const absHours = Math.round(absMinutes / 60);
+  return diff >= 0 ? `starts in ${absHours} hour${absHours === 1 ? "" : "s"}` : `${absHours} hour${absHours === 1 ? "" : "s"} ago`;
+}
+
+function formatDuration(startHour: number, endHour: number): string {
+  const totalMinutes = Math.max(0, Math.round((endHour - startHour) * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) {
+    return `${minutes} min`;
+  }
+
+  if (minutes === 0) {
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+
+  return `${hours}h ${minutes}m`;
+}
+
+function getEventStatus(notification: ActivityNotification): string | null {
+  if (!notification.eventDate || notification.eventStartHour == null) {
+    return null;
+  }
+
+  const start = buildDateTime(notification.eventDate, notification.eventStartHour);
+  const end = buildDateTime(notification.eventDate, notification.eventEndHour ?? notification.eventStartHour + 1);
+  const now = new Date();
+
+  if (now < start) {
+    return formatRelativeTime(start, now);
+  }
+
+  if (now >= start && now <= end) {
+    return "ongoing";
+  }
+
+  return "done";
+}
+
+function getNotificationTypeLabel(notification: ActivityNotification): string {
+  if (notification.type === "meeting") {
+    return "Meeting";
+  }
+
+  if (notification.type === "schedule") {
+    return "Activity";
+  }
+
+  return "Deadline";
+}
+
+function formatNotificationTime(notification: ActivityNotification): string {
   if (!notification.eventDate) {
     return "";
   }
@@ -37,12 +119,7 @@ function formatEventTime(notification: any): string {
     return dateText;
   }
 
-  const hours = Math.floor(notification.eventStartHour);
-  const minutes = Math.round((notification.eventStartHour - hours) * 60);
-  const suffix = hours >= 12 ? "PM" : "AM";
-  const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
-
-  return `${dateText} · ${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+  return `${dateText} · ${formatClock(notification.eventStartHour)}`;
 }
 
 function timeAgo(createdAt: string): string {
@@ -67,11 +144,11 @@ function timeAgo(createdAt: string): string {
 
 export default function ActivityRoutePage() {
   const router = useRouter();
-  const { notifications, unreadCount, markRead, markAllRead, deleteAll } = useActivityNotifications();
+  const { notifications, unreadCount, markRead, markAllRead, deleteAll, deleteNotification } = useActivityNotifications();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  async function handleRowClick(notification: any) {
+  async function handleRowClick(notification: ActivityNotification) {
     if (!notification.readAt) {
       await markRead(notification.id);
     }
@@ -90,11 +167,15 @@ export default function ActivityRoutePage() {
     }
   }
 
+  async function handleDeleteOne(notificationId: string) {
+    await deleteNotification(notificationId);
+  }
+
   return (
-    <div className="flex h-full flex-col border-r border-border/70 bg-white shadow-sm">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-zinc-900">Activity</span>
+          <span className="text-sm font-semibold text-zinc-900">Notifications</span>
           {unreadCount > 0 ? (
             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white">
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -121,55 +202,118 @@ export default function ActivityRoutePage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto bg-zinc-50/30">
+        <div className="border-b border-zinc-200 px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-2 text-[13px] font-medium text-zinc-900">
+            <Clock3 className="size-4 text-zinc-700" />
+            Activities
+          </div>
+          <p className="mt-1 text-[12px] text-zinc-500">Meetings, deadlines, and scheduled activities with creator, timing, and status.</p>
+        </div>
+
         {notifications.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-[12px] text-zinc-500">No activity yet</div>
+          <div className="flex h-40 items-center justify-center text-[12px] text-zinc-500">No activity yet</div>
         ) : (
-          notifications.map((notification: any) => {
-            const tone = getTone(notification.type as any);
-            const isUnread = !notification.readAt;
-            const Icon = (tone as any).icon;
+          <div>
+            {notifications.map((notification) => {
+              const tone = getTone(notification.type);
+              const isUnread = !notification.readAt;
+              const Icon = tone.icon;
+              const status = getEventStatus(notification);
+              const typeLabel = getNotificationTypeLabel(notification);
+              const timeLabel = formatNotificationTime(notification);
+              const creatorLabel = notification.createdByName?.trim() ? `Created by ${notification.createdByName}` : null;
+              const durationLabel =
+                notification.eventDate && notification.eventStartHour != null
+                  ? formatDuration(notification.eventStartHour, notification.eventEndHour ?? notification.eventStartHour + 1)
+                  : null;
 
-            return (
-              <button
-                key={notification.id}
-                type="button"
-                onClick={() => void handleRowClick(notification)}
-                className={[
-                  "flex w-full items-start gap-3 border-b border-zinc-100 px-4 py-3 text-left transition-colors hover:bg-zinc-50",
-                  isUnread ? "bg-zinc-50/60" : "",
-                ].join(" ")}
-              >
-                <span
-                  className={["mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full", isUnread ? "bg-indigo-600" : "bg-transparent"].join(" ")}
-                />
-
-                <span
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-white"
-                  style={{ backgroundColor: (tone as any).accent }}
-                  aria-hidden="true"
+              return (
+                <div
+                  key={notification.id}
+                  className={[
+                    "flex gap-3 border-b border-zinc-200 px-4 py-3 transition-colors hover:bg-white sm:px-6",
+                    isUnread ? "bg-indigo-50/30" : "",
+                  ].join(" ")}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
+                  <span
+                    className={["mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full", isUnread ? "bg-indigo-600" : "bg-transparent"].join(" ")}
+                  />
 
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[12px] font-medium text-zinc-900">{notification.title}</div>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
-                    <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: notification.groupColor }} />
-                    <span className="truncate">{notification.groupName}</span>
-                    {notification.eventDate ? (
-                      <>
-                        <span className="opacity-40">·</span>
-                        <span className="truncate">{formatEventTime(notification)}</span>
-                      </>
-                    ) : null}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleRowClick(notification)}
+                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                  >
+                    <span
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-white"
+                      style={{ backgroundColor: tone.accent }}
+                      aria-hidden="true"
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[12px] font-semibold text-zinc-900">{notification.title}</div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-zinc-500">
+                            <span
+                              className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: notification.groupColor }}
+                            />
+                            <span className="truncate">{notification.groupName}</span>
+                            <span className="opacity-40">·</span>
+                            <span>{typeLabel}</span>
+                            {creatorLabel ? (
+                              <>
+                                <span className="opacity-40">·</span>
+                                <span className="truncate">{creatorLabel}</span>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[10px] font-medium text-zinc-500">
+                          {timeAgo(notification.createdAt)}
+                        </span>
+                      </div>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-500">
+                        {notification.eventDate ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5">
+                            <Clock3 className="size-3" />
+                            {timeLabel}
+                          </span>
+                        ) : null}
+                        {durationLabel ? (
+                          <span className="rounded-full bg-zinc-100 px-2 py-0.5">Duration: {durationLabel}</span>
+                        ) : null}
+                        {status ? (
+                          <span
+                            className={[
+                              "rounded-full px-2 py-0.5",
+                              status === "ongoing" ? "bg-emerald-100 text-emerald-700" : status === "done" ? "bg-zinc-200 text-zinc-600" : "bg-amber-100 text-amber-700",
+                            ].join(" ")}
+                          >
+                            {status}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteOne(notification.id)}
+                    className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                    aria-label={`Delete notification ${notification.title}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-
-                <span className="shrink-0 text-[10px] text-zinc-400">{timeAgo(notification.createdAt)}</span>
-              </button>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -177,15 +321,15 @@ export default function ActivityRoutePage() {
         <DialogContent className="max-w-md">
           <DialogHeader className={designStandard.modal.header}>
             <div className={designStandard.modal.badge}>Delete all activity</div>
-            <DialogTitle className={designStandard.modal.title}>Clear your activity feed?</DialogTitle>
+            <DialogTitle className={designStandard.modal.title}>Clear your notifications?</DialogTitle>
             <p className={designStandard.modal.description}>
-              This will permanently remove every activity notification for your account. This cannot be undone.
+              This will permanently remove every notification for your account. This cannot be undone.
             </p>
           </DialogHeader>
 
           <DialogBody className="px-4 pb-4 sm:px-6">
             <div className={designStandard.cards.mutedPanel + " p-4 text-sm text-zinc-600"}>
-              All meeting, deadline, and schedule notifications will disappear from this feed and from the toast stack.
+              Meeting, deadline, and schedule notifications will disappear from this page and from the toast stack.
             </div>
           </DialogBody>
 

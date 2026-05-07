@@ -12,6 +12,7 @@ export type WriteActivityNotificationInput = {
   title: string;
   eventDate: string;
   eventStartHour?: number;
+  eventEndHour?: number;
   link: string;
   createdByName: string;
 };
@@ -30,15 +31,42 @@ export async function writeActivityNotification(input: WriteActivityNotification
     title: input.title,
     event_date: input.eventDate,
     event_start_hour: input.eventStartHour ?? null,
+    event_end_hour: input.eventEndHour ?? null,
     link: input.link,
     created_by_name: input.createdByName,
     read_at: null,
   }));
 
-  const { error } = await input.supabase.from("activity_notifications").insert(rows);
+  const insertWithEndHour = await input.supabase.from("activity_notifications").insert(rows);
 
-  if (error) {
-    const message = error.message.toLowerCase();
+  if (insertWithEndHour.error) {
+    const message = insertWithEndHour.error.message.toLowerCase();
+
+    if (message.includes("event_end_hour") && message.includes("schema cache")) {
+      const rowsWithoutEndHour = rows.map(({ event_end_hour: _eventEndHour, ...rest }) => rest);
+      const retry = await input.supabase.from("activity_notifications").insert(rowsWithoutEndHour);
+
+      if (retry.error) {
+        const retryMessage = retry.error.message.toLowerCase();
+
+        if (
+          retryMessage.includes("could not find the table") ||
+          retryMessage.includes("row-level security") ||
+          retryMessage.includes("permission denied")
+        ) {
+          return;
+        }
+
+        console.error("[writeActivityNotification] insert failed:", retry.error.message);
+        return;
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("activity-notifications:refresh"));
+      }
+
+      return;
+    }
 
     if (
       message.includes("could not find the table") ||
@@ -48,7 +76,7 @@ export async function writeActivityNotification(input: WriteActivityNotification
       return;
     }
 
-    console.error("[writeActivityNotification] insert failed:", error.message);
+    console.error("[writeActivityNotification] insert failed:", insertWithEndHour.error.message);
     return;
   }
 

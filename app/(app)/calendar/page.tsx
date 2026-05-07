@@ -1176,6 +1176,7 @@ export default function MainCalendarPage() {
         title: newScheduleLabel.trim(),
         eventDate: newScheduleDate,
         eventStartHour: startMinutes / 60,
+        eventEndHour: endMinutes / 60,
         link: `/calendar?date=${newScheduleDate}`,
         createdByName: userName,
       });
@@ -1246,6 +1247,7 @@ export default function MainCalendarPage() {
         title: newScheduleLabel.trim(),
         eventDate: newScheduleDate,
         eventStartHour: startMinutes / 60,
+        eventEndHour: endMinutes / 60,
         link: `/calendar?date=${newScheduleDate}`,
         createdByName: userName,
       });
