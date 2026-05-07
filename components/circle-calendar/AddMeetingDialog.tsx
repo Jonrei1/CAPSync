@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
+import { writeActivityNotification } from "@/lib/notifications/writeActivityNotification";
 import supabase from "@/lib/supabaseClient";
 import type { CalendarMember } from "@/types";
 
@@ -67,6 +68,8 @@ type AddMeetingDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   groupId: string;
+  groupName: string;
+  groupColor: string;
   members: CalendarMember[];
   weekStart: Date;
   prefillDay?: string;
@@ -79,6 +82,8 @@ export default function AddMeetingDialog({
   open,
   onOpenChange,
   groupId,
+  groupName,
+  groupColor,
   members,
   weekStart,
   prefillDay,
@@ -245,6 +250,20 @@ export default function AddMeetingDialog({
       setSaving(false);
       return;
     }
+
+    await writeActivityNotification({
+      supabase,
+      recipientIds: members.map((member) => member.id).filter((memberId) => memberId !== user.id),
+      groupId,
+      groupName,
+      groupColor,
+      type: "meeting",
+      title: title.trim(),
+      eventDate: selectedDate,
+      eventStartHour: startDecimal,
+      link: `/${groupId}/calendar?date=${selectedDate}`,
+      createdByName: resolvedName,
+    });
 
     // Insert invites for all selected members except the creator
     const inviteRows = selectedMemberIds

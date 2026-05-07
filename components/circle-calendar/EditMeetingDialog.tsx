@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, Clock3, Copy, MapPin, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarDays, Clock3, Copy, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
+import { writeActivityNotification } from "@/lib/notifications/writeActivityNotification";
 import supabase from "@/lib/supabaseClient";
 import type { CalendarMember } from "@/types";
 
@@ -78,6 +79,8 @@ type EditMeetingDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   groupId: string;
+  groupName: string;
+  groupColor: string;
   members: CalendarMember[];
   scheduleId: string | null;
   mode: "edit" | "delete" | "view";
@@ -100,16 +103,18 @@ export default function EditMeetingDialog({
   open,
   onOpenChange,
   groupId,
+  groupName,
+  groupColor,
   members,
   scheduleId,
   mode,
 }: EditMeetingDialogProps) {
   const router = useRouter();
   const [schedule, setSchedule] = useState<ScheduleData | null>(null);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  type AuthUser = { id: string; email?: string | null } | null;
+  const [user, setUser] = useState<AuthUser>(null);
 
   const [title, setTitle] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -126,7 +131,6 @@ export default function EditMeetingDialog({
 
   useEffect(() => {
     if (!open || !scheduleId) return;
-    setLoading(true);
 
     async function loadSchedule() {
       try {
@@ -166,7 +170,6 @@ export default function EditMeetingDialog({
         toast.error("Failed to load schedule");
         onOpenChange(false);
       } finally {
-        setLoading(false);
       }
     }
 
@@ -235,6 +238,20 @@ export default function EditMeetingDialog({
         setSaving(false);
         return;
       }
+
+      await writeActivityNotification({
+        supabase,
+        recipientIds: members.map((member) => member.id).filter((memberId) => memberId !== userId),
+        groupId,
+        groupName,
+        groupColor,
+        type: "meeting",
+        title: title.trim(),
+        eventDate: selectedDate,
+        eventStartHour: startDecimal,
+        link: `/${groupId}/calendar?date=${selectedDate}`,
+        createdByName: profile?.full_name || userData.user?.email || "Someone",
+      });
 
       // Update invites
       await supabase

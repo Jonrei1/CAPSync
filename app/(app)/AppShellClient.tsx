@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, LogOut, Menu } from "lucide-react";
+import { Bell, CalendarDays, LogOut, Menu } from "lucide-react";
 import JoinCreateDialog from "@/components/circles/JoinCreateDialog";
 import CircleSwitcher from "@/components/circles/CircleSwitcher";
 import MemberList from "@/components/circles/MemberList";
-import { useUnreadMeetings } from "@/hooks/useUnreadMeetings";
+import ActivityFeedPanel from "@/components/notifications/ActivityFeedPanel";
+import ActivityToastStack from "@/components/notifications/ActivityToastStack";
+import { useActivityNotifications } from "@/hooks/useActivityNotifications";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toast";
 import { CircleProvider, useCircle } from "@/contexts/CircleContext";
@@ -41,12 +43,13 @@ function AppShell({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { activeCircle, dialogOpen, setDialogOpen, dialogTab } = useCircle();
-  const { count: unreadMeetingCount } = useUnreadMeetings();
+  const { notifications, unreadCount, markRead, markAllRead } = useActivityNotifications();
   const isPersonalCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const isAnyCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/") || pathname.endsWith("/calendar");
   const showCircleChrome = Boolean(activeCircle) && !isPersonalCalendarRoute;
   const headerTitle = isPersonalCalendarRoute ? "My Calendar" : activeCircle?.name ?? "";
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activityPanelOpen, setActivityPanelOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [accountName, setAccountName] = useState("Account");
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
@@ -158,14 +161,34 @@ function AppShell({ children }: AppLayoutProps) {
                 >
                   {item.icon}
                   <span className="flex-1">{item.label}</span>
-                  {item.label === "Calendar" && unreadMeetingCount > 0 && (
+                  {item.label === "Calendar" && unreadCount > 0 && (
                     <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white leading-none">
-                      {unreadMeetingCount > 9 ? "9+" : unreadMeetingCount}
+                      {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
                 </Link>
               );
             })}
+
+            <button
+              type="button"
+              onClick={() => {
+                setActivityPanelOpen(true);
+                setSidebarOpen(false);
+              }}
+              className={[
+                "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900",
+                activityPanelOpen ? "bg-zinc-100 font-medium text-zinc-900" : "",
+              ].join(" ")}
+            >
+              <Bell className="h-3.75 w-3.75 opacity-70" />
+              <span className="flex-1 text-left">Activity</span>
+              {unreadCount > 0 ? (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              ) : null}
+            </button>
           </nav>
         </div>
 
@@ -246,6 +269,15 @@ function AppShell({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
+      <ActivityToastStack notifications={notifications} onMarkRead={markRead} onOpenActivity={() => setActivityPanelOpen(true)} />
+      <ActivityFeedPanel
+        open={activityPanelOpen}
+        onClose={() => setActivityPanelOpen(false)}
+        notifications={notifications}
+        unreadCount={unreadCount}
+        onMarkRead={markRead}
+        onMarkAllRead={markAllRead}
+      />
       </div>
   </>
   );

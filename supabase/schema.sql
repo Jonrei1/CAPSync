@@ -73,6 +73,66 @@ create table if not exists group_fund (
   updated_at timestamptz default now()
 );
 
+-- ============================================================
+-- ACTIVITY_NOTIFICATIONS TABLE
+-- Stores per-user notification entries for calendar activity.
+-- ============================================================
+create table if not exists activity_notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  group_id uuid references groups(id) on delete cascade,
+  group_name text,
+  group_color text,
+  type text not null check (type in ('meeting', 'deadline', 'schedule')),
+  title text not null,
+  event_date text,
+  event_start_hour numeric,
+  link text,
+  created_by_name text,
+  read_at timestamptz,
+  created_at timestamptz default now()
+);
+
+alter table activity_notifications enable row level security;
+
+drop policy if exists "users can view own notifications" on activity_notifications;
+drop policy if exists "users can insert own notifications" on activity_notifications;
+drop policy if exists "users can update own notifications" on activity_notifications;
+drop policy if exists "users can delete own notifications" on activity_notifications;
+
+create policy "users can view own notifications"
+on activity_notifications
+for select
+using (user_id = auth.uid());
+
+create policy "users can insert own notifications"
+on activity_notifications
+for insert
+with check (
+  (
+    group_id is null
+    and user_id = auth.uid()
+  )
+  or (
+    group_id is not null
+    and public.is_group_member(group_id, auth.uid())
+  )
+);
+
+create policy "users can update own notifications"
+on activity_notifications
+for update
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+create policy "users can delete own notifications"
+on activity_notifications
+for delete
+using (user_id = auth.uid());
+
+create index if not exists idx_activity_notifications_user_unread
+on activity_notifications(user_id, read_at, created_at desc);
+
 alter table groups add column if not exists archived_at timestamptz;
 alter table groups add column if not exists subject text;
 alter table groups add column if not exists color text default '#4f46e5';

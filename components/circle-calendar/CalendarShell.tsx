@@ -29,6 +29,7 @@ type CalendarShellProps = {
   deadlines: CalendarDeadline[];
   groupId: string;
   groupName: string;
+  groupColor: string;
   groupSubject?: string | null;
   weekOffset: number;
   selectedDate: string;
@@ -170,6 +171,7 @@ export default function CalendarShell({
   deadlines,
   groupId,
   groupName,
+  groupColor,
   groupSubject,
   weekOffset: _weekOffset,
   selectedDate,
@@ -1464,6 +1466,8 @@ export default function CalendarShell({
         open={addMeetingOpen}
         onOpenChange={setAddMeetingOpen}
         groupId={groupId}
+        groupName={groupName}
+        groupColor={groupColor}
         members={members}
         weekStart={weekStart}
         prefillDay={meetingPrefill.day}
@@ -1476,6 +1480,8 @@ export default function CalendarShell({
         open={editMeetingOpen}
         onOpenChange={setEditMeetingOpen}
         groupId={groupId}
+        groupName={groupName}
+        groupColor={groupColor}
         members={members}
         scheduleId={editMeetingId}
         mode={editMeetingMode}

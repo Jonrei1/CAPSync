@@ -91,7 +91,13 @@ export function useUnreadMeetings() {
   }, []);
 
   useEffect(() => {
-    void load();
+    const timeoutId = window.setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [load]);
 
   // Real-time subscription: refresh when a new invite comes in for this user

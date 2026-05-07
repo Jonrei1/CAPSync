@@ -7,10 +7,9 @@ import supabase from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
-import Link from "next/link";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDesignStandard } from "@/components/ui/design-standard";
-import { useUnreadMeetings } from "@/hooks/useUnreadMeetings";
+import { writeActivityNotification } from "@/lib/notifications/writeActivityNotification";
 import WeekCalendarGrid, {
   type CalendarGridEvent,
 } from "../../../components/calendar/WeekCalendarGrid";
@@ -62,6 +61,24 @@ type ScheduledBlock = {
   scheduledDate: string;
   startHour: number;
   endHour: number;
+};
+
+type GroupMeeting = ScheduledBlock & {
+  groupId: string;
+  createdById: string;
+  lastEditedByName?: string;
+};
+
+type GroupMeetingRow = {
+  id: string;
+  label: string | null;
+  sub: string | null;
+  day: string | null;
+  start_hour: number | string | null;
+  end_hour: number | string | null;
+  group_id: string | null;
+  member_id: string | null;
+  last_edited_by_name: string | null;
 };
 
 type ScopeTarget = {
@@ -164,7 +181,6 @@ function getPhilippineNow() {
 
 export default function MainCalendarPage() {
   const ds = useDesignStandard();
-  const { count: unreadMeetingCount, markAllRead } = useUnreadMeetings();
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("Personal Calendar");
   const [layout] = useState<Layout>("week");
@@ -178,7 +194,7 @@ export default function MainCalendarPage() {
   const [routines, setRoutines] = useState<RoutineRow[]>([]);
   const [overrides, setOverrides] = useState<RoutineOverride[]>([]);
   const [scheduledBlocks, setScheduledBlocks] = useState<ScheduledBlock[]>([]);
-  const [groupMeetings, setGroupMeetings] = useState<ScheduledBlock[]>([]);
+  const [groupMeetings, setGroupMeetings] = useState<GroupMeeting[]>([]);
   const [visibleCircleIds, setVisibleCircleIds] = useState<string[]>([]);
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -217,6 +233,13 @@ export default function MainCalendarPage() {
   );
 
   const weekLabel = useMemo(() => toDisplayRange(weekDates[0], weekDates[6]), [weekDates]);
+  const circleMap = useMemo(() => {
+    const map = new Map<string, CircleRow>();
+    for (const circle of circles) {
+      map.set(circle.id, circle);
+    }
+    return map;
+  }, [circles]);
 
 
   useEffect(() => {
@@ -228,13 +251,6 @@ export default function MainCalendarPage() {
       window.clearInterval(intervalId);
     };
   }, []);
-
-  // Clear notifications when calendar is opened
-  useEffect(() => {
-    if (unreadMeetingCount > 0) {
-      void markAllRead();
-    }
-  }, [unreadMeetingCount, markAllRead]);
 
 
   useEffect(() => {
@@ -460,7 +476,7 @@ export default function MainCalendarPage() {
  
       setScheduledBlocks(mappedSchedules);
 
-      const mappedGroupMeetings = (groupMeetingsResult.data ?? []).map((row: any) => {
+      const mappedGroupMeetings = ((groupMeetingsResult.data ?? []) as GroupMeetingRow[]).map((row) => {
         const circle = circleMap.get(row.group_id);
         return {
           id: row.id,
@@ -473,7 +489,7 @@ export default function MainCalendarPage() {
           groupId: row.group_id,
           createdById: row.member_id,
           lastEditedByName: row.last_edited_by_name,
-        } as any;
+        } satisfies GroupMeeting;
       });
 
       setGroupMeetings(mappedGroupMeetings);
@@ -484,7 +500,7 @@ export default function MainCalendarPage() {
     return () => {
       mounted = false;
     };
-  }, [weekDates]);
+  }, [circleMap, weekDates]);
 
   const visibleTasks = useMemo(
     () => tasks.filter((task) => visibleCircleIds.includes(task.group_id)),
@@ -500,14 +516,6 @@ export default function MainCalendarPage() {
     () => circles.filter((circle) => visibleCircleIds.includes(circle.id)).length,
     [circles, visibleCircleIds],
   );
-
-  const circleMap = useMemo(() => {
-    const map = new Map<string, CircleRow>();
-    for (const circle of circles) {
-      map.set(circle.id, circle);
-    }
-    return map;
-  }, [circles]);
 
   const dayIndexByKey = useMemo(() => {
     const map = new Map<string, number>();
@@ -662,7 +670,7 @@ export default function MainCalendarPage() {
     }
 
     // Group meetings
-    for (const meeting of groupMeetings as any[]) {
+    for (const meeting of groupMeetings) {
       if (!visibleCircleIds.includes(meeting.groupId)) continue;
       
       const dayIndex = dayIndexByKey.get(meeting.scheduledDate);
@@ -1158,6 +1166,20 @@ export default function MainCalendarPage() {
         return;
       }
 
+      await writeActivityNotification({
+        supabase,
+        recipientIds: [userId],
+        groupId: null,
+        groupName: "Personal Calendar",
+        groupColor: ds.designTokens.palette.app.brandPrimary,
+        type: "schedule",
+        title: newScheduleLabel.trim(),
+        eventDate: newScheduleDate,
+        eventStartHour: startMinutes / 60,
+        link: `/calendar?date=${newScheduleDate}`,
+        createdByName: userName,
+      });
+
       setScheduledBlocks((previous) => {
         const inWeek = dayIndexByKey.has(newScheduleDate);
         if (!inWeek) {
@@ -1213,6 +1235,20 @@ export default function MainCalendarPage() {
           },
         ]);
       }
+
+      await writeActivityNotification({
+        supabase,
+        recipientIds: [userId],
+        groupId: null,
+        groupName: "Personal Calendar",
+        groupColor: ds.designTokens.palette.app.brandPrimary,
+        type: "schedule",
+        title: newScheduleLabel.trim(),
+        eventDate: newScheduleDate,
+        eventStartHour: startMinutes / 60,
+        link: `/calendar?date=${newScheduleDate}`,
+        createdByName: userName,
+      });
     }
 
     setShowScheduleDialog(false);

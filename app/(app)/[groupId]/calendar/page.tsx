@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import CalendarShell from "@/components/circle-calendar/CalendarShell";
 import { createClient } from "@/lib/supabaseServer";
 import { computeFreeWindows } from "@/lib/schedule/computeFreeWindows";
@@ -266,7 +265,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
 
   const { data: group } = await supabase
     .from("groups")
-    .select("name, subject")
+    .select("name, subject, color")
     .eq("id", groupId)
     .maybeSingle();
 
@@ -423,6 +422,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         deadlines={deadlineData}
         groupId={groupId}
         groupName={group?.name ?? "Circle"}
+        groupColor={group?.color ?? "#4f46e5"}
         groupSubject={group?.subject ?? null}
         weekOffset={safeWeekOffset}
         selectedDate={toDateParam(selectedDate)}
