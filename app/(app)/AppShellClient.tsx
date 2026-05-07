@@ -43,7 +43,7 @@ function AppShell({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { activeCircle, dialogOpen, setDialogOpen, dialogTab } = useCircle();
-  const { notifications, unreadCount, markRead, markAllRead } = useActivityNotifications();
+  const { notifications, unreadCount, markRead, markAllRead, deleteAll } = useActivityNotifications();
   const isPersonalCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const isAnyCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/") || pathname.endsWith("/calendar");
   const showCircleChrome = Boolean(activeCircle) && !isPersonalCalendarRoute;
@@ -277,6 +277,7 @@ function AppShell({ children }: AppLayoutProps) {
         unreadCount={unreadCount}
         onMarkRead={markRead}
         onMarkAllRead={markAllRead}
+        onDeleteAll={deleteAll}
       />
       </div>
   </>

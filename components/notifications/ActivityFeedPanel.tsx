@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, CalendarPlus, Flag, X } from "lucide-react";
-import { designTokens } from "@/components/ui/design-standard";
+import { Calendar, CalendarPlus, Flag, Trash2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { designStandard, designTokens } from "@/components/ui/design-standard";
 import type { ActivityNotification } from "@/hooks/useActivityNotifications";
 
 type Props = {
@@ -12,6 +15,7 @@ type Props = {
   unreadCount: number;
   onMarkRead: (id: string) => Promise<void>;
   onMarkAllRead: () => Promise<void>;
+  onDeleteAll: () => Promise<void>;
 };
 
 type Tone = {
@@ -81,8 +85,11 @@ export default function ActivityFeedPanel({
   unreadCount,
   onMarkRead,
   onMarkAllRead,
+  onDeleteAll,
 }: Props) {
   const router = useRouter();
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (!open) {
     return null;
@@ -95,6 +102,17 @@ export default function ActivityFeedPanel({
 
     onClose();
     router.push(notification.link);
+  }
+
+  async function handleDeleteAll() {
+    setDeleting(true);
+
+    try {
+      await onDeleteAll();
+      setConfirmDeleteOpen(false);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -118,11 +136,21 @@ export default function ActivityFeedPanel({
           </div>
 
           <div className="flex items-center gap-3">
+            {notifications.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteOpen(true)}
+                className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                aria-label="Delete all activity notifications"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
             {unreadCount > 0 ? (
               <button
                 type="button"
                 onClick={() => void onMarkAllRead()}
-                className="text-[11px] text-zinc-500 transition-colors hover:text-zinc-900"
+                className={designStandard.clickable.subtle}
               >
                 Mark all read
               </button>
@@ -195,6 +223,39 @@ export default function ActivityFeedPanel({
           )}
         </div>
       </div>
+
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className={designStandard.modal.header}>
+            <div className={designStandard.modal.badge}>Delete all activity</div>
+            <DialogTitle className={designStandard.modal.title}>Clear your activity feed?</DialogTitle>
+            <p className={designStandard.modal.description}>
+              This will permanently remove every activity notification for your account. This cannot be undone.
+            </p>
+          </DialogHeader>
+
+          <DialogBody className="px-4 pb-4 sm:px-6">
+            <div className={designStandard.cards.mutedPanel + " p-4 text-sm text-zinc-600"}>
+              All meeting, deadline, and schedule notifications will disappear from this feed and from the toast stack.
+            </div>
+          </DialogBody>
+
+          <DialogFooter className="border-t-0 px-4 pb-4 pt-0 sm:px-6">
+            <Button type="button" variant="outline" className={designStandard.button.outline} onClick={() => setConfirmDeleteOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className={designStandard.button.destructive}
+              onClick={() => void handleDeleteAll()}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete all"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

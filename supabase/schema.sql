@@ -133,6 +133,24 @@ using (user_id = auth.uid());
 create index if not exists idx_activity_notifications_user_unread
 on activity_notifications(user_id, read_at, created_at desc);
 
+do $$
+begin
+  if exists (
+    select 1
+    from pg_publication
+    where pubname = 'supabase_realtime'
+  ) and not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'activity_notifications'
+  ) then
+    execute 'alter publication supabase_realtime add table public.activity_notifications';
+  end if;
+end;
+$$;
+
 alter table groups add column if not exists archived_at timestamptz;
 alter table groups add column if not exists subject text;
 alter table groups add column if not exists color text default '#4f46e5';

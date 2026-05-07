@@ -241,7 +241,7 @@ export default function EditMeetingDialog({
 
       await writeActivityNotification({
         supabase,
-        recipientIds: members.map((member) => member.id).filter((memberId) => memberId !== userId),
+        recipientIds: Array.from(new Set([...members.map((member) => member.id), userId])),
         groupId,
         groupName,
         groupColor,

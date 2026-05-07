@@ -49,5 +49,10 @@ export async function writeActivityNotification(input: WriteActivityNotification
     }
 
     console.error("[writeActivityNotification] insert failed:", error.message);
+    return;
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("activity-notifications:refresh"));
   }
 }

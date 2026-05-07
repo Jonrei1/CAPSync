@@ -108,6 +108,24 @@ export function useActivityNotifications() {
     setNotifications((current) => current.map((notification) => ({ ...notification, readAt: timestamp })));
   }, []);
 
+  const deleteAll = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return;
+    }
+
+    const { error } = await supabase.from("activity_notifications").delete().eq("user_id", user.id);
+
+    if (error) {
+      return;
+    }
+
+    setNotifications([]);
+  }, []);
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void load();
@@ -115,6 +133,18 @@ export function useActivityNotifications() {
 
     return () => {
       window.clearTimeout(timeoutId);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    const refresh = () => {
+      void load();
+    };
+
+    window.addEventListener("activity-notifications:refresh", refresh);
+
+    return () => {
+      window.removeEventListener("activity-notifications:refresh", refresh);
     };
   }, [load]);
 
@@ -162,5 +192,6 @@ export function useActivityNotifications() {
     markRead,
     markAllRead,
     reload: load,
+    deleteAll,
   };
 }
