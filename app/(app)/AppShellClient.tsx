@@ -7,7 +7,7 @@ import { Bell, CalendarDays, LogOut, Menu } from "lucide-react";
 import JoinCreateDialog from "@/components/circles/JoinCreateDialog";
 import CircleSwitcher from "@/components/circles/CircleSwitcher";
 import MemberList from "@/components/circles/MemberList";
-import ActivityFeedPanel from "@/components/notifications/ActivityFeedPanel";
+// Activity now has its own route at /activity
 import ActivityToastStack from "@/components/notifications/ActivityToastStack";
 import { useActivityNotifications } from "@/hooks/useActivityNotifications";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ function AppShell({ children }: AppLayoutProps) {
   const showCircleChrome = Boolean(activeCircle) && !isPersonalCalendarRoute;
   const headerTitle = isPersonalCalendarRoute ? "My Calendar" : activeCircle?.name ?? "";
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activityPanelOpen, setActivityPanelOpen] = useState(false);
+  // activity panel is now its own route
   const [signingOut, setSigningOut] = useState(false);
   const [accountName, setAccountName] = useState("Account");
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
@@ -173,12 +173,12 @@ function AppShell({ children }: AppLayoutProps) {
             <button
               type="button"
               onClick={() => {
-                setActivityPanelOpen(true);
+                router.push("/activity");
                 setSidebarOpen(false);
               }}
               className={[
                 "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900",
-                activityPanelOpen ? "bg-zinc-100 font-medium text-zinc-900" : "",
+                pathname === "/activity" ? "bg-zinc-100 font-medium text-zinc-900" : "",
               ].join(" ")}
             >
               <Bell className="h-3.75 w-3.75 opacity-70" />
@@ -269,16 +269,7 @@ function AppShell({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
-      <ActivityToastStack notifications={notifications} onMarkRead={markRead} onOpenActivity={() => setActivityPanelOpen(true)} />
-      <ActivityFeedPanel
-        open={activityPanelOpen}
-        onClose={() => setActivityPanelOpen(false)}
-        notifications={notifications}
-        unreadCount={unreadCount}
-        onMarkRead={markRead}
-        onMarkAllRead={markAllRead}
-        onDeleteAll={deleteAll}
-      />
+      <ActivityToastStack notifications={notifications} onMarkRead={markRead} onOpenActivity={() => router.push("/activity")} />
       </div>
   </>
   );
