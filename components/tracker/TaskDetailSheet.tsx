@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MessageSquare, Trash2, Calendar } from "lucide-react";
+import { MessageSquare, Trash2, Calendar, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +35,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [creator, setCreator] = useState<Profile | null>(null);
   const [editor, setEditor] = useState<Profile | null>(null);
 
@@ -60,6 +61,8 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
   if (!task) {
     return null;
   }
+
+  const assigneeName = task.assigned_to ? (members.find((m) => m.id === task.assigned_to)?.full_name ?? task.assigned_to) : "Unassigned";
 
   async function saveTask() {
     if (!task) {
@@ -95,10 +98,12 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
     if (!task) {
       return;
     }
+    // open confirmation modal instead of browser-native confirm
+    setShowDeleteConfirm(true);
+  }
 
-    if (!confirm("Are you sure you want to delete this task? This action cannot be undone.")) {
-      return;
-    }
+  async function performDelete() {
+    if (!task) return;
 
     setDeleting(true);
     try {
@@ -111,6 +116,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
       }
 
       toast.success("Task deleted");
+      setShowDeleteConfirm(false);
       onOpenChange(false);
       onSaved();
     } catch (error) {
@@ -272,6 +278,75 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
             {saving ? "Saving..." : "Save changes"}
           </Button>
         </DialogFooter>
+        {/* Delete confirmation modal with task details (uniform with meeting modal) */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete task?</DialogTitle>
+            </DialogHeader>
+            <DialogBody>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700">
+                    <AlertTriangle className="size-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-red-700">Permanent action</p>
+                    <p className="mt-1 text-sm text-red-900">
+                      This task will be deleted for everyone and may notify members. This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="truncate text-lg font-semibold text-foreground">{task.title}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Task details</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl bg-background/80 p-3">
+                      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Due</div>
+                      <p className="mt-1 text-sm font-medium text-foreground">{formatDateLabel(task.due_date)}</p>
+                    </div>
+
+                    <div className="rounded-xl bg-background/80 p-3">
+                      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</div>
+                      <p className="mt-1 text-sm font-medium text-foreground">{STATUS_LABELS[normalizeTaskStatus(task.status)]}</p>
+                    </div>
+
+                    <div className="rounded-xl bg-background/80 p-3">
+                      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Category</div>
+                      <p className="mt-1 text-sm font-medium text-foreground">{task.category ?? "General"}</p>
+                    </div>
+
+                    <div className="rounded-xl bg-background/80 p-3">
+                      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Assignee</div>
+                      <p className="mt-1 text-sm font-medium text-foreground">{assigneeName}</p>
+                    </div>
+                  </div>
+
+                  {task.description?.trim() ? (
+                    <div className="mt-4 rounded-xl bg-background/80 p-3 sm:col-span-2">
+                      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</div>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-foreground/90">{task.description}</p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </DialogBody>
+            <div className="flex justify-end gap-2 p-5 pt-2">
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={performDelete} disabled={deleting}>
+                {deleting ? "Deleting..." : "Delete task"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );
