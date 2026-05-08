@@ -124,6 +124,7 @@ export default function EditMeetingDialog({
   const [schedule, setSchedule] = useState<ScheduleData | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   type AuthUser = { id: string; email?: string | null } | null;
   const [user, setUser] = useState<AuthUser>(null);
 
@@ -303,12 +304,14 @@ export default function EditMeetingDialog({
 
   async function handleDelete() {
     if (!scheduleId) return;
+    setShowDeleteConfirmation(true);
+  }
 
-    if (!window.confirm("Are you sure you want to delete this meeting?")) {
-      return;
-    }
+  async function confirmDelete() {
+    if (!scheduleId) return;
 
     setDeleting(true);
+    setShowDeleteConfirmation(false);
 
     try {
       // Delete invites first
@@ -335,6 +338,7 @@ export default function EditMeetingDialog({
       toast.success("Meeting deleted");
       onOpenChange(false);
       router.refresh();
+      setDeleting(false);
     } catch (err) {
       console.error("Error deleting:", err);
       toast.error("Something went wrong");
@@ -348,8 +352,9 @@ export default function EditMeetingDialog({
   const meetingDuration = formatDuration(startTime, endTime);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
             {isDeleteMode ? "Delete meeting" : isViewMode ? "Meeting details" : "Edit meeting"}
@@ -599,5 +604,45 @@ export default function EditMeetingDialog({
 
       </DialogContent>
     </Dialog>
+
+    <Dialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Delete meeting?</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-red-700 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-900">Permanent action</p>
+                <p className="mt-1 text-sm text-red-800">
+                  This meeting will be deleted for everyone and all attendees will be notified.
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogBody>
+        <div className="flex justify-end gap-2 p-5 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowDeleteConfirmation(false)}
+            disabled={deleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => void confirmDelete()}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting..." : "Delete meeting"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
