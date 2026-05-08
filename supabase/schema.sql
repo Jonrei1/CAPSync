@@ -332,6 +332,117 @@ alter table tasks add column if not exists starts_at timestamptz;
 alter table tasks add column if not exists ends_at timestamptz;
 alter table tasks add column if not exists is_all_day boolean default false;
 
+alter table tasks
+drop constraint if exists tasks_status_check;
+
+alter table tasks
+add constraint tasks_status_check
+check (status in ('todo', 'doing', 'review', 'done', 'blocked'));
+
+alter table sprints
+drop constraint if exists sprints_status_check;
+
+alter table sprints
+add constraint sprints_status_check
+check (status in ('upcoming', 'active', 'done', 'locked'));
+
+create or replace function public.is_group_pm(target_group_id uuid, target_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.group_members gm
+    where gm.group_id = target_group_id
+      and gm.member_id = target_user_id
+      and gm.role in ('pm', 'admin', 'owner')
+  );
+$$;
+
+revoke all on function public.is_group_pm(uuid, uuid) from public;
+grant execute on function public.is_group_pm(uuid, uuid) to authenticated;
+
+drop policy if exists "members can create tasks in their group" on tasks;
+drop policy if exists "members can update tasks in their group" on tasks;
+drop policy if exists "members can delete tasks in their group" on tasks;
+
+create policy "members can create tasks in their group"
+on tasks
+for insert
+with check (
+  public.is_group_member(group_id, auth.uid())
+  and created_by = auth.uid()
+);
+
+create policy "members can update tasks in their group"
+on tasks
+for update
+using (public.is_group_member(group_id, auth.uid()))
+with check (public.is_group_member(group_id, auth.uid()));
+
+create policy "members can delete tasks in their group"
+on tasks
+for delete
+using (public.is_group_member(group_id, auth.uid()));
+
+drop policy if exists "members can view sprints in their group" on sprints;
+drop policy if exists "members can create sprints in their group" on sprints;
+drop policy if exists "members can update sprints in their group" on sprints;
+
+create policy "members can view sprints in their group"
+on sprints
+for select
+using (public.is_group_member(group_id, auth.uid()));
+
+create policy "members can create sprints in their group"
+on sprints
+for insert
+with check (public.is_group_member(group_id, auth.uid()));
+
+create policy "members can update sprints in their group"
+on sprints
+for update
+using (public.is_group_member(group_id, auth.uid()))
+with check (public.is_group_member(group_id, auth.uid()));
+
+drop policy if exists "group pms can update groups" on groups;
+
+create policy "group pms can update groups"
+on groups
+for update
+using (public.is_group_pm(id, auth.uid()))
+with check (public.is_group_pm(id, auth.uid()));
+
+drop policy if exists "members can view task comments in their group" on task_comments;
+drop policy if exists "members can create task comments in their group" on task_comments;
+
+create policy "members can view task comments in their group"
+on task_comments
+for select
+using (
+  exists (
+    select 1
+    from public.tasks t
+    where t.id = task_comments.task_id
+      and public.is_group_member(t.group_id, auth.uid())
+  )
+);
+
+create policy "members can create task comments in their group"
+on task_comments
+for insert
+with check (
+  author_id = auth.uid()
+  and exists (
+    select 1
+    from public.tasks t
+    where t.id = task_comments.task_id
+      and public.is_group_member(t.group_id, auth.uid())
+  )
+);
+
 create table if not exists personal_routines (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,

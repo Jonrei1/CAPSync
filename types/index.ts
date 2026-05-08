@@ -1,9 +1,18 @@
+export type Methodology = "scrum" | "agile" | "waterfall" | "kanban";
+export type TaskStatus = "todo" | "doing" | "review" | "done" | "blocked";
+export type SprintStatus = "upcoming" | "active" | "done" | "locked";
+
 // Represents a user profile row from the profiles table.
 export type User = {
 	id: string;
 	full_name: string | null;
 	email: string | null;
 	created_at: string;
+};
+
+export type Profile = User & {
+	role?: string | null;
+	color?: string | null;
 };
 
 // Represents a group row from the groups table.
@@ -15,6 +24,8 @@ export type Group = {
 	archived_at: string | null;
 	subject: string | null;
 	color: string | null;
+	invite_code?: string | null;
+	methodology?: Methodology | string | null;
 };
 
 // Represents a membership row linking users to groups.
@@ -35,7 +46,7 @@ export type Sprint = {
 	start_date: string;
 	end_date: string;
 	goal: string | null;
-	status: "upcoming" | "active" | "done" | string;
+	status: SprintStatus | string;
 	ai_generated: boolean;
 	created_at: string;
 };
@@ -49,7 +60,7 @@ export type Task = {
 	assigned_to: string | null;
 	title: string;
 	description: string | null;
-	status: string;
+	status: TaskStatus | string;
 	category: string | null;
 	due_date: string | null;
 	priority: string;
@@ -57,6 +68,9 @@ export type Task = {
 	approved_by: string | null;
 	approved_at: string | null;
 	position: number | null;
+	starts_at: string | null;
+	ends_at: string | null;
+	is_all_day: boolean;
 	created_at: string;
 	updated_at: string;
 };
@@ -68,6 +82,19 @@ export type Comment = {
 	author_id: string | null;
 	body: string;
 	created_at: string;
+};
+
+export type TrackerComment = Comment & {
+	author?: User | null;
+};
+
+export type TrackerTask = Task & {
+	assignee?: User | null;
+	comments?: TrackerComment[];
+};
+
+export type TrackerSprint = Sprint & {
+	tasks: TrackerTask[];
 };
 
 export type EmptyObject = Record<string, never>;
