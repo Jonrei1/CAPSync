@@ -331,6 +331,7 @@ using (public.is_group_member(group_id, auth.uid()));
 alter table tasks add column if not exists starts_at timestamptz;
 alter table tasks add column if not exists ends_at timestamptz;
 alter table tasks add column if not exists is_all_day boolean default false;
+alter table tasks add column if not exists edited_by uuid references profiles(id);
 
 alter table tasks
 drop constraint if exists tasks_status_check;

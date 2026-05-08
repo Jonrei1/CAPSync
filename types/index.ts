@@ -73,6 +73,7 @@ export type Task = {
 	is_all_day: boolean;
 	created_at: string;
 	updated_at: string;
+	edited_by: string | null;
 };
 
 // Represents a task comment row.

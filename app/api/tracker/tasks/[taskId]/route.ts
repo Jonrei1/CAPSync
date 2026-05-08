@@ -37,6 +37,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
 
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
+    edited_by: auth.user.id,
   };
 
   if (typeof body.title === "string") {
@@ -74,4 +75,40 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   }
 
   return NextResponse.json({ task: data });
+}
+
+export async function DELETE(request: Request, { params }: RouteProps) {
+  const { taskId } = await Promise.resolve(params);
+  const auth = await getAuthenticatedSupabase();
+  if (auth.response) {
+    return auth.response;
+  }
+
+  const { data: task } = await auth.supabase
+    .from("tasks")
+    .select("id, group_id, created_by")
+    .eq("id", taskId)
+    .maybeSingle();
+
+  if (!task) {
+    return errorResponse("Task not found.", 404);
+  }
+
+  // Only the creator can delete the task
+  if (task.created_by !== auth.user.id) {
+    return errorResponse("Only the task creator can delete this task.", 403);
+  }
+
+  const membership = await getMembership(auth.supabase, task.group_id, auth.user.id);
+  if (!membership) {
+    return errorResponse("Forbidden.", 403);
+  }
+
+  const { error } = await auth.supabase.from("tasks").delete().eq("id", taskId);
+
+  if (error) {
+    return errorResponse(error.message, 400);
+  }
+
+  return NextResponse.json({ success: true });
 }

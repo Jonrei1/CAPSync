@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Trash2, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,22 +24,38 @@ type TaskDetailSheetProps = {
   onOpenChange: (open: boolean) => void;
   task: TrackerTask | null;
   members: Profile[];
+  currentUserId: string | null;
   onSaved: () => void;
 };
 
-export default function TaskDetailSheet({ open, onOpenChange, task, members, onSaved }: TaskDetailSheetProps) {
+export default function TaskDetailSheet({ open, onOpenChange, task, members, currentUserId, onSaved }: TaskDetailSheetProps) {
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [assignedTo, setAssignedTo] = useState("__unassigned");
+  const [dueDate, setDueDate] = useState("");
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [creator, setCreator] = useState<Profile | null>(null);
+  const [editor, setEditor] = useState<Profile | null>(null);
 
   useEffect(() => {
     if (task) {
       setStatus(normalizeTaskStatus(task.status));
       setAssignedTo(task.assigned_to ?? "__unassigned");
+      setDueDate(task.due_date ?? "");
       setComment("");
+      // Find creator from members list
+      if (task.created_by && members) {
+        const foundCreator = members.find((m) => m.id === task.created_by);
+        setCreator(foundCreator ?? null);
+      }
+      // Find editor from members list
+      if (task.edited_by && members) {
+        const foundEditor = members.find((m) => m.id === task.edited_by);
+        setEditor(foundEditor ?? null);
+      }
     }
-  }, [task]);
+  }, [task, members]);
 
   if (!task) {
     return null;
@@ -58,6 +74,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, onS
         body: JSON.stringify({
           status,
           assignedTo: assignedTo === "__unassigned" ? null : assignedTo,
+          dueDate: dueDate || null,
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
@@ -71,6 +88,35 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, onS
       toast.error("Task not updated", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteTask() {
+    if (!task) {
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this task? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/tracker/tasks/${task.id}`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Unable to delete task.");
+      }
+
+      toast.success("Task deleted");
+      onOpenChange(false);
+      onSaved();
+    } catch (error) {
+      toast.error("Task not deleted", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -103,21 +149,26 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, onS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-screen overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{task.title}</DialogTitle>
-          <p className="text-xs text-muted-foreground">{task.description || "No description yet."}</p>
+          <div className="flex flex-col gap-2">
+            <div>
+              <DialogTitle>{task.title}</DialogTitle>
+              <p className="text-xs text-muted-foreground">{task.description || "No description yet."}</p>
+            </div>
+          </div>
         </DialogHeader>
         <DialogBody>
           <div className="grid gap-4">
+            {/* Creator and Edit Info */}
             <div className="grid gap-2 rounded-lg border bg-muted/30 p-3 text-xs sm:grid-cols-2">
               <div>
-                <div className="text-muted-foreground">Due</div>
-                <div className="mt-1 font-mono">{formatDateLabel(task.due_date)}</div>
+                <div className="text-muted-foreground">Created by</div>
+                <div className="mt-1">{creator ? getDisplayName(creator) : "Unknown"}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">Category</div>
-                <div className="mt-1">{task.category ?? "General"}</div>
+                <div className="text-muted-foreground">Edited by</div>
+                <div className="mt-1">{editor ? getDisplayName(editor) : creator ? getDisplayName(creator) : "Unknown"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Priority</div>
@@ -165,6 +216,20 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, onS
               </div>
             </div>
 
+            {/* Due Date Picker */}
+            <div className="grid gap-1.5">
+              <Label className="flex items-center gap-2">
+                <Calendar className="size-4" />
+                Due Date
+              </Label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
             <div className="grid gap-2">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <MessageSquare className="size-4" />
@@ -187,14 +252,23 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, onS
                 onChange={(event) => setComment(event.target.value)}
                 placeholder="Add a short update, blocker, or adviser note..."
               />
+              <Button variant="outline" onClick={addComment} disabled={saving || deleting || !comment.trim()}>
+                Add comment
+              </Button>
             </div>
           </div>
         </DialogBody>
-        <DialogFooter className="px-6 pb-5">
-          <Button variant="outline" onClick={addComment} disabled={saving || !comment.trim()}>
-            Add comment
-          </Button>
-          <Button onClick={saveTask} disabled={saving}>
+        <DialogFooter className="px-6 pb-5 flex items-center justify-end gap-3">
+          {currentUserId === task.created_by ? (
+            <Button
+              variant="destructive"
+              onClick={deleteTask}
+              disabled={deleting || saving}
+            >
+              {deleting ? "Deleting..." : "Delete task"}
+            </Button>
+          ) : null}
+          <Button onClick={saveTask} disabled={saving || deleting}>
             {saving ? "Saving..." : "Save changes"}
           </Button>
         </DialogFooter>

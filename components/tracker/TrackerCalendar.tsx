@@ -204,7 +204,7 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
         defaultStatus={methodology === "kanban" ? "todo" : "todo"}
         onSaved={refresh}
       />
-      <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} onSaved={refresh} />
+      <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} currentUserId={currentUserId} onSaved={refresh} />
     </div>
   );
 }

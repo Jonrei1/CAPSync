@@ -83,7 +83,7 @@ export default function TrackerBoardWorkspace({ group, members, sprints, current
         canManage={canManage}
         onSaved={refresh}
       />
-      <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} onSaved={refresh} />
+      <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} currentUserId={currentUserId} onSaved={refresh} />
     </div>
   );
 }

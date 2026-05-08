@@ -179,7 +179,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
         canManage={canManage}
         onSaved={refresh}
       />
-      <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} onSaved={refresh} />
+      <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} currentUserId={currentUserId} onSaved={refresh} />
       <MethodologyDialog
         open={methodologyOpen}
         onOpenChange={setMethodologyOpen}

@@ -153,15 +153,8 @@ export default function TaskForm({
         <form onSubmit={submitTask}>
           <DialogHeader className="border-b border-border/70 bg-muted/30">
             <div className="flex items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-                <ClipboardList className="size-5" />
-              </div>
               <div className="min-w-0">
-                <div className={designStandard.modal.badge}>
-                  <Sparkles className="size-3 text-amber-600" />
-                  Tracker task
-                </div>
-                <DialogTitle className="mt-2">Add tracker task</DialogTitle>
+                <DialogTitle className="">Add tracker task</DialogTitle>
                 <p className={designStandard.modal.description}>Create a task for this circle and keep the work moving.</p>
               </div>
             </div>
