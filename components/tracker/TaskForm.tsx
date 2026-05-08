@@ -50,13 +50,8 @@ const DEFAULT_FORM: FormState = {
   priority: "medium",
 };
 
-const fieldShellClassName = cn(
-  "rounded-xl border border-border/70 bg-background p-3 shadow-xs",
-  designTokens.spacing.stackSm,
-);
-
-const controlClassName = cn(designStandard.field.input, "bg-card shadow-xs");
-const selectTriggerClassName = cn(designStandard.field.selectTrigger, "bg-card shadow-xs");
+const controlClassName = cn(designStandard.field.input);
+const selectTriggerClassName = cn(designStandard.field.selectTrigger);
 
 const fieldIconClassName = "size-3.5";
 const labelClassName = cn(designStandard.field.label, "flex items-center gap-1.5");
@@ -172,8 +167,8 @@ export default function TaskForm({
             </div>
           </DialogHeader>
           <DialogBody className="bg-card py-4">
-            <div className="grid gap-3">
-              <div className={fieldShellClassName}>
+            <div className={cn(designStandard.modal.body, "divide-y divide-border/70")}>
+              <div className={cn(designTokens.spacing.field, "pb-4")}>
                 <IconLabel htmlFor="task-title" icon={ListTodo} colorClassName="text-primary">
                   Title
                 </IconLabel>
@@ -185,7 +180,7 @@ export default function TaskForm({
                   onChange={(event) => update("title", event.target.value)}
                 />
               </div>
-              <div className={fieldShellClassName}>
+              <div className={cn(designTokens.spacing.field, "py-4")}>
                 <IconLabel htmlFor="task-description" icon={ClipboardList} colorClassName="text-emerald-600">
                   Description
                 </IconLabel>
@@ -197,116 +192,106 @@ export default function TaskForm({
                   onChange={(event) => update("description", event.target.value)}
                 />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className={fieldShellClassName}>
-                  <IconLabel icon={Layers3} colorClassName="text-violet-600">
-                    Sprint / phase
-                  </IconLabel>
-                  <Select value={form.sprintId} onValueChange={(value) => update("sprintId", value)}>
-                    <SelectTrigger className={selectTriggerClassName}>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <Layers3 className="size-4 text-violet-600" />
+              <div className={cn(designTokens.spacing.stackMd, "py-4")}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className={designTokens.spacing.field}>
+                    <IconLabel icon={Layers3} colorClassName="text-violet-600">
+                      Sprint / phase
+                    </IconLabel>
+                    <Select value={form.sprintId} onValueChange={(value) => update("sprintId", value)}>
+                      <SelectTrigger className={selectTriggerClassName}>
                         <SelectValue />
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none">Backlog / no phase</SelectItem>
-                      {sprints
-                        .filter((sprint) => sprint.id !== "__backlog")
-                        .map((sprint) => (
-                          <SelectItem key={sprint.id} value={sprint.id}>
-                            {sprint.title}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">Backlog / no phase</SelectItem>
+                        {sprints
+                          .filter((sprint) => sprint.id !== "__backlog")
+                          .map((sprint) => (
+                            <SelectItem key={sprint.id} value={sprint.id}>
+                              {sprint.title}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className={designTokens.spacing.field}>
+                    <IconLabel icon={CheckCircle2} colorClassName="text-emerald-600">
+                      Status
+                    </IconLabel>
+                    <Select value={form.status} onValueChange={(value) => update("status", value as TaskStatus)}>
+                      <SelectTrigger className={selectTriggerClassName}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_STATUSES.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {STATUS_LABELS[status]}
                           </SelectItem>
                         ))}
-                    </SelectContent>
-                  </Select>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className={fieldShellClassName}>
-                  <IconLabel icon={CheckCircle2} colorClassName="text-emerald-600">
-                    Status
-                  </IconLabel>
-                  <Select value={form.status} onValueChange={(value) => update("status", value as TaskStatus)}>
-                    <SelectTrigger className={selectTriggerClassName}>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <CheckCircle2 className="size-4 text-emerald-600" />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className={designTokens.spacing.field}>
+                    <IconLabel icon={UserRound} colorClassName="text-sky-600">
+                      Assigned member
+                    </IconLabel>
+                    <Select value={form.assignedTo} onValueChange={(value) => update("assignedTo", value)}>
+                      <SelectTrigger className={selectTriggerClassName}>
                         <SelectValue />
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TASK_STATUSES.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {STATUS_LABELS[status]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__unassigned">Unassigned</SelectItem>
+                        {members.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {getDisplayName(member)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className={designTokens.spacing.field}>
+                    <IconLabel htmlFor="task-due" icon={CalendarDays} colorClassName="text-amber-600">
+                      Due date
+                    </IconLabel>
+                    <Input
+                      id="task-due"
+                      type="date"
+                      className={controlClassName}
+                      value={form.dueDate}
+                      onChange={(event) => update("dueDate", event.target.value)}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className={fieldShellClassName}>
-                  <IconLabel icon={UserRound} colorClassName="text-sky-600">
-                    Assigned member
-                  </IconLabel>
-                  <Select value={form.assignedTo} onValueChange={(value) => update("assignedTo", value)}>
-                    <SelectTrigger className={selectTriggerClassName}>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <UserRound className="size-4 text-sky-600" />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className={designTokens.spacing.field}>
+                    <IconLabel htmlFor="task-category" icon={Tag} colorClassName="text-orange-600">
+                      Category
+                    </IconLabel>
+                    <Input
+                      id="task-category"
+                      className={controlClassName}
+                      placeholder="Research, paper, prototype..."
+                      value={form.category}
+                      onChange={(event) => update("category", event.target.value)}
+                    />
+                  </div>
+                  <div className={designTokens.spacing.field}>
+                    <IconLabel icon={Flag} colorClassName="text-red-600">
+                      Priority
+                    </IconLabel>
+                    <Select value={form.priority} onValueChange={(value) => update("priority", value)}>
+                      <SelectTrigger className={selectTriggerClassName}>
                         <SelectValue />
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__unassigned">Unassigned</SelectItem>
-                      {members.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {getDisplayName(member)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className={fieldShellClassName}>
-                  <IconLabel htmlFor="task-due" icon={CalendarDays} colorClassName="text-amber-600">
-                    Due date
-                  </IconLabel>
-                  <Input
-                    id="task-due"
-                    type="date"
-                    className={controlClassName}
-                    value={form.dueDate}
-                    onChange={(event) => update("dueDate", event.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className={fieldShellClassName}>
-                  <IconLabel htmlFor="task-category" icon={Tag} colorClassName="text-orange-600">
-                    Category
-                  </IconLabel>
-                  <Input
-                    id="task-category"
-                    className={controlClassName}
-                    placeholder="Research, paper, prototype..."
-                    value={form.category}
-                    onChange={(event) => update("category", event.target.value)}
-                  />
-                </div>
-                <div className={fieldShellClassName}>
-                  <IconLabel icon={Flag} colorClassName="text-red-600">
-                    Priority
-                  </IconLabel>
-                  <Select value={form.priority} onValueChange={(value) => update("priority", value)}>
-                    <SelectTrigger className={selectTriggerClassName}>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <Flag className="size-4 text-red-600" />
-                        <SelectValue />
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
