@@ -70,25 +70,44 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<"
   }, [context]);
 
   React.useEffect(() => {
-    if (!context) return;
-
-    if (!context.open) return;
-
-    const originalOverflow = document.body.style.overflow;
-    const originalPaddingRight = document.body.style.paddingRight;
-
-    // Prevent background scrolling and avoid layout shift by compensating for scrollbar width.
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    if (!context?.open) {
+      return;
     }
-    document.body.style.overflow = "hidden";
+
+    const body = document.body;
+    const countKey = "dialogScrollLockCount";
+    const prevOverflowKey = "dialogPrevOverflow";
+    const prevPaddingRightKey = "dialogPrevPaddingRight";
+    const currentCount = Number(body.dataset[countKey] ?? "0");
+
+    // First open dialog stores previous styles and applies the lock.
+    if (currentCount === 0) {
+      body.dataset[prevOverflowKey] = body.style.overflow;
+      body.dataset[prevPaddingRightKey] = body.style.paddingRight;
+
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      if (scrollbarWidth > 0) {
+        body.style.paddingRight = `${scrollbarWidth}px`;
+      }
+      body.style.overflow = "hidden";
+    }
+
+    body.dataset[countKey] = String(currentCount + 1);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.style.paddingRight = originalPaddingRight;
+      const nextCount = Math.max(0, Number(body.dataset[countKey] ?? "1") - 1);
+      body.dataset[countKey] = String(nextCount);
+
+      // Restore styles only when no dialog remains open.
+      if (nextCount === 0) {
+        body.style.overflow = body.dataset[prevOverflowKey] ?? "";
+        body.style.paddingRight = body.dataset[prevPaddingRightKey] ?? "";
+        delete body.dataset[countKey];
+        delete body.dataset[prevOverflowKey];
+        delete body.dataset[prevPaddingRightKey];
+      }
     };
-  }, [context]);
+  }, [context?.open]);
 
   if (!context?.open || !mounted) {
     return null;

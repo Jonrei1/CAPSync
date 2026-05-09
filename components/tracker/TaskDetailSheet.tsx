@@ -104,6 +104,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
       }
 
       toast.success("Task updated");
+      onOpenChange(false);
       onSaved();
     } catch (error) {
       toast.error("Task not updated", error instanceof Error ? error.message : "Please try again.");
