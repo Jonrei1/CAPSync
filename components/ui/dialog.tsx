@@ -69,6 +69,27 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<"
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [context]);
 
+  React.useEffect(() => {
+    if (!context) return;
+
+    if (!context.open) return;
+
+    const originalOverflow = document.body.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+
+    // Prevent background scrolling and avoid layout shift by compensating for scrollbar width.
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
+    };
+  }, [context]);
+
   if (!context?.open || !mounted) {
     return null;
   }
