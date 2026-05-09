@@ -444,6 +444,44 @@ with check (
   )
 );
 
+drop policy if exists "authors can update own task comments in their group" on task_comments;
+drop policy if exists "authors can delete own task comments in their group" on task_comments;
+
+create policy "authors can update own task comments in their group"
+on task_comments
+for update
+using (
+  author_id = auth.uid()
+  and exists (
+    select 1
+    from public.tasks t
+    where t.id = task_comments.task_id
+      and public.is_group_member(t.group_id, auth.uid())
+  )
+)
+with check (
+  author_id = auth.uid()
+  and exists (
+    select 1
+    from public.tasks t
+    where t.id = task_comments.task_id
+      and public.is_group_member(t.group_id, auth.uid())
+  )
+);
+
+create policy "authors can delete own task comments in their group"
+on task_comments
+for delete
+using (
+  author_id = auth.uid()
+  and exists (
+    select 1
+    from public.tasks t
+    where t.id = task_comments.task_id
+      and public.is_group_member(t.group_id, auth.uid())
+  )
+);
+
 create table if not exists personal_routines (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,

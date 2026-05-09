@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { MessageSquare, Trash2, Calendar, AlertTriangle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MessageSquare, Trash2, Calendar, AlertTriangle, Edit2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,7 @@ import {
   STATUS_STYLES,
   TASK_STATUSES,
 } from "./tracker-utils";
+import { useDesignStandard } from "@/components/ui/design-standard";
 
 type TaskDetailSheetProps = {
   open: boolean;
@@ -38,6 +40,13 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [creator, setCreator] = useState<Profile | null>(null);
   const [editor, setEditor] = useState<Profile | null>(null);
+  const [commentsState, setCommentsState] = useState<any[]>([]);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [pendingDeleteCommentId, setPendingDeleteCommentId] = useState<string | null>(null);
+  const [commentSavingId, setCommentSavingId] = useState<string | null>(null);
+  const lastTaskIdRef = useRef<string | null>(null);
+  const design = useDesignStandard();
 
   useEffect(() => {
     if (task) {
@@ -54,6 +63,15 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
       if (task.edited_by && members) {
         const foundEditor = members.find((m) => m.id === task.edited_by);
         setEditor(foundEditor ?? null);
+      }
+      // Only reset comments/editor state when switching to a different task.
+      if (lastTaskIdRef.current !== task.id) {
+        setCommentsState(task.comments ?? []);
+        setEditingCommentId(null);
+        setEditingText("");
+        setPendingDeleteCommentId(null);
+        setCommentSavingId(null);
+        lastTaskIdRef.current = task.id;
       }
     }
   }, [task, members]);
@@ -138,14 +156,29 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: comment.trim() }),
       });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      const payload = (await response.json().catch(() => ({}))) as any;
       if (!response.ok) {
         throw new Error(payload.error ?? "Unable to add comment.");
       }
 
+      // Determine created comment from response or build a fallback so it appears immediately
+      const created = payload.comment ?? payload;
+      if (created && (created.id || created.body)) {
+        const author = created.author ?? (members.find((m) => m.id === currentUserId) ?? null);
+        const normalized = {
+          id: created.id ?? `temp-${Date.now()}`,
+          body: created.body ?? comment.trim(),
+          author,
+        };
+        setCommentsState((prev) => [...prev, normalized]);
+      } else {
+        const author = members.find((m) => m.id === currentUserId) ?? null;
+        const fallback = { id: `temp-${Date.now()}`, body: comment.trim(), author };
+        setCommentsState((prev) => [...prev, fallback]);
+      }
+
       setComment("");
       toast.success("Comment added");
-      onSaved();
     } catch (error) {
       toast.error("Comment not added", error instanceof Error ? error.message : "Please try again.");
     } finally {
@@ -153,18 +186,70 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
     }
   }
 
+  async function startEditComment(comment: any) {
+    setEditingCommentId(comment.id);
+    setEditingText(comment.body ?? "");
+  }
+
+  function cancelEdit() {
+    setEditingCommentId(null);
+    setEditingText("");
+  }
+
+  async function saveEditedComment(commentId: string) {
+    if (!task) return;
+    setCommentSavingId(commentId);
+    try {
+      const response = await fetch(`/api/tracker/tasks/${task.id}/comments/${commentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: editingText }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as any;
+      if (!response.ok) throw new Error(payload.error ?? "Unable to edit comment.");
+
+      setCommentsState((prev) => prev.map((c) => (c.id === commentId ? { ...c, body: editingText } : c)));
+      toast.success("Comment updated");
+      cancelEdit();
+    } catch (err) {
+      toast.error("Comment not updated", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setCommentSavingId(null);
+    }
+  }
+
+  async function confirmDeleteComment(commentId: string) {
+    if (!task) return;
+    setCommentSavingId(commentId);
+    try {
+      const response = await fetch(`/api/tracker/tasks/${task.id}/comments/${commentId}`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json().catch(() => ({}))) as any;
+      if (!response.ok) throw new Error(payload.error ?? "Unable to delete comment.");
+
+      setCommentsState((prev) => prev.filter((c) => c.id !== commentId));
+      toast.success("Comment deleted");
+      setPendingDeleteCommentId(null);
+    } catch (err) {
+      toast.error("Comment not deleted", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setCommentSavingId(null);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-screen overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-h-screen">
+          <DialogHeader className="px-3 pt-5 pb-3 pr-12 sm:px-7">
           <div className="flex flex-col gap-2">
             <div>
               <DialogTitle>{task.title}</DialogTitle>
               <p className="text-xs text-muted-foreground">{task.description || "No description yet."}</p>
             </div>
           </div>
-        </DialogHeader>
-        <DialogBody>
+          </DialogHeader>
+          <DialogBody className="space-y-4 px-3 sm:px-8">
           <div className="grid gap-4">
             {/* Creator and Edit Info */}
             <div className="grid gap-2 rounded-lg border bg-muted/30 p-3 text-xs sm:grid-cols-2">
@@ -242,13 +327,57 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
                 Comments
               </div>
               <div className="space-y-2">
-                {task.comments?.length ? (
-                  task.comments.map((item) => (
-                    <div key={item.id} className="rounded-lg border bg-card p-3">
-                      <div className="text-xs font-medium">{getDisplayName(item.author)}</div>
-                      <div className="mt-1 text-sm text-muted-foreground">{item.body}</div>
-                    </div>
-                  ))
+                {commentsState.length ? (
+                  commentsState.map((item) => {
+                    const isAuthor = !!(item.author && item.author.id && currentUserId && item.author.id === currentUserId);
+                    return (
+                      <div key={item.id} className={`${design.cards.panel} p-3`}> 
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-medium">{getDisplayName(item.author)}</div>
+                            {editingCommentId === item.id ? null : (
+                              <div className="mt-1 text-sm text-muted-foreground wrap-break-word">{item.body}</div>
+                            )}
+                          </div>
+                          {isAuthor ? (
+                            <div className="flex items-start gap-2">
+                              {editingCommentId === item.id ? (
+                                <button type="button" onClick={cancelEdit} className="rounded px-2 py-1 text-sm text-muted-foreground hover:text-foreground">
+                                  <X className="size-4" />
+                                </button>
+                              ) : (
+                                <button type="button" onClick={() => startEditComment(item)} className="rounded px-2 py-1 text-sm text-muted-foreground hover:text-foreground">
+                                  <Edit2 className="size-4" />
+                                </button>
+                              )}
+                              <div>
+                                {pendingDeleteCommentId === item.id ? (
+                                  <div className="flex gap-2">
+                                    <Button size="sm" variant="outline" onClick={() => setPendingDeleteCommentId(null)} disabled={commentSavingId === item.id}>Cancel</Button>
+                                    <Button size="sm" variant="destructive" onClick={() => confirmDeleteComment(item.id)} disabled={commentSavingId === item.id}>{commentSavingId === item.id ? "Deleting..." : "Delete"}</Button>
+                                  </div>
+                                ) : (
+                                  <button type="button" onClick={() => setPendingDeleteCommentId(item.id)} className="rounded px-2 py-1 text-sm text-muted-foreground hover:text-foreground">
+                                    <Trash2 className="size-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {editingCommentId === item.id ? (
+                          <div className="mt-3">
+                            <Textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} />
+                            <div className="mt-2 flex gap-2 justify-end">
+                              <Button variant="outline" size="sm" onClick={cancelEdit} disabled={commentSavingId === item.id}>Cancel</Button>
+                              <Button size="default" onClick={() => saveEditedComment(item.id)} disabled={commentSavingId === item.id}>{commentSavingId === item.id ? "Saving..." : "Save"}</Button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })
                 ) : (
                   <div className="rounded-lg border border-dashed p-4 text-xs text-muted-foreground">No comments yet.</div>
                 )}
@@ -264,7 +393,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
             </div>
           </div>
         </DialogBody>
-        <DialogFooter className="px-6 pb-5 flex items-center justify-end gap-3">
+        <DialogFooter className={cn(design.modal.actions, "px-3 pb-4 sm:px-4") }>
           {currentUserId === task.created_by ? (
             <Button
               variant="destructive"
