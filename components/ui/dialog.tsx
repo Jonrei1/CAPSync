@@ -46,6 +46,8 @@ function DialogTrigger({ children, asChild = false, ...props }: React.ComponentP
 function DialogContent({ className, children, ...props }: React.ComponentProps<"div">) {
   const context = React.useContext(DialogContext);
   const [mounted, setMounted] = React.useState(false);
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
+  const pointerDownStartedInsideRef = React.useRef(false);
 
   React.useEffect(() => {
     setMounted(true);
@@ -74,13 +76,22 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<"
   return createPortal(
     <div
       className="fixed inset-0 z-60 flex items-start justify-center overflow-y-auto bg-black/55 px-3 py-4 backdrop-blur-[2px] sm:items-center sm:px-4"
+      onPointerDown={(event) => {
+        // Record whether the pointerdown started inside the dialog content.
+        pointerDownStartedInsideRef.current = !!contentRef.current?.contains(event.target as Node);
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) {
+        // Only close when the click started on the backdrop (not when it started inside the dialog and released outside,
+        // which happens when selecting text and releasing the mouse outside).
+        if (event.target === event.currentTarget && !pointerDownStartedInsideRef.current) {
           context.onOpenChange(false);
         }
+        // Reset flag after handling the click.
+        pointerDownStartedInsideRef.current = false;
       }}
     >
       <div
+        ref={contentRef}
         className={cn(
           "relative w-full max-w-3xl overflow-hidden rounded-2xl border border-border/70 bg-card shadow-2xl",
           className,
