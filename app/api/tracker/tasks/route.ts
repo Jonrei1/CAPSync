@@ -83,7 +83,8 @@ export async function POST(request: Request) {
       taskTitle: title,
       event: "created",
       actorName,
-      detail: assignedTo ? "assigned to member" : undefined,
+      actorId: auth.user.id,
+      assignedMemberId: assignedTo,
       dueDate: data.due_date,
     });
   } catch (notificationError) {

@@ -64,6 +64,7 @@ export async function POST(request: Request, { params }: RouteProps) {
         taskTitle: taskRow.title,
         event: "commented",
         actorName,
+        actorId: auth.user.id,
         dueDate: taskRow.due_date,
       });
     }

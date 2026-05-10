@@ -7,7 +7,10 @@ import {
   isPlainObject,
   VALID_METHODS,
 } from "@/app/api/tracker/tracker-api-utils";
+import { getActorName } from "@/lib/notifications/getActorName";
+import { writeActivityNotification } from "@/lib/notifications/writeActivityNotification";
 import type { Methodology } from "@/types";
+import { METHODOLOGIES } from "@/components/tracker/tracker-utils";
 
 type RouteProps = {
   params: { groupId: string } | Promise<{ groupId: string }>;
@@ -34,11 +37,36 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     .from("groups")
     .update({ methodology: body.methodology })
     .eq("id", groupId)
-    .select("id, methodology")
+    .select("id, name, color, methodology")
     .single();
 
   if (error) {
     return errorResponse(error.message, 400);
+  }
+
+  try {
+    const { data: memberRows } = await auth.supabase.from("group_members").select("member_id").eq("group_id", groupId);
+    const recipientIds = memberRows?.map((row: { member_id: string }) => row.member_id) ?? [];
+
+    if (recipientIds.length > 0) {
+      const actorName = await getActorName(auth.supabase, auth.user.id);
+      const methodologyLabel = METHODOLOGIES[data.methodology as Methodology].name;
+
+      await writeActivityNotification({
+        supabase: auth.supabase,
+        recipientIds,
+        groupId,
+        groupName: data.name ?? "Circle",
+        groupColor: data.color ?? "#4f46e5",
+        type: "task",
+        title: `Methodology changed to ${methodologyLabel}: workflow and sprint rules have been updated`,
+        eventDate: new Date().toISOString().slice(0, 10),
+        link: `/${groupId}/tracker`,
+        createdByName: actorName,
+      });
+    }
+  } catch (notificationError) {
+    console.error("[methodology PATCH notification] failed:", notificationError);
   }
 
   return NextResponse.json({ group: data });

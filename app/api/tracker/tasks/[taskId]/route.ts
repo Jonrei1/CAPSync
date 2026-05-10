@@ -93,7 +93,6 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       detail = typeof data.status === "string" ? data.status : undefined;
     } else if ("assignedTo" in body) {
       event = "reassigned";
-      detail = typeof body.assignedTo === "string" ? await getActorName(auth.supabase, body.assignedTo) : "unassigned";
     } else if ("dueDate" in body) {
       event = "due_date_changed";
       detail = typeof body.dueDate === "string" && body.dueDate ? body.dueDate : "cleared";
@@ -109,6 +108,8 @@ export async function PATCH(request: Request, { params }: RouteProps) {
         taskTitle: data.title,
         event,
         actorName,
+        actorId: auth.user.id,
+        assignedMemberId: event === "reassigned" ? (typeof body.assignedTo === "string" && body.assignedTo ? body.assignedTo : null) : null,
         detail,
         dueDate: data.due_date,
       });
@@ -160,6 +161,7 @@ export async function DELETE(request: Request, { params }: RouteProps) {
       taskTitle: task.title,
       event: "deleted",
       actorName,
+      actorId: auth.user.id,
     });
   } catch (notificationError) {
     console.error("[tasks DELETE notification] failed:", notificationError);

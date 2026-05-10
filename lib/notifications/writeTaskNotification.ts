@@ -18,15 +18,17 @@ type WriteTaskNotificationInput = {
   taskTitle: string;
   event: TaskNotificationEvent;
   actorName: string;
+  actorId?: string | null;
+  assignedMemberId?: string | null;
   /** Extra detail appended to the title, e.g. new status or assignee name */
   detail?: string;
   dueDate?: string | null;
 };
 
 const EVENT_LABEL: Record<TaskNotificationEvent, string> = {
-  created: "Task added",
+  created: "New task created",
   status_changed: "Task status updated",
-  reassigned: "Task reassigned",
+  reassigned: "You've been assigned a task",
   due_date_changed: "Task due date changed",
   commented: "New comment on task",
   deleted: "Task deleted",
@@ -43,13 +45,35 @@ export async function writeTaskNotification(input: WriteTaskNotificationInput): 
     return;
   }
 
-  const recipientIds = memberRows?.map((row: { member_id: string }) => row.member_id) ?? [];
+  const memberIds = memberRows?.map((row: { member_id: string }) => row.member_id) ?? [];
+  let recipientIds: string[] = [];
+
+  if (input.event === "created") {
+    if (input.assignedMemberId) {
+      recipientIds = [input.assignedMemberId];
+    } else {
+      recipientIds = memberIds.filter((memberId) => memberId !== input.actorId);
+    }
+  } else if (input.event === "reassigned") {
+    recipientIds = input.assignedMemberId ? [input.assignedMemberId] : [];
+  } else {
+    recipientIds = memberIds.filter((memberId) => memberId !== input.actorId);
+  }
+
   if (!recipientIds.length) {
     return;
   }
 
   const label = EVENT_LABEL[input.event];
-  const title = input.detail ? `${label}: "${input.taskTitle}" → ${input.detail}` : `${label}: "${input.taskTitle}"`;
+  let title = input.detail ? `${label}: "${input.taskTitle}" → ${input.detail}` : `${label}: "${input.taskTitle}"`;
+
+  if (input.event === "created") {
+    title = input.assignedMemberId
+      ? `A new task has been assigned to you: "${input.taskTitle}"`
+      : `New task created: "${input.taskTitle}"`;
+  } else if (input.event === "reassigned") {
+    title = `You've been assigned a task: "${input.taskTitle}"`;
+  }
 
   await writeActivityNotification({
     supabase: input.supabase,

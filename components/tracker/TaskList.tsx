@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, History, LockKeyhole, Milestone, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, History, LockKeyhole, Plus, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,18 +72,25 @@ export default function TaskList({
   const [resetting, setResetting] = useState(false);
   const method = METHODOLOGIES[methodology];
   const hideSprintSections = methodology === "simple" || methodology === "kanban";
+  const showBacklogAssignments = methodology === "scrum" || methodology === "agile";
   const realSprints = useMemo(
     () => sprints.filter((sprint) => sprint.id !== "__backlog"),
     [sprints],
   );
   const allTasks = useMemo(() => sprints.flatMap((sprint) => sprint.tasks), [sprints]);
   const backlogTasks = useMemo(
-    () => allTasks.filter((task) => getDueState(task) === "overdue"),
-    [allTasks],
+    () =>
+      allTasks.filter((task) =>
+        showBacklogAssignments ? task.sprint_id === null : getDueState(task) === "overdue",
+      ),
+    [allTasks, showBacklogAssignments],
   );
   const upcomingTasks = useMemo(
-    () => allTasks.filter((task) => getDueState(task) !== "overdue"),
-    [allTasks],
+    () =>
+      allTasks.filter((task) =>
+        showBacklogAssignments ? task.sprint_id !== null : getDueState(task) !== "overdue",
+      ),
+    [allTasks, showBacklogAssignments],
   );
   const lastSprint = useMemo(() => {
     const realSprints = sprints.filter((s) => s.id !== "__backlog");
@@ -225,7 +232,9 @@ export default function TaskList({
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold">Backlog</div>
               <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                Tasks past their due date live here.
+                {showBacklogAssignments
+                  ? "Tasks without a sprint or phase live here."
+                  : "Tasks past their due date live here."}
               </div>
             </div>
           </button>
@@ -244,7 +253,7 @@ export default function TaskList({
                   ))
                 ) : (
                   <div className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">
-                    No overdue tasks right now.
+                    {showBacklogAssignments ? "No backlog tasks right now." : "No overdue tasks right now."}
                   </div>
                 )}
               </div>
