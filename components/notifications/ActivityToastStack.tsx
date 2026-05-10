@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Calendar, CalendarPlus, Flag, X } from "lucide-react";
+import { Calendar, CalendarPlus, CheckSquare2, Flag, X } from "lucide-react";
 import { designTokens } from "@/components/ui/design-standard";
 import type { ActivityNotification } from "@/hooks/useActivityNotifications";
 
@@ -28,6 +28,8 @@ function getTone(type: ActivityNotification["type"]): Tone {
       return { accent: designTokens.palette.app.status.danger, icon: Flag };
     case "schedule":
       return { accent: designTokens.palette.app.brandAccent, icon: Calendar };
+    case "task":
+      return { accent: "#7c3aed", icon: CheckSquare2 };
   }
 }
 

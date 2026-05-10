@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { designTokens } from "@/components/ui/design-standard";
 import supabase from "@/lib/supabaseClient";
 
-export type ActivityType = "meeting" | "deadline" | "schedule";
+export type ActivityType = "meeting" | "deadline" | "schedule" | "task";
 
 export type ActivityNotification = {
   id: string;
@@ -195,6 +195,27 @@ export function useActivityNotifications() {
   }, [load]);
 
   useEffect(() => {
+    const refresh = () => {
+      void load();
+    };
+
+    window.addEventListener("focus", refresh);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void load();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [load]);
+
+  useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let active = true;
 
@@ -225,6 +246,18 @@ export function useActivityNotifications() {
       if (channel) {
         void supabase.removeChannel(channel);
       }
+    };
+  }, [load]);
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void load();
+    });
+
+    return () => {
+      void subscription.unsubscribe();
     };
   }, [load]);
 

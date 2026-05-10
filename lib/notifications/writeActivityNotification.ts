@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type ActivityType = "meeting" | "deadline" | "schedule";
+export type ActivityType = "meeting" | "deadline" | "schedule" | "task";
 
 export type WriteActivityNotificationInput = {
   supabase: SupabaseClient;
@@ -43,7 +43,11 @@ export async function writeActivityNotification(input: WriteActivityNotification
     const message = insertWithEndHour.error.message.toLowerCase();
 
     if (message.includes("event_end_hour") && message.includes("schema cache")) {
-      const rowsWithoutEndHour = rows.map(({ event_end_hour: _eventEndHour, ...rest }) => rest);
+      const rowsWithoutEndHour = rows.map((row) => {
+        const nextRow = { ...row };
+        delete nextRow.event_end_hour;
+        return nextRow;
+      });
       const retry = await input.supabase.from("activity_notifications").insert(rowsWithoutEndHour);
 
       if (retry.error) {

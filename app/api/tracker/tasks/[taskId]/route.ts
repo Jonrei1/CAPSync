@@ -7,6 +7,8 @@ import {
   isPlainObject,
   VALID_TASK_STATUSES,
 } from "@/app/api/tracker/tracker-api-utils";
+import { getActorName } from "@/lib/notifications/getActorName";
+import { writeTaskNotification } from "@/lib/notifications/writeTaskNotification";
 import type { TaskStatus } from "@/types";
 
 type RouteProps = {
@@ -74,6 +76,47 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     return errorResponse(error.message, 400);
   }
 
+  try {
+    const { data: groupRow } = await auth.supabase
+      .from("groups")
+      .select("name, color")
+      .eq("id", task.group_id)
+      .single();
+
+    const actorName = await getActorName(auth.supabase, auth.user.id);
+
+    let event: Parameters<typeof writeTaskNotification>[0]["event"] | null = null;
+    let detail: string | undefined;
+
+    if (typeof body.status === "string") {
+      event = "status_changed";
+      detail = typeof data.status === "string" ? data.status : undefined;
+    } else if ("assignedTo" in body) {
+      event = "reassigned";
+      detail = typeof body.assignedTo === "string" ? await getActorName(auth.supabase, body.assignedTo) : "unassigned";
+    } else if ("dueDate" in body) {
+      event = "due_date_changed";
+      detail = typeof body.dueDate === "string" && body.dueDate ? body.dueDate : "cleared";
+    }
+
+    if (event) {
+      await writeTaskNotification({
+        supabase: auth.supabase,
+        groupId: task.group_id,
+        groupName: groupRow?.name ?? "Circle",
+        groupColor: groupRow?.color ?? "#4f46e5",
+        taskId: data.id,
+        taskTitle: data.title,
+        event,
+        actorName,
+        detail,
+        dueDate: data.due_date,
+      });
+    }
+  } catch (notificationError) {
+    console.error("[tasks PATCH notification] failed:", notificationError);
+  }
+
   return NextResponse.json({ task: data });
 }
 
@@ -86,7 +129,7 @@ export async function DELETE(request: Request, { params }: RouteProps) {
 
   const { data: task } = await auth.supabase
     .from("tasks")
-    .select("id, group_id, created_by")
+    .select("id, group_id, created_by, title")
     .eq("id", taskId)
     .maybeSingle();
 
@@ -102,6 +145,24 @@ export async function DELETE(request: Request, { params }: RouteProps) {
   const membership = await getMembership(auth.supabase, task.group_id, auth.user.id);
   if (!membership) {
     return errorResponse("Forbidden.", 403);
+  }
+
+  try {
+    const { data: groupRow } = await auth.supabase.from("groups").select("name, color").eq("id", task.group_id).single();
+    const actorName = await getActorName(auth.supabase, auth.user.id);
+
+    await writeTaskNotification({
+      supabase: auth.supabase,
+      groupId: task.group_id,
+      groupName: groupRow?.name ?? "Circle",
+      groupColor: groupRow?.color ?? "#4f46e5",
+      taskId: task.id,
+      taskTitle: task.title,
+      event: "deleted",
+      actorName,
+    });
+  } catch (notificationError) {
+    console.error("[tasks DELETE notification] failed:", notificationError);
   }
 
   const { error } = await auth.supabase.from("tasks").delete().eq("id", taskId);

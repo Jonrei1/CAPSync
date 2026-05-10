@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, CalendarPlus, Flag, Trash2, X } from "lucide-react";
+import { Calendar, CalendarPlus, CheckSquare2, Flag, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { designStandard, designTokens } from "@/components/ui/design-standard";
@@ -31,6 +31,8 @@ function getTone(type: ActivityNotification["type"]): Tone {
       return { accent: designTokens.palette.app.status.danger, icon: Flag };
     case "schedule":
       return { accent: designTokens.palette.app.brandAccent, icon: Calendar };
+    case "task":
+      return { accent: "#7c3aed", icon: CheckSquare2 };
   }
 }
 

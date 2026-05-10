@@ -7,6 +7,8 @@ import {
   isPlainObject,
   VALID_TASK_STATUSES,
 } from "@/app/api/tracker/tracker-api-utils";
+import { getActorName } from "@/lib/notifications/getActorName";
+import { writeTaskNotification } from "@/lib/notifications/writeTaskNotification";
 
 export async function POST(request: Request) {
   const auth = await getAuthenticatedSupabase();
@@ -66,6 +68,26 @@ export async function POST(request: Request) {
 
   if (error) {
     return errorResponse(error.message, 400);
+  }
+
+  try {
+    const { data: groupRow } = await auth.supabase.from("groups").select("name, color").eq("id", groupId).single();
+    const actorName = await getActorName(auth.supabase, auth.user.id);
+
+    await writeTaskNotification({
+      supabase: auth.supabase,
+      groupId,
+      groupName: groupRow?.name ?? "Circle",
+      groupColor: groupRow?.color ?? "#4f46e5",
+      taskId: data.id,
+      taskTitle: title,
+      event: "created",
+      actorName,
+      detail: assignedTo ? "assigned to member" : undefined,
+      dueDate: data.due_date,
+    });
+  } catch (notificationError) {
+    console.error("[tasks POST notification] failed:", notificationError);
   }
 
   return NextResponse.json({ task: data });

@@ -83,7 +83,7 @@ create table if not exists activity_notifications (
   group_id uuid references groups(id) on delete cascade,
   group_name text,
   group_color text,
-  type text not null check (type in ('meeting', 'deadline', 'schedule')),
+  type text not null check (type in ('meeting', 'deadline', 'schedule', 'task')),
   title text not null,
   event_date text,
   event_start_hour numeric,
