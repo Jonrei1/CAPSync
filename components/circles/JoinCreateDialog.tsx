@@ -25,8 +25,8 @@ function randomMemberColor() {
 
 const METHODOLOGY_OPTIONS = [
   {
-    value: "Scrum (2-week sprints)",
-    title: "Scrum",
+    value: "scrum",
+    title: "Scrum (2-week sprints)",
     summary: "Fixed 2-week sprint cycles with clear goals and checkpoints.",
     vibe: "Structured",
     fit: "Best for teams that want structure, regular adviser updates, and predictable delivery.",
@@ -34,7 +34,7 @@ const METHODOLOGY_OPTIONS = [
       "Create a sprint backlog, set daily priorities, and review outputs at sprint end before planning the next cycle.",
   },
   {
-    value: "Agile",
+    value: "agile",
     title: "Agile",
     summary: "Iterative planning that adapts quickly to change.",
     vibe: "Adaptive",
@@ -43,8 +43,8 @@ const METHODOLOGY_OPTIONS = [
       "Break the capstone into small increments, test ideas early, and continuously refine based on feedback.",
   },
   {
-    value: "Waterfall (phases)",
-    title: "Waterfall",
+    value: "waterfall",
+    title: "Waterfall (phases)",
     summary: "Sequential phase-by-phase delivery with sign-offs.",
     vibe: "Phase-based",
     fit: "Best for teams with fixed requirements, strict approval flow, or adviser-driven milestones.",
@@ -52,7 +52,7 @@ const METHODOLOGY_OPTIONS = [
       "Finish one phase fully before starting the next, with clear sign-offs at each milestone.",
   },
   {
-    value: "Kanban",
+    value: "kanban",
     title: "Kanban",
     summary: "Continuous task flow with work-in-progress limits.",
     vibe: "Flow-based",
