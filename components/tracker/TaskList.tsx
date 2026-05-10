@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronRight, LockKeyhole, Milestone, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, History, LockKeyhole, Milestone, Plus, Trash2 } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,6 +85,24 @@ export default function TaskList({
     () => allTasks.filter((task) => getDueState(task) !== "overdue"),
     [allTasks],
   );
+  const lastSprint = useMemo(() => {
+    const realSprints = sprints.filter((s) => s.id !== "__backlog");
+    return realSprints.length > 0 ? realSprints[realSprints.length - 1] : null;
+  }, [sprints]);
+
+  const hasOverlap = useMemo(() => {
+    if (!newSprintStart || !newSprintEnd) return false;
+    const start = parseISO(newSprintStart);
+    const end = parseISO(newSprintEnd);
+
+    return sprints.some((s) => {
+      if (s.id === "__backlog" || !s.start_date || !s.end_date) return false;
+      const sStart = parseISO(s.start_date);
+      const sEnd = parseISO(s.end_date);
+
+      return start <= sEnd && end >= sStart;
+    });
+  }, [newSprintStart, newSprintEnd, sprints]);
 
   function toggleSprint(sprintId: string) {
     setOpenSprintIds((current) => {
@@ -541,6 +560,34 @@ export default function TaskList({
             <DialogTitle>Add a new sprint</DialogTitle>
           </DialogHeader>
           <DialogBody className="gap-4">
+            {lastSprint && (
+              <div className="mb-2 rounded-lg border border-violet-100 bg-violet-50/50 p-3">
+                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-violet-700 uppercase">
+                  <History className="size-3" />
+                  Follows previous sprint
+                </div>
+                <div className="mt-1.5 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-violet-900">{lastSprint.title}</div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2 text-xs text-violet-600">
+                    <span>{lastSprint.start_date ? format(parseISO(lastSprint.start_date), "MMM d") : "?"}</span>
+                    <ArrowRight className="size-3 opacity-50" />
+                    <span>{lastSprint.end_date ? format(parseISO(lastSprint.end_date), "MMM d") : "?"}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {hasOverlap && (
+              <div className="mb-2 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                <div className="text-xs leading-relaxed">
+                  <span className="font-semibold">Timeline overlap:</span> These dates clash with an existing sprint. You can still save if this is intentional.
+                </div>
+              </div>
+            )}
+
             <div className={fieldClassName}>
               <Label htmlFor="new-sprint-title" className="text-xs font-medium">
                 Title
