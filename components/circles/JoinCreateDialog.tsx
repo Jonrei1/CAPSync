@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,15 @@ function randomMemberColor() {
 
 const METHODOLOGY_OPTIONS = [
   {
+    value: "simple",
+    title: "Simple",
+    summary: "A lightweight task list with deadlines and no sprint structure.",
+    vibe: "Flexible",
+    fit: "Best for teams that want to start quickly and keep the workflow minimal.",
+    howItWorks:
+      "Create tasks directly, assign owners, and track progress without locking work into sprints or phases.",
+  },
+  {
     value: "scrum",
     title: "Scrum (2-week sprints)",
     summary: "Fixed 2-week sprint cycles with clear goals and checkpoints.",
@@ -41,15 +50,6 @@ const METHODOLOGY_OPTIONS = [
     fit: "Best for teams exploring uncertain scope and needing flexibility each week.",
     howItWorks:
       "Break the capstone into small increments, test ideas early, and continuously refine based on feedback.",
-  },
-  {
-    value: "waterfall",
-    title: "Waterfall (phases)",
-    summary: "Sequential phase-by-phase delivery with sign-offs.",
-    vibe: "Phase-based",
-    fit: "Best for teams with fixed requirements, strict approval flow, or adviser-driven milestones.",
-    howItWorks:
-      "Finish one phase fully before starting the next, with clear sign-offs at each milestone.",
   },
   {
     value: "kanban",
@@ -77,6 +77,8 @@ export default function JoinCreateDialog({
   const [methodology, setMethodology] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const dialogContentRef = useRef<HTMLDivElement | null>(null);
+  const pointerDownStartedInsideRef = useRef(false);
 
   const buttonLabel = useMemo(() => (tab === "join" ? "Join circle" : "Create circle"), [tab]);
   const selectedMethodology = useMemo(
@@ -205,13 +207,20 @@ export default function JoinCreateDialog({
   return (
     <div
       className="fixed inset-0 z-60 flex items-start justify-center overflow-y-auto bg-black/55 px-3 py-4 backdrop-blur-[2px] sm:items-center sm:px-4"
+      onPointerDown={(event) => {
+        pointerDownStartedInsideRef.current = !!dialogContentRef.current?.contains(event.target as Node);
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) {
+        if (event.target === event.currentTarget && !pointerDownStartedInsideRef.current) {
           closeDialog();
         }
+        pointerDownStartedInsideRef.current = false;
       }}
     >
-      <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-border/70 bg-card shadow-2xl">
+      <div
+        ref={dialogContentRef}
+        className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-border/70 bg-card shadow-2xl"
+      >
         <button
           type="button"
           onClick={closeDialog}

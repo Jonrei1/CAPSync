@@ -101,7 +101,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
 
       {canManage &&
         sprints.filter((s) => s.id !== "__backlog").length === 0 &&
-        (methodology === "scrum" || methodology === "waterfall" || methodology === "agile") && (
+          (methodology === "scrum" || methodology === "agile") && (
           <SprintScaffoldBanner groupId={group.id} onSaved={refresh} />
         )}
 

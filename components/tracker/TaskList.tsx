@@ -331,7 +331,7 @@ export default function TaskList({
 
           return (
             <div key={sprint.id}>
-              {index > 0 && methodology !== "kanban" ? (
+              {index > 0 ? (
                 <div
                   className={cn(
                     "mx-auto h-6 w-px bg-border",
@@ -451,19 +451,14 @@ export default function TaskList({
                         ))
                       ) : (
                         <div className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">
-                          No tasks in this{" "}
-                          {methodology === "waterfall" ? "phase" : "sprint"} yet.
+                          No tasks in this sprint yet.
                         </div>
                       )}
                     </div>
                     {canComplete ? (
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3">
                         <div className="text-xs text-blue-900">
-                          PM action: mark this{" "}
-                          {methodology === "waterfall"
-                            ? "phase"
-                            : "sprint"}{" "}
-                          complete and unlock the next one.
+                          PM action: mark this sprint complete and unlock the next one.
                         </div>
                         <Button
                           size="sm"

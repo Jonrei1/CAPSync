@@ -49,15 +49,6 @@ export const METHODOLOGIES = {
     preview:
       "Agile keeps iteration checkpoints visible while allowing work to shift as your capstone scope changes.",
   },
-  waterfall: {
-    icon: Waves,
-    name: "Waterfall - Sequential phases",
-    badge: "Phase-based",
-    description: "Sequential phase-by-phase delivery with sign-offs at each gate.",
-    alert: "Waterfall mode: each phase should be formally completed before the next phase starts.",
-    preview:
-      "Waterfall enforces phase gates for requirements, build, testing, and final defense deliverables.",
-  },
   kanban: {
     icon: Kanban,
     name: "Kanban - Continuous flow",
@@ -80,7 +71,7 @@ export const METHODOLOGIES = {
 >;
 
 export function normalizeMethodology(value: unknown): Methodology {
-  return value === "simple" || value === "agile" || value === "waterfall" || value === "kanban" || value === "scrum" ? value : "simple";
+  return value === "simple" || value === "agile" || value === "kanban" || value === "scrum" ? value : "simple";
 }
 
 export function normalizeTaskStatus(value: unknown): TaskStatus {

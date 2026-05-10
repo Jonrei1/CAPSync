@@ -79,15 +79,6 @@ const METHOD_CFG: Record<Methodology, MethodCfg> = {
     statusProminent: false,
     submitLabel: "Add task",
   },
-  waterfall: {
-    sprintLabel: "Phase",
-    sprintShow: true,
-    sprintRequired: true,
-    dueSuggested: true,
-    categoryProminent: true,
-    statusProminent: false,
-    submitLabel: "Add deliverable",
-  },
   kanban: {
     sprintLabel: "Sprint",
     sprintShow: false,
@@ -153,7 +144,7 @@ function SprintWindowHint({
   const due = parseISO(dueDate);
   const start = parseISO(sprint.start_date);
   const end = parseISO(sprint.end_date);
-  const label = methodology === "waterfall" ? "phase" : "sprint";
+  const label = "sprint";
 
   if (isBefore(due, start)) {
     return (
@@ -217,7 +208,7 @@ export default function TaskForm({
       return;
     }
 
-    // Soft validation: sprint required in Scrum/Waterfall
+    // Soft validation: sprint required in Scrum
     if (cfg.sprintRequired && (!form.sprintId || form.sprintId === "__none")) {
       toast({
         title: `No ${cfg.sprintLabel.toLowerCase()} selected`,

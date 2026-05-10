@@ -1,4 +1,4 @@
-export type Methodology = "simple" | "scrum" | "agile" | "waterfall" | "kanban";
+export type Methodology = "simple" | "scrum" | "agile" | "kanban";
 export type TaskStatus = "todo" | "doing" | "review" | "done" | "blocked";
 export type SprintStatus = "upcoming" | "active" | "done" | "locked";
 

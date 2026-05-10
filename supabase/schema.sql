@@ -165,7 +165,7 @@ BEGIN
   EXECUTE $sql$
     ALTER TABLE public.groups
       ADD CONSTRAINT groups_methodology_chk
-      CHECK (methodology is null or methodology in ('simple', 'scrum', 'agile', 'waterfall', 'kanban')) NOT VALID
+      CHECK (methodology is null or methodology in ('simple', 'scrum', 'agile', 'kanban')) NOT VALID
   $sql$;
 END
 $$;
@@ -178,12 +178,12 @@ SET methodology = CASE
   WHEN methodology ILIKE 'simple%' OR methodology ILIKE '%Simple%' THEN 'simple'
   WHEN methodology ILIKE 'scrum%' OR methodology ILIKE '%Scrum%' THEN 'scrum'
   WHEN methodology ILIKE 'agile%' OR methodology ILIKE '%Agile%' THEN 'agile'
-  WHEN methodology ILIKE 'waterfall%' OR methodology ILIKE '%Waterfall%' THEN 'waterfall'
+  WHEN methodology ILIKE 'waterfall%' OR methodology ILIKE '%Waterfall%' THEN 'scrum'
   WHEN methodology ILIKE 'kanban%' OR methodology ILIKE '%Kanban%' THEN 'kanban'
   ELSE NULL
 END
 WHERE methodology IS NOT NULL
-  AND LOWER(methodology) NOT IN ('simple','scrum','agile','waterfall','kanban');
+  AND LOWER(methodology) NOT IN ('simple','scrum','agile','kanban');
 
 COMMIT;
 
