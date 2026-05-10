@@ -193,9 +193,7 @@ export async function loadTrackerData(groupId: string) {
   });
 
   const sprints = [...sprintMap.values()];
-  if (backlog.tasks.length > 0 || sprints.length === 0) {
-    sprints.push(backlog);
-  }
+  sprints.push(backlog);
 
   const role = typeof membership.role === "string" ? membership.role : "member";
 

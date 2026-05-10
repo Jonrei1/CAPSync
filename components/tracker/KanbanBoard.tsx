@@ -107,6 +107,7 @@ export default function KanbanBoard({
           sprints={sprints}
           currentUserId={currentUserId}
           canManage={canManage}
+          methodology={methodology}
           defaultStatus={defaultStatus}
           onSaved={onSaved}
         />

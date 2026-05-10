@@ -71,6 +71,10 @@ export default function TaskList({
   const [resetting, setResetting] = useState(false);
   const method = METHODOLOGIES[methodology];
   const hideSprintSections = methodology === "simple" || methodology === "kanban";
+  const realSprints = useMemo(
+    () => sprints.filter((sprint) => sprint.id !== "__backlog"),
+    [sprints],
+  );
   const allTasks = useMemo(() => sprints.flatMap((sprint) => sprint.tasks), [sprints]);
   const backlogTasks = useMemo(
     () => allTasks.filter((task) => getDueState(task) === "overdue"),
@@ -113,7 +117,7 @@ export default function TaskList({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          groupId: sprints[0]?.id ? (sprints[0] as any).group_id : "", // hack - get groupId from first sprint
+          groupId,
           title: newSprintTitle.trim(),
           goal: newSprintGoal.trim(),
           start_date: newSprintStart,
@@ -182,66 +186,55 @@ export default function TaskList({
     }
   }
 
-  if (sprints.length === 0 && !hideSprintSections) {
-    return (
-      <div className="rounded-lg border border-dashed bg-card p-8 text-center">
-        <Milestone className="mx-auto size-8 text-muted-foreground" />
-        <div className="mt-3 text-sm font-medium">No phases yet</div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Add a task now, then create sprints as your capstone plan takes shape.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
-      <div className="space-y-0">
+      <div className="space-y-4">
         <div className="mb-3 rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
           {method.alert}
         </div>
 
+        <section className="overflow-hidden rounded-lg border bg-card shadow-xs">
+          <button
+            type="button"
+            className="flex w-full cursor-pointer items-center gap-3 bg-muted/50 px-4 py-3 text-left"
+            onClick={() => setBacklogOpen((current) => !current)}
+          >
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-[11px] font-bold text-muted-foreground">
+              {backlogTasks.length}
+            </span>
+            <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition", backlogOpen && "rotate-90")} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold">Backlog</div>
+              <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                Tasks past their due date live here.
+              </div>
+            </div>
+          </button>
+
+          {backlogOpen ? (
+            <div className="border-t p-3">
+              <div className="space-y-2">
+                {backlogTasks.length > 0 ? (
+                  backlogTasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      assignee={task.assigned_to ? membersById.get(task.assigned_to) : null}
+                      onOpen={onOpenTask}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">
+                    No overdue tasks right now.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </section>
+
         {hideSprintSections ? (
           <div className="space-y-3">
-          <section className="overflow-hidden rounded-lg border bg-card shadow-xs">
-            <button
-              type="button"
-              className="flex w-full cursor-pointer items-center gap-3 bg-muted/50 px-4 py-3 text-left"
-              onClick={() => setBacklogOpen((current) => !current)}
-            >
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-[11px] font-bold text-muted-foreground">
-                {backlogTasks.length}
-              </span>
-              <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition", backlogOpen && "rotate-90")} />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold">Backlog</div>
-                <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                  Tasks past their due date live here.
-                </div>
-              </div>
-            </button>
-
-            {backlogOpen ? (
-              <div className="border-t p-3">
-                <div className="space-y-2">
-                  {backlogTasks.length > 0 ? (
-                    backlogTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        assignee={task.assigned_to ? membersById.get(task.assigned_to) : null}
-                        onOpen={onOpenTask}
-                      />
-                    ))
-                  ) : (
-                    <div className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">
-                      No overdue tasks right now.
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : null}
-          </section>
           <section className="overflow-hidden rounded-lg border bg-card shadow-xs">
             <button
               type="button"
@@ -285,7 +278,7 @@ export default function TaskList({
         ) : null}
 
         {!hideSprintSections && canManage && (
-          <div className="mb-3 flex w-full items-center justify-center gap-2">
+          <div className="mb-6 flex w-full items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => setAddDialogOpen(true)}
@@ -304,13 +297,14 @@ export default function TaskList({
           </div>
         )}
 
-        {!hideSprintSections && sprints.map((sprint, index) => {
+        {!hideSprintSections && realSprints.map((sprint, index) => {
           const locked =
-            isSprintLocked(sprints, index, methodology) ||
+            isSprintLocked(realSprints, index, methodology) ||
             normalizeSprintStatus(sprint.status) === "locked";
+          const visibleTasks = sprint.tasks.filter((task) => getDueState(task) !== "overdue");
           const open = openSprintIds.has(sprint.id) && !locked;
           const status = normalizeSprintStatus(sprint.status);
-          const progress = getSprintProgress(sprint);
+          const progress = getSprintProgress({ ...sprint, tasks: visibleTasks });
           const canComplete =
             canManage && !locked && status === "active" && sprint.id !== "__backlog";
           const canDelete =
@@ -423,8 +417,8 @@ export default function TaskList({
                       />
                     )}
                     <div className="mt-3 space-y-2">
-                      {sprint.tasks.length > 0 ? (
-                        sprint.tasks.map((task) => (
+                      {visibleTasks.length > 0 ? (
+                        visibleTasks.map((task) => (
                           <TaskCard
                             key={task.id}
                             task={task}
