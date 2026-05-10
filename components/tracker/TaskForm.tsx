@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ComponentType, type FormEvent, type ReactNode } from "react";
-import { CalendarDays, CheckCircle2, ClipboardList, Flag, Layers3, ListTodo, Sparkles, Tag, UserRound } from "lucide-react";
+import { differenceInDays, isAfter, isBefore, parseISO } from "date-fns";
+import { CalendarDays, CheckCircle2, ClipboardList, Flag, Layers3, ListTodo, Tag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { designStandard, designTokens } from "@/components/ui/design-standard";
@@ -11,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import type { Profile, TaskStatus, TrackerSprint } from "@/types";
+import type { Methodology, Profile, TaskStatus, TrackerSprint } from "@/types";
 import { getDisplayName, STATUS_LABELS, TASK_STATUSES } from "./tracker-utils";
 
 type TaskFormProps = {
@@ -22,6 +23,7 @@ type TaskFormProps = {
   sprints: TrackerSprint[];
   currentUserId: string;
   canManage: boolean;
+  methodology: Methodology;
   defaultStatus?: TaskStatus;
   defaultSprintId?: string | null;
   defaultDueDate?: string | null;
@@ -37,6 +39,64 @@ type FormState = {
   dueDate: string;
   category: string;
   priority: string;
+};
+
+type MethodCfg = {
+  sprintLabel: string;
+  sprintShow: boolean;
+  sprintRequired: boolean;
+  dueSuggested: boolean;
+  categoryProminent: boolean;
+  statusProminent: boolean;
+  submitLabel: string;
+};
+
+const METHOD_CFG: Record<Methodology, MethodCfg> = {
+  simple: {
+    sprintLabel: "Sprint",
+    sprintShow: false,
+    sprintRequired: false,
+    dueSuggested: false,
+    categoryProminent: false,
+    statusProminent: false,
+    submitLabel: "Add task",
+  },
+  scrum: {
+    sprintLabel: "Sprint",
+    sprintShow: true,
+    sprintRequired: true,
+    dueSuggested: true,
+    categoryProminent: false,
+    statusProminent: false,
+    submitLabel: "Add task",
+  },
+  agile: {
+    sprintLabel: "Iteration",
+    sprintShow: true,
+    sprintRequired: false,
+    dueSuggested: false,
+    categoryProminent: false,
+    statusProminent: false,
+    submitLabel: "Add task",
+  },
+  waterfall: {
+    sprintLabel: "Phase",
+    sprintShow: true,
+    sprintRequired: true,
+    dueSuggested: true,
+    categoryProminent: true,
+    statusProminent: false,
+    submitLabel: "Add deliverable",
+  },
+  kanban: {
+    sprintLabel: "Sprint",
+    sprintShow: false,
+    sprintRequired: false,
+    dueSuggested: false,
+    categoryProminent: false,
+    statusProminent: true,
+    submitLabel: "Add to board",
+  },
 };
 
 const DEFAULT_FORM: FormState = {
@@ -75,6 +135,48 @@ function IconLabel({
   );
 }
 
+function SprintWindowHint({
+  sprintId,
+  dueDate,
+  sprints,
+  methodology,
+}: {
+  sprintId: string;
+  dueDate: string;
+  sprints: TrackerSprint[];
+  methodology: Methodology;
+}) {
+  if (methodology === "simple" || methodology === "kanban" || methodology === "agile") return null;
+  const sprint = sprints.find((s) => s.id === sprintId);
+  if (!sprint?.start_date || !sprint.end_date || !dueDate) return null;
+
+  const due = parseISO(dueDate);
+  const start = parseISO(sprint.start_date);
+  const end = parseISO(sprint.end_date);
+  const label = methodology === "waterfall" ? "phase" : "sprint";
+
+  if (isBefore(due, start)) {
+    return (
+      <p className="mt-1 text-xs text-amber-700">
+        Due date is before {label} starts. Update your timeline?
+      </p>
+    );
+  }
+  if (isAfter(due, end)) {
+    return (
+      <p className="mt-1 text-xs text-amber-700">
+        Due date is after {label} ends. Update your timeline?
+      </p>
+    );
+  }
+  const daysLeft = differenceInDays(end, due);
+  return (
+    <p className="mt-1 text-xs text-emerald-700">
+      {daysLeft + 1} days left in {label} to complete this.
+    </p>
+  );
+}
+
 export default function TaskForm({
   open,
   onOpenChange,
@@ -83,6 +185,7 @@ export default function TaskForm({
   sprints,
   currentUserId,
   canManage,
+  methodology,
   defaultStatus = "todo",
   defaultSprintId = null,
   defaultDueDate = null,
@@ -90,6 +193,7 @@ export default function TaskForm({
 }: TaskFormProps) {
   const [form, setForm] = useState<FormState>({ ...DEFAULT_FORM, status: defaultStatus });
   const [saving, setSaving] = useState(false);
+  const cfg = METHOD_CFG[methodology];
 
   useEffect(() => {
     if (open) {
@@ -111,6 +215,16 @@ export default function TaskForm({
     if (!form.title.trim()) {
       toast.error("Task title required", "Add a clear task name first.");
       return;
+    }
+
+    // Soft validation: sprint required in Scrum/Waterfall
+    if (cfg.sprintRequired && (!form.sprintId || form.sprintId === "__none")) {
+      toast({
+        title: `No ${cfg.sprintLabel.toLowerCase()} selected`,
+        description: `Task will go to the backlog. You can assign it to a ${cfg.sprintLabel.toLowerCase()} anytime.`,
+        variant: "default",
+      });
+      // do NOT return — proceed to save
     }
 
     setSaving(true);
@@ -185,11 +299,37 @@ export default function TaskForm({
                   onChange={(event) => update("description", event.target.value)}
                 />
               </div>
+
+              {cfg.statusProminent && (
+                <div className={cn(designTokens.spacing.field, "py-4")}>
+                  <IconLabel icon={CheckCircle2} colorClassName={cfg.statusProminent ? "text-orange-500" : "text-emerald-600"}>
+                    Status
+                  </IconLabel>
+                  <Select value={form.status} onValueChange={(value) => update("status", value as TaskStatus)}>
+                    <SelectTrigger className={cn(selectTriggerClassName, cfg.statusProminent && "border-orange-300")}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TASK_STATUSES.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {STATUS_LABELS[status]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {methodology === "kanban" && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Kanban has no sprint phases — tasks go straight to the board by status.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className={cn(designTokens.spacing.stackMd, "py-4")}>
-                <div className="grid gap-4 sm:grid-cols-2">
+                {cfg.sprintShow && (
                   <div className={designTokens.spacing.field}>
                     <IconLabel icon={Layers3} colorClassName="text-violet-600">
-                      Sprint / phase
+                      {cfg.sprintLabel}
                     </IconLabel>
                     <Select value={form.sprintId} onValueChange={(value) => update("sprintId", value)}>
                       <SelectTrigger className={selectTriggerClassName}>
@@ -206,25 +346,23 @@ export default function TaskForm({
                           ))}
                       </SelectContent>
                     </Select>
+                    {form.sprintId && form.sprintId !== "__none" && (
+                      <SprintWindowHint
+                        sprintId={form.sprintId}
+                        dueDate={form.dueDate}
+                        sprints={sprints}
+                        methodology={methodology}
+                      />
+                    )}
                   </div>
-                  <div className={designTokens.spacing.field}>
-                    <IconLabel icon={CheckCircle2} colorClassName="text-emerald-600">
-                      Status
-                    </IconLabel>
-                    <Select value={form.status} onValueChange={(value) => update("status", value as TaskStatus)}>
-                      <SelectTrigger className={selectTriggerClassName}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TASK_STATUSES.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {STATUS_LABELS[status]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                )}
+
+                {!cfg.sprintShow && methodology === "kanban" && (
+                  <p className="text-xs text-muted-foreground">
+                    Kanban has no sprint phases — tasks go straight to the board by status.
+                  </p>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className={designTokens.spacing.field}>
                     <IconLabel icon={UserRound} colorClassName="text-sky-600">
@@ -259,7 +397,11 @@ export default function TaskForm({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className={designTokens.spacing.field}>
-                    <IconLabel htmlFor="task-category" icon={Tag} colorClassName="text-orange-600">
+                    <IconLabel
+                      htmlFor="task-category"
+                      icon={Tag}
+                      colorClassName={cfg.categoryProminent ? "text-teal-600" : "text-orange-600"}
+                    >
                       Category
                     </IconLabel>
                     <Input
@@ -286,6 +428,26 @@ export default function TaskForm({
                     </Select>
                   </div>
                 </div>
+
+                {!cfg.statusProminent && (
+                  <div className={designTokens.spacing.field}>
+                    <IconLabel icon={CheckCircle2} colorClassName="text-emerald-600">
+                      Status
+                    </IconLabel>
+                    <Select value={form.status} onValueChange={(value) => update("status", value as TaskStatus)}>
+                      <SelectTrigger className={selectTriggerClassName}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_STATUSES.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {STATUS_LABELS[status]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
           </DialogBody>
@@ -295,7 +457,7 @@ export default function TaskForm({
             </Button>
             <Button type="submit" disabled={saving}>
               <ListTodo className="size-4" />
-              {saving ? "Adding..." : "Add task"}
+              {saving ? "Adding..." : cfg.submitLabel}
             </Button>
           </DialogFooter>
         </form>

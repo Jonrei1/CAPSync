@@ -15,6 +15,7 @@ import MethodologyDialog from "./MethodologyDialog";
 import TaskDetailSheet from "./TaskDetailSheet";
 import TaskForm from "./TaskForm";
 import TaskList from "./TaskList";
+import SprintScaffoldBanner from "./SprintScaffoldBanner";
 import {
   getAllTasks,
   getDisplayName,
@@ -98,6 +99,12 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
 
       <MethodologyBanner methodology={methodology} canManage={canManage} onChangeClick={() => setMethodologyOpen(true)} />
 
+      {canManage &&
+        sprints.filter((s) => s.id !== "__backlog").length === 0 &&
+        (methodology === "scrum" || methodology === "waterfall" || methodology === "agile") && (
+          <SprintScaffoldBanner groupId={group.id} onSaved={refresh} />
+        )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex rounded-lg border bg-muted p-1">
           <Link className="inline-flex h-8 items-center gap-1.5 rounded-md bg-card px-3 text-xs font-medium shadow-xs" href={`/${group.id}/tracker`}>
@@ -165,6 +172,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
           canManage={canManage}
           onOpenTask={setSelectedTask}
           onMarkSprintComplete={markSprintComplete}
+          onRefresh={refresh}
         />
         <AiTaskAssistant groupId={group.id} />
       </div>
@@ -177,6 +185,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
         sprints={sprints}
         currentUserId={currentUserId}
         canManage={canManage}
+        methodology={methodology}
         onSaved={refresh}
       />
       <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} currentUserId={currentUserId} onSaved={refresh} />

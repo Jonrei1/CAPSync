@@ -3,7 +3,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabaseServer";
 import type { Methodology, TaskStatus } from "@/types";
 
-export const VALID_METHODS: Methodology[] = ["scrum", "agile", "waterfall", "kanban"];
+export const VALID_METHODS: Methodology[] = ["simple", "scrum", "agile", "waterfall", "kanban"];
 export const VALID_TASK_STATUSES: TaskStatus[] = ["todo", "doing", "review", "done", "blocked"];
 export const MANAGER_ROLES = new Set(["pm", "admin", "owner"]);
 

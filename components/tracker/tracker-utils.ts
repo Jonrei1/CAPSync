@@ -1,5 +1,5 @@
 import { addDays, endOfWeek, format, isBefore, isSameDay, isWithinInterval, parseISO, startOfDay, startOfWeek } from "date-fns";
-import { Kanban, ListChecks, RefreshCcw, Waves } from "lucide-react";
+import { Kanban, LayoutList, ListChecks, RefreshCcw, Waves } from "lucide-react";
 import type { Methodology, Profile, SprintStatus, TaskStatus, TrackerSprint, TrackerTask } from "@/types";
 
 export const MEMBER_FALLBACK_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea"] as const;
@@ -23,6 +23,14 @@ export const STATUS_STYLES: Record<TaskStatus, string> = {
 };
 
 export const METHODOLOGIES = {
+  simple: {
+    icon: LayoutList,
+    name: "Simple — no methodology",
+    badge: "Flexible",
+    description: "Just tasks and deadlines. No sprints, no phases, no constraints.",
+    alert: "Simple mode: no sprint structure. Add tasks freely with a title, assignee, and due date.",
+    preview: "Simple mode removes all methodology overhead. Best for groups who want a plain task list with deadlines and nothing else.",
+  },
   scrum: {
     icon: ListChecks,
     name: "Scrum - 2-week sprints",
@@ -62,7 +70,7 @@ export const METHODOLOGIES = {
 } satisfies Record<
   Methodology,
   {
-    icon: typeof ListChecks;
+    icon: typeof LayoutList | typeof ListChecks;
     name: string;
     badge: string;
     description: string;
@@ -72,7 +80,7 @@ export const METHODOLOGIES = {
 >;
 
 export function normalizeMethodology(value: unknown): Methodology {
-  return value === "agile" || value === "waterfall" || value === "kanban" || value === "scrum" ? value : "scrum";
+  return value === "simple" || value === "agile" || value === "waterfall" || value === "kanban" || value === "scrum" ? value : "simple";
 }
 
 export function normalizeTaskStatus(value: unknown): TaskStatus {

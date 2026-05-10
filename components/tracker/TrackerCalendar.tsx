@@ -200,6 +200,7 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
         sprints={sprints}
         currentUserId={currentUserId}
         canManage={canManage}
+        methodology={methodology}
         defaultDueDate={selectedDate ?? toDateKey(addDays(new Date(), 0))}
         defaultStatus={methodology === "kanban" ? "todo" : "todo"}
         onSaved={refresh}

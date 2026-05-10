@@ -159,19 +159,23 @@ alter table groups add column if not exists invite_code text unique;
 alter table groups add column if not exists methodology text;
 
 -- Enforce allowed methodology values (allow NULL so older rows without a selection are fine)
-alter table groups drop constraint if exists groups_methodology_chk;
-
--- Add the constraint in NOT VALID mode so deployments won't fail if legacy rows exist.
--- We'll normalize legacy display values to canonical slugs and then validate the constraint.
-alter table groups
-  add constraint groups_methodology_chk
-  check (methodology is null or methodology in ('scrum', 'agile', 'waterfall', 'kanban')) NOT VALID;
+DO $$
+BEGIN
+  EXECUTE 'ALTER TABLE public.groups DROP CONSTRAINT IF EXISTS groups_methodology_chk';
+  EXECUTE $sql$
+    ALTER TABLE public.groups
+      ADD CONSTRAINT groups_methodology_chk
+      CHECK (methodology is null or methodology in ('simple', 'scrum', 'agile', 'waterfall', 'kanban')) NOT VALID
+  $sql$;
+END
+$$;
 
 -- Backfill / normalize existing methodology values to canonical slugs.
 BEGIN;
 
 UPDATE public.groups
 SET methodology = CASE
+  WHEN methodology ILIKE 'simple%' OR methodology ILIKE '%Simple%' THEN 'simple'
   WHEN methodology ILIKE 'scrum%' OR methodology ILIKE '%Scrum%' THEN 'scrum'
   WHEN methodology ILIKE 'agile%' OR methodology ILIKE '%Agile%' THEN 'agile'
   WHEN methodology ILIKE 'waterfall%' OR methodology ILIKE '%Waterfall%' THEN 'waterfall'
@@ -179,7 +183,7 @@ SET methodology = CASE
   ELSE NULL
 END
 WHERE methodology IS NOT NULL
-  AND LOWER(methodology) NOT IN ('scrum','agile','waterfall','kanban');
+  AND LOWER(methodology) NOT IN ('simple','scrum','agile','waterfall','kanban');
 
 COMMIT;
 
