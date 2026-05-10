@@ -394,7 +394,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
             </div>
           </div>
         </DialogBody>
-        <DialogFooter className={cn(design.modal.actions, "px-3 pb-4 sm:px-4") }>
+        <DialogFooter className={design.modal.actions}>
           {currentUserId === task.created_by ? (
             <Button
               variant="destructive"

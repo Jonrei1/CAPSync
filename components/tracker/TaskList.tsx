@@ -21,11 +21,12 @@ import type { Methodology, Profile, TrackerSprint, TrackerTask } from "@/types";
 import SprintHeader from "./SprintHeader";
 import SprintWindowEditor from "./SprintWindowEditor";
 import TaskCard from "./TaskCard";
-import { getSprintProgress, isSprintLocked, METHODOLOGIES, normalizeSprintStatus } from "./tracker-utils";
+import { getDueState, getSprintProgress, isSprintLocked, METHODOLOGIES, normalizeSprintStatus } from "./tracker-utils";
 
 type TaskListProps = {
   sprints: TrackerSprint[];
   membersById: Map<string, Profile>;
+  groupId: string;
   methodology: Methodology;
   canManage: boolean;
   onOpenTask: (task: TrackerTask) => void;
@@ -39,6 +40,7 @@ const inputClassName = "rounded-md border border-input bg-background px-3 py-2 t
 export default function TaskList({
   sprints,
   membersById,
+  groupId,
   methodology,
   canManage,
   onOpenTask,
@@ -63,7 +65,21 @@ export default function TaskList({
   const [addingSpring, setAddingSpring] = useState(false);
   const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [backlogOpen, setBacklogOpen] = useState(true);
+  const [tasksOpen, setTasksOpen] = useState(true);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const method = METHODOLOGIES[methodology];
+  const hideSprintSections = methodology === "simple" || methodology === "kanban";
+  const allTasks = useMemo(() => sprints.flatMap((sprint) => sprint.tasks), [sprints]);
+  const backlogTasks = useMemo(
+    () => allTasks.filter((task) => getDueState(task) === "overdue"),
+    [allTasks],
+  );
+  const upcomingTasks = useMemo(
+    () => allTasks.filter((task) => getDueState(task) !== "overdue"),
+    [allTasks],
+  );
 
   function toggleSprint(sprintId: string) {
     setOpenSprintIds((current) => {
@@ -144,7 +160,29 @@ export default function TaskList({
     }
   }
 
-  if (sprints.length === 0) {
+  async function resetSprints() {
+    setResetting(true);
+    try {
+      const response = await fetch("/api/tracker/sprints/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Unable to reset sprints.");
+      }
+      toast.success("Sprints reset", "All sprints removed and tasks moved to backlog.");
+      setResetDialogOpen(false);
+      onRefresh?.();
+    } catch (error) {
+      toast.error("Reset failed", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  if (sprints.length === 0 && !hideSprintSections) {
     return (
       <div className="rounded-lg border border-dashed bg-card p-8 text-center">
         <Milestone className="mx-auto size-8 text-muted-foreground" />
@@ -163,18 +201,110 @@ export default function TaskList({
           {method.alert}
         </div>
 
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => setAddDialogOpen(true)}
-            className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-violet-200 py-2 text-sm text-violet-700 hover:bg-violet-50/40"
-          >
-            <Plus className="size-4" />
-            Add sprint
-          </button>
+        {hideSprintSections ? (
+          <div className="space-y-3">
+          <section className="overflow-hidden rounded-lg border bg-card shadow-xs">
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-3 bg-muted/50 px-4 py-3 text-left"
+              onClick={() => setBacklogOpen((current) => !current)}
+            >
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-[11px] font-bold text-muted-foreground">
+                {backlogTasks.length}
+              </span>
+              <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition", backlogOpen && "rotate-90")} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">Backlog</div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  Tasks past their due date live here.
+                </div>
+              </div>
+            </button>
+
+            {backlogOpen ? (
+              <div className="border-t p-3">
+                <div className="space-y-2">
+                  {backlogTasks.length > 0 ? (
+                    backlogTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        assignee={task.assigned_to ? membersById.get(task.assigned_to) : null}
+                        onOpen={onOpenTask}
+                      />
+                    ))
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">
+                      No overdue tasks right now.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </section>
+          <section className="overflow-hidden rounded-lg border bg-card shadow-xs">
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-3 bg-muted/50 px-4 py-3 text-left"
+              onClick={() => setTasksOpen((current) => !current)}
+            >
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-[11px] font-bold text-muted-foreground">
+                {upcomingTasks.length}
+              </span>
+              <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition", tasksOpen && "rotate-90")} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">Tasks</div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  Upcoming tasks that are not past due.
+                </div>
+              </div>
+            </button>
+
+            {tasksOpen ? (
+              <div className="border-t p-3">
+                <div className="space-y-2">
+                  {upcomingTasks.length > 0 ? (
+                    upcomingTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        assignee={task.assigned_to ? membersById.get(task.assigned_to) : null}
+                        onOpen={onOpenTask}
+                      />
+                    ))
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">
+                      No upcoming tasks yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </section>
+          </div>
+        ) : null}
+
+        {!hideSprintSections && canManage && (
+          <div className="mb-3 flex w-full items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAddDialogOpen(true)}
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-violet-200 py-2 text-sm text-violet-700 hover:bg-violet-50/40"
+            >
+              <Plus className="size-4" />
+              Add sprint
+            </button>
+            <button
+              type="button"
+              onClick={() => setResetDialogOpen(true)}
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-red-200 py-2 text-sm text-red-700 hover:bg-red-50/40"
+            >
+              Reset sprints
+            </button>
+          </div>
         )}
 
-        {sprints.map((sprint, index) => {
+        {!hideSprintSections && sprints.map((sprint, index) => {
           const locked =
             isSprintLocked(sprints, index, methodology) ||
             normalizeSprintStatus(sprint.status) === "locked";
@@ -339,6 +469,7 @@ export default function TaskList({
       </div>
 
       {/* Delete confirmation dialog */}
+      {!hideSprintSections ? (
       <Dialog
         open={deletingSprintId !== null}
         onOpenChange={(open) => !open && setDeletingSprintId(null)}
@@ -371,8 +502,45 @@ export default function TaskList({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      ) : null}
+
+      {/* Reset all sprints dialog */}
+      {!hideSprintSections ? (
+      <Dialog
+        open={resetDialogOpen}
+        onOpenChange={(open) => !open && setResetDialogOpen(false)}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Reset sprints?</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <p className="text-sm text-muted-foreground">
+              This will remove all sprints for this group and move all tasks back to the backlog. Only a PM can perform this action. This cannot be undone.
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setResetDialogOpen(false)}
+              disabled={resetting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={resetSprints}
+              disabled={resetting}
+            >
+              {resetting ? "Resetting..." : "Reset sprints"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      ) : null}
 
       {/* Add sprint dialog */}
+      {!hideSprintSections ? (
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
@@ -447,6 +615,7 @@ export default function TaskList({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      ) : null}
     </>
   );
 }

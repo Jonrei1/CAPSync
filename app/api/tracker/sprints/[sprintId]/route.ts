@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { canManage, errorResponse, getAuthenticatedSupabase, getMembership, isPlainObject } from "@/app/api/tracker/tracker-api-utils";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type RouteProps = {
   params: { sprintId: string } | Promise<{ sprintId: string }>;
@@ -62,7 +63,7 @@ export async function DELETE(request: Request, { params }: RouteProps) {
   const membership = await getMembership(auth.supabase, sprint.group_id, auth.user.id);
   if (!canManage(membership?.role)) return errorResponse("Only the PM can delete sprints.", 403);
 
-  const { error } = await auth.supabase
+  const { error } = await supabaseAdmin
     .from("sprints")
     .delete()
     .eq("id", sprintId);

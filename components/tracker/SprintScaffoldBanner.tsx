@@ -201,7 +201,7 @@ export default function SprintScaffoldBanner({
               />
             </div>
           </DialogBody>
-          <DialogFooter className="gap-2">
+          <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setMode("choose")}
@@ -315,7 +315,7 @@ export default function SprintScaffoldBanner({
           </Button>
         </div>
 
-        <DialogFooter className="gap-2 px-6 pb-4">
+        <DialogFooter>
           <Button
             variant="outline"
             onClick={() => setMode("choose")}

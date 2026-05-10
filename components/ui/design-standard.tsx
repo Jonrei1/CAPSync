@@ -273,7 +273,7 @@ export const designStandard = {
     title: designTokens.text.title,
     description: cn("mt-1", designTokens.text.subtitle),
     body: "space-y-4",
-    actions: "flex justify-end gap-2 border-t pt-3",
+    actions: "flex justify-end gap-2 border-t px-4 pt-3 pb-4 sm:px-6 sm:pb-5",
   },
   field: {
     wrapper: designTokens.spacing.field,

@@ -162,7 +162,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<"h2">) {
 }
 
 function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex justify-end gap-2 border-t pt-3", className)} {...props} />;
+  return <div className={cn("flex justify-end gap-2 border-t px-4 pt-3 pb-4 sm:px-6 sm:pb-5", className)} {...props} />;
 }
 
 function DialogBody({ className, ...props }: React.ComponentProps<"div">) {

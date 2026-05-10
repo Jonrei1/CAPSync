@@ -168,6 +168,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
         <TaskList
           sprints={sprints}
           membersById={membersById}
+          groupId={group.id}
           methodology={methodology}
           canManage={canManage}
           onOpenTask={setSelectedTask}

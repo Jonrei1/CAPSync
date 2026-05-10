@@ -451,7 +451,7 @@ export default function TaskForm({
               </div>
             </div>
           </DialogBody>
-          <DialogFooter className="bg-muted/30 px-4 pb-4 sm:px-6 sm:pb-5">
+          <DialogFooter className="bg-muted/30">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancel
             </Button>

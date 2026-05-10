@@ -89,7 +89,7 @@ export default function MethodologyDialog({ open, onOpenChange, groupId, methodo
             {METHODOLOGIES[selected].preview}
           </div>
         </DialogBody>
-        <DialogFooter className="px-6 pb-5">
+        <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
