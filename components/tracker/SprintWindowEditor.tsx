@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,8 @@ export default function SprintWindowEditor({
   const [start, setStart] = useState(sprint.start_date);
   const [end, setEnd] = useState(sprint.end_date);
   const [saving, setSaving] = useState(false);
+
+  const [isEditing, setIsEditing] = useState(false);
 
   async function save() {
     if (new Date(end) < new Date(start)) {
@@ -49,6 +52,7 @@ export default function SprintWindowEditor({
       }
 
       toast.success("Sprint window updated", "Changes saved.");
+      setIsEditing(false);
       onSaved();
     } catch (error) {
       toast.error("Sprint not saved", error instanceof Error ? error.message : "Please try again.");
@@ -57,8 +61,24 @@ export default function SprintWindowEditor({
     }
   }
 
+  if (!isEditing) {
+    return (
+      <div className="mt-2 flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsEditing(true)}
+          className="h-7 text-xs text-muted-foreground hover:bg-muted"
+        >
+          <Settings2 className="mr-1.5 size-3.5" />
+          Edit sprint details
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-2 grid gap-3 rounded-lg border border-violet-200 bg-violet-50/30 p-3">
+    <div className="mt-2 grid gap-3 rounded-lg border bg-muted/30 p-3 shadow-xs">
       <div className={fieldClassName}>
         <Label htmlFor={`sprint-title-${sprint.id}`} className="text-xs font-medium">
           Title
@@ -113,9 +133,12 @@ export default function SprintWindowEditor({
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex justify-end gap-2 mt-1">
+        <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={saving}>
+          Cancel
+        </Button>
         <Button size="sm" onClick={save} disabled={saving}>
-          {saving ? "Saving..." : "Save window"}
+          {saving ? "Saving..." : "Save details"}
         </Button>
       </div>
     </div>

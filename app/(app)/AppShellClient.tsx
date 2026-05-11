@@ -266,7 +266,7 @@ function AppShell({ children }: AppLayoutProps) {
         <main
           className={[
             "p-4 md:p-6",
-            isAnyCalendarRoute ? "h-[calc(100dvh-3.5rem)] overflow-hidden" : "",
+            isAnyCalendarRoute ? "h-[calc(100dvh-3.5rem)] overflow-y-auto" : "",
           ].join(" ")}
         >
           {children}

@@ -164,7 +164,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
         </div>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="flex flex-col gap-4">
         <TaskList
           sprints={sprints}
           membersById={membersById}

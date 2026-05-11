@@ -69,9 +69,17 @@ export default function KanbanBoard({
           const columnTasks = grouped.get(status) ?? [];
           return (
             <section key={status} className="min-h-80 rounded-lg border bg-muted/50">
-              <div className="flex items-center gap-2 border-b bg-card px-3 py-2.5">
+              <div className="flex items-center gap-2 border-b bg-card px-3 py-2">
                 <div className="text-sm font-semibold">{labels[status]}</div>
-                <div className="ml-auto font-mono text-xs text-muted-foreground">{columnTasks.length}</div>
+                <div className="font-mono text-[10px] text-muted-foreground opacity-60">({columnTasks.length})</div>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="ml-auto size-6 shrink-0"
+                  onClick={() => openCreate(status)}
+                >
+                  <Plus className="size-3.5" />
+                </Button>
               </div>
               <div className="flex min-h-48 flex-col gap-2 p-2.5">
                 {columnTasks.map((task) => (
@@ -83,15 +91,11 @@ export default function KanbanBoard({
                     onOpen={onOpenTask}
                   />
                 ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-auto justify-start border-dashed bg-transparent text-muted-foreground"
-                  onClick={() => openCreate(status)}
-                >
-                  <Plus className="size-3.5" />
-                  Add task
-                </Button>
+                {columnTasks.length === 0 && (
+                  <div className="rounded-lg border border-dashed p-8 text-center text-xs text-muted-foreground">
+                    No tasks
+                  </div>
+                )}
               </div>
             </section>
           );

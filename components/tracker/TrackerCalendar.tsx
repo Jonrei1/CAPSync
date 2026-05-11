@@ -17,14 +17,16 @@ import {
   startOfWeek,
   subMonths,
 } from "date-fns";
-import { CalendarDays, ChevronLeft, ChevronRight, Kanban, ListTree, Plus } from "lucide-react";
+import { AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Kanban, ListTree, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Group, Methodology, Profile, TrackerSprint, TrackerTask } from "@/types";
 import { getTasksForCalendar, type CalendarTaskEvent } from "@/lib/tracker/getTasksForCalendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import TaskDetailSheet from "./TaskDetailSheet";
 import TaskForm from "./TaskForm";
-import { normalizeMethodology, normalizeTaskStatus, STATUS_STYLES } from "./tracker-utils";
+import { getDisplayName, getInitials, getMemberColor, normalizeMethodology, normalizeTaskStatus, STATUS_LABELS, STATUS_STYLES, TASK_STATUSES } from "./tracker-utils";
 
 type TrackerCalendarProps = {
   group: Group;
@@ -106,13 +108,75 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
           </Link>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setMonth(startOfMonth(new Date()))} className="h-8 px-3 text-xs">
+            Today
+          </Button>
           <Button variant="outline" size="icon-sm" onClick={() => setMonth((current) => subMonths(current, 1))}>
             <ChevronLeft className="size-4" />
           </Button>
-          <div className="w-36 text-center text-sm font-semibold">{format(month, "MMMM yyyy")}</div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" className="w-[140px] text-center text-sm font-semibold hover:bg-muted">
+                {format(month, "MMMM yyyy")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <Calendar
+                mode="single"
+                selected={month}
+                onSelect={(newDate) => newDate && setMonth(newDate)}
+                defaultMonth={month}
+              />
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="icon-sm" onClick={() => setMonth((current) => addMonths(current, 1))}>
             <ChevronRight className="size-4" />
           </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-6 rounded-lg border bg-card px-4 py-2.5 shadow-xs">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+            <Users className="size-3.5 text-muted-foreground" />
+            Members
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {members.map((m, idx) => {
+              const color = getMemberColor(m, idx);
+              return (
+                <div key={m.id} className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <span
+                    className="flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-white shadow-sm"
+                    style={{ backgroundColor: color }}
+                  >
+                    {getInitials(m)}
+                  </span>
+                  {getDisplayName(m)}
+                </div>
+              );
+            })}
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="flex size-4 items-center justify-center rounded-full bg-zinc-400 text-[8px] font-bold text-white shadow-sm">
+                U
+              </span>
+              Unassigned
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+            <AlertCircle className="size-3.5 text-muted-foreground" />
+            Status
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {TASK_STATUSES.map((status) => (
+              <div key={status} className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLES[status]}`}>
+                {STATUS_LABELS[status]}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -126,39 +190,48 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
           {calendarDays.map((date) => {
             const key = toDateKey(date);
             const dayEvents = eventsByDate.get(key) ?? [];
+            const isCurrentMonth = isSameMonth(date, month);
+
+            if (!isCurrentMonth) {
+              return <div key={key} className="min-h-24 p-2" />;
+            }
+
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => setSelectedDate(key)}
                 className={[
-                  "min-h-28 cursor-pointer rounded-md border p-2 text-left transition hover:border-zinc-400",
-                  isSameMonth(date, month) ? "bg-background" : "bg-muted/40 text-muted-foreground",
-                  isToday(date) ? "border-zinc-900" : "",
+                  "flex min-h-24 cursor-pointer flex-col rounded-md border p-2 text-left transition hover:border-zinc-400 bg-background",
+                  isToday(date) ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "",
                 ].join(" ")}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold">{format(date, "d")}</span>
+                <div className="flex w-full items-center justify-between">
+                  <span className={`text-xs font-semibold ${isToday(date) ? "text-primary" : ""}`}>{format(date, "d")}</span>
                   {dayEvents.some((event) => event.isDeadline) ? <span className="size-2 rounded-full bg-red-500" /> : null}
                 </div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 flex-1 space-y-1 w-full overflow-hidden">
                   {dayEvents.slice(0, 4).map((event) => (
                     <div
                       key={event.id}
-                      className={`truncate rounded-full border px-2 py-0.5 text-[10px] ${STATUS_STYLES[normalizeTaskStatus(event.task.status)]}`}
-                      style={{ borderLeftColor: event.assigneeColor, borderLeftWidth: 3 }}
+                      className={`flex w-full items-center gap-1.5 truncate rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${STATUS_STYLES[normalizeTaskStatus(event.task.status)]}`}
                     >
-                      {event.isDeadline ? "Due: " : ""}
-                      {event.label}
+                      <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: event.assigneeColor }} />
+                      <span className="truncate">
+                        {event.isDeadline ? "Due: " : ""}
+                        {event.label}
+                      </span>
                     </div>
                   ))}
-                  {dayEvents.length > 4 ? <div className="text-[10px] text-muted-foreground">+{dayEvents.length - 4} more</div> : null}
+                  {dayEvents.length > 4 ? <div className="text-[10px] font-medium text-muted-foreground">+{dayEvents.length - 4} more</div> : null}
                 </div>
               </button>
             );
           })}
         </div>
       </div>
+
+
 
       <Dialog open={Boolean(selectedDate)} onOpenChange={(open) => !open && setSelectedDate(null)}>
         <DialogContent className="max-w-xl">

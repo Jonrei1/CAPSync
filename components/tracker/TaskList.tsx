@@ -209,10 +209,25 @@ export default function TaskList({
   return (
     <>
       <div className="space-y-4">
-        <div className="mb-3 rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
-          {method.alert}
-        </div>
-
+        {!hideSprintSections && canManage && (
+          <div className="flex w-full items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAddDialogOpen(true)}
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-violet-200 py-2 text-sm text-violet-700 hover:bg-violet-50/40"
+            >
+              <Plus className="size-4" />
+              Add sprint
+            </button>
+            <button
+              type="button"
+              onClick={() => setResetDialogOpen(true)}
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-red-200 py-2 text-sm text-red-700 hover:bg-red-50/40"
+            >
+              Reset sprints
+            </button>
+          </div>
+        )}
         <section className="overflow-hidden rounded-lg border bg-card shadow-xs">
           <button
             type="button"
@@ -299,25 +314,7 @@ export default function TaskList({
           </div>
         ) : null}
 
-        {!hideSprintSections && canManage && (
-          <div className="mb-6 flex w-full items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setAddDialogOpen(true)}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-violet-200 py-2 text-sm text-violet-700 hover:bg-violet-50/40"
-            >
-              <Plus className="size-4" />
-              Add sprint
-            </button>
-            <button
-              type="button"
-              onClick={() => setResetDialogOpen(true)}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-red-200 py-2 text-sm text-red-700 hover:bg-red-50/40"
-            >
-              Reset sprints
-            </button>
-          </div>
-        )}
+
 
         {!hideSprintSections && realSprints.map((sprint, index) => {
           const locked =
@@ -325,7 +322,19 @@ export default function TaskList({
             normalizeSprintStatus(sprint.status) === "locked";
           const visibleTasks = sprint.tasks.filter((task) => getDueState(task) !== "overdue");
           const open = openSprintIds.has(sprint.id) && !locked;
-          const status = normalizeSprintStatus(sprint.status);
+          let status = normalizeSprintStatus(sprint.status);
+          
+          if (status === "upcoming" && sprint.start_date) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const start = new Date(sprint.start_date);
+            if (start <= today) {
+              if (!sprint.end_date || new Date(sprint.end_date) >= today) {
+                status = "active";
+              }
+            }
+          }
+
           const progress = getSprintProgress({ ...sprint, tasks: visibleTasks });
           const canComplete =
             canManage && !locked && status === "active" && sprint.id !== "__backlog";
@@ -348,7 +357,7 @@ export default function TaskList({
                 className={cn(
                   "overflow-hidden rounded-lg border bg-card shadow-xs",
                   locked && "opacity-65",
-                  status === "active" && !locked && "border-blue-200 shadow-blue-100",
+                  status === "active" && !locked && "border-primary/30 shadow-primary/10",
                   status === "done" && "border-green-200",
                 )}
               >
@@ -365,7 +374,7 @@ export default function TaskList({
                           "border-green-200 bg-green-600 text-white",
                         status === "active" &&
                           !locked &&
-                          "border-blue-200 bg-blue-600 text-white",
+                          "border-primary bg-primary text-primary-foreground",
                       )}
                     >
                       {status === "done" ? (
@@ -414,13 +423,13 @@ export default function TaskList({
                           status === "done" &&
                             "border-green-200 bg-green-50 text-green-700",
                           status === "active" &&
-                            "border-amber-200 bg-amber-50 text-amber-700",
+                            "border-blue-200 bg-blue-50 text-blue-700",
                         )}
                       >
                         {status === "done"
                           ? "Complete"
                           : status === "active"
-                            ? "Active"
+                            ? "Ongoing"
                             : methodology === "agile"
                               ? "Iteration"
                               : "Upcoming"}
@@ -459,8 +468,8 @@ export default function TaskList({
                       )}
                     </div>
                     {canComplete ? (
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3">
-                        <div className="text-xs text-blue-900">
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <div className="text-xs text-primary/80">
                           PM action: mark this sprint complete and unlock the next one.
                         </div>
                         <Button
