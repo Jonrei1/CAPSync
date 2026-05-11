@@ -24,6 +24,7 @@ import type { Group, Methodology, Profile, TrackerSprint, TrackerTask } from "@/
 import { getTasksForCalendar, type CalendarTaskEvent } from "@/lib/tracker/getTasksForCalendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import AiTaskAssistant from "./AiTaskAssistant";
 import TaskDetailSheet from "./TaskDetailSheet";
 import TaskForm from "./TaskForm";
 import { getDisplayName, getInitials, getMemberColor, normalizeMethodology, normalizeTaskStatus, STATUS_LABELS, STATUS_STYLES, TASK_STATUSES } from "./tracker-utils";
@@ -303,6 +304,7 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
         onSaved={refresh}
       />
       <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} currentUserId={currentUserId} onSaved={refresh} />
+      <AiTaskAssistant groupId={group.id} />
     </div>
   );
 }

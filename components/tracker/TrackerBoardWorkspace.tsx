@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, Kanban, ListTree, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Group, Methodology, Profile, TrackerSprint, TrackerTask } from "@/types";
+import AiTaskAssistant from "./AiTaskAssistant";
 import KanbanBoard from "./KanbanBoard";
 import TaskDetailSheet from "./TaskDetailSheet";
 import TaskForm from "./TaskForm";
@@ -85,6 +86,7 @@ export default function TrackerBoardWorkspace({ group, members, sprints, current
         onSaved={refresh}
       />
       <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} currentUserId={currentUserId} onSaved={refresh} />
+      <AiTaskAssistant groupId={group.id} />
     </div>
   );
 }

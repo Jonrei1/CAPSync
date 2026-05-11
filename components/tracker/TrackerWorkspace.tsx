@@ -191,8 +191,9 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
           onRefresh={refresh}
           autoExpandSprintId={autoExpandSprintId}
         />
-        <AiTaskAssistant groupId={group.id} />
       </div>
+
+      <AiTaskAssistant groupId={group.id} />
 
       <TaskForm
         open={taskFormOpen}
