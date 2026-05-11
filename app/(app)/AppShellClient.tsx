@@ -12,6 +12,7 @@ import ActivityToastStack from "@/components/notifications/ActivityToastStack";
 import { useActivityNotifications } from "@/hooks/useActivityNotifications";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toast";
+import RouteProgressBar from "@/components/ui/RouteProgressBar";
 import { CircleProvider, useCircle } from "@/contexts/CircleContext";
 
 type AppLayoutProps = {
@@ -114,6 +115,7 @@ function AppShell({ children }: AppLayoutProps) {
   return (
     <>
       <Toaster />
+      <RouteProgressBar />
       <JoinCreateDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}

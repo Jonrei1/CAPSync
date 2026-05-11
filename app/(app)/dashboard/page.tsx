@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Copy, FolderKanban, Users, WalletCards, CalendarDays, Loader2 } from "lucide-react";
+import { Copy, FolderKanban, Users, WalletCards, CalendarDays } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { designTokens } from "@/components/ui/design-standard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { useCircle } from "@/contexts/CircleContext";
 import supabase from "@/lib/supabaseClient";
 
@@ -309,7 +311,14 @@ export default function DashboardPage() {
               onClick={handleSaveMemberColor}
               disabled={!activeCircle || !userId || savingMemberColor}
             >
-              {savingMemberColor ? "Saving..." : "Save color"}
+              {savingMemberColor ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Spinner className="h-3 w-3" />
+                  Saving...
+                </span>
+              ) : (
+                "Save color"
+              )}
             </Button>
           </div>
         </div>
@@ -394,7 +403,14 @@ export default function DashboardPage() {
             onClick={handleSaveCircleColor}
             disabled={!isPm || savingCircleColor}
           >
-            {savingCircleColor ? "Saving..." : "Save circle color"}
+            {savingCircleColor ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Spinner className="h-3 w-3" />
+                Saving...
+              </span>
+            ) : (
+              "Save circle color"
+            )}
           </Button>
           {!isPm ? <span className="text-xs text-zinc-500">Only PM can change circle color.</span> : null}
         </div>
@@ -403,75 +419,95 @@ export default function DashboardPage() {
 
       <section>
         <div className="grid grid-cols-4 gap-3">
-          {members.map((member, index) => {
-            const name = memberName(member.full_name, member.email);
-            const role = (member.memberRole ?? "member").toLowerCase() === "pm" ? "PM" : "Member";
+          {members.length === 0 ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-xl border bg-card py-5 flex flex-col items-center gap-3 px-4">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <Skeleton className="h-3.5 w-24 rounded" />
+                <Skeleton className="h-5 w-14 rounded-full" />
+                <Skeleton className="h-2 w-2 rounded-full" />
+              </div>
+            ))
+          ) : (
+            members.map((member, index) => {
+              const name = memberName(member.full_name, member.email);
+              const role = (member.memberRole ?? "member").toLowerCase() === "pm" ? "PM" : "Member";
 
-            return (
-              <Card key={member.id} className="gap-4 py-5">
-                <CardContent className="flex flex-col items-center gap-2 text-center">
-                  <Avatar
-                    className="h-10 w-10 text-xs"
-                    style={{ backgroundColor: member.color ?? MEMBER_COLORS[index % MEMBER_COLORS.length] }}
-                  >
-                    {memberInitials(name)}
-                  </Avatar>
-                  <div className="text-sm font-medium text-zinc-900">{name}</div>
-                  <Badge variant={role === "PM" ? "success" : "secondary"}>{role}</Badge>
-                  <span className="h-2 w-2 rounded-full bg-[#22c55e]" />
-                </CardContent>
-              </Card>
-            );
-          })}
+              return (
+                <Card key={member.id} className="gap-4 py-5">
+                  <CardContent className="flex flex-col items-center gap-2 text-center">
+                    <Avatar
+                      className="h-10 w-10 text-xs"
+                      style={{ backgroundColor: member.color ?? MEMBER_COLORS[index % MEMBER_COLORS.length] }}
+                    >
+                      {memberInitials(name)}
+                    </Avatar>
+                    <div className="text-sm font-medium text-zinc-900">{name}</div>
+                    <Badge variant={role === "PM" ? "success" : "secondary"}>{role}</Badge>
+                    <span className="h-2 w-2 rounded-full bg-[#22c55e]" />
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
         </div>
       </section>
 
       <section className="grid grid-cols-4 gap-3">
-        <Card className="gap-3 bg-zinc-100 py-4">
-          <CardHeader className="px-4 pb-0">
-            <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
-              Tasks done this sprint
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 pt-0">
-            <div className="text-2xl font-semibold tracking-tight">{statsLoading ? <Loader2 className="size-5 animate-spin" /> : stats.doneCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="gap-3 bg-zinc-100 py-4">
-          <CardHeader className="px-4 pb-0">
-            <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
-              Fund balance
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 pt-0">
-            <div className="text-2xl font-semibold tracking-tight">{statsLoading ? <Loader2 className="size-5 animate-spin" /> : `₱${stats.fundBalance.toLocaleString()}`}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="gap-3 bg-zinc-100 py-4">
-          <CardHeader className="px-4 pb-0">
-            <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
-              Overdue tasks
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 pt-0">
-            <div className="text-2xl font-semibold tracking-tight text-red-600">
-              {statsLoading ? <Loader2 className="size-5 animate-spin" /> : stats.overdueCount}
+        {statsLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border bg-zinc-100 py-4 px-4 flex flex-col gap-3">
+              <Skeleton className="h-3 w-28 rounded" />
+              <Skeleton className="h-7 w-16 rounded" />
             </div>
-          </CardContent>
-        </Card>
+          ))
+        ) : (
+          <>
+            <Card className="gap-3 bg-zinc-100 py-4">
+              <CardHeader className="px-4 pb-0">
+                <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
+                  Tasks done this sprint
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 pt-0">
+                <div className="text-2xl font-semibold tracking-tight">{stats.doneCount}</div>
+              </CardContent>
+            </Card>
 
-        <Card className="gap-3 bg-zinc-100 py-4">
-          <CardHeader className="px-4 pb-0">
-            <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
-              Members online
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 pt-0">
-            <div className="text-2xl font-semibold tracking-tight text-green-600">{stats.membersOnline}</div>
-          </CardContent>
-        </Card>
+            <Card className="gap-3 bg-zinc-100 py-4">
+              <CardHeader className="px-4 pb-0">
+                <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
+                  Fund balance
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 pt-0">
+                <div className="text-2xl font-semibold tracking-tight">{`₱${stats.fundBalance.toLocaleString()}`}</div>
+              </CardContent>
+            </Card>
+
+            <Card className="gap-3 bg-zinc-100 py-4">
+              <CardHeader className="px-4 pb-0">
+                <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
+                  Overdue tasks
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 pt-0">
+                <div className="text-2xl font-semibold tracking-tight text-red-600">{stats.overdueCount}</div>
+              </CardContent>
+            </Card>
+
+            <Card className="gap-3 bg-zinc-100 py-4">
+              <CardHeader className="px-4 pb-0">
+                <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
+                  Members online
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 pt-0">
+                <div className="text-2xl font-semibold tracking-tight text-green-600">{stats.membersOnline}</div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </section>
 
       <section className="grid grid-cols-3 gap-3">

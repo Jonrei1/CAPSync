@@ -29,13 +29,6 @@ function pad(value: number) {
   return String(value).padStart(2, "0");
 }
 
-function getWeekStart(date = new Date()) {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  next.setDate(next.getDate() - next.getDay());
-  return next;
-}
-
 function dayKeyToDate(day: string, weekStart: Date) {
   const normalized = day.slice(0, 3).toLowerCase() as (typeof DAY_KEYS)[number];
   const next = new Date(weekStart);

@@ -741,8 +741,8 @@ export default function CalendarShell({
                 tooltipTitleClassName={ds.calendar.tooltipTitle}
                 tooltipRowClassName={ds.calendar.tooltipRow}
                 tooltipDotClassName={ds.calendar.tooltipDot}
-                  currentUserId={currentUserId ?? undefined}
-                  onScheduleAction={handleScheduleAction}
+                currentUserId={currentUserId ?? undefined}
+                onScheduleAction={handleScheduleAction}
               />
             ) : null}
 

@@ -5,12 +5,11 @@ import { MessageSquare, Trash2, Calendar, AlertTriangle, Edit2, X } from "lucide
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
-import type { Profile, TaskStatus, TrackerTask } from "@/types";
+import type { Profile, TaskStatus, TrackerComment, TrackerTask } from "@/types";
 import {
   formatDateLabel,
   getDisplayName,
@@ -40,7 +39,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [creator, setCreator] = useState<Profile | null>(null);
   const [editor, setEditor] = useState<Profile | null>(null);
-  const [commentsState, setCommentsState] = useState<any[]>([]);
+  const [commentsState, setCommentsState] = useState<TrackerComment[]>([]);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [pendingDeleteCommentId, setPendingDeleteCommentId] = useState<string | null>(null);
@@ -145,6 +144,11 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
     }
   }
 
+  type CommentResponse = {
+    error?: string;
+    comment?: TrackerComment;
+  } & Partial<TrackerComment>;
+
   async function addComment() {
     if (!task || !comment.trim()) {
       return;
@@ -157,7 +161,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: comment.trim() }),
       });
-      const payload = (await response.json().catch(() => ({}))) as any;
+      const payload = (await response.json().catch(() => ({}))) as CommentResponse;
       if (!response.ok) {
         throw new Error(payload.error ?? "Unable to add comment.");
       }
@@ -187,7 +191,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
     }
   }
 
-  async function startEditComment(comment: any) {
+  async function startEditComment(comment: TrackerComment) {
     setEditingCommentId(comment.id);
     setEditingText(comment.body ?? "");
   }
@@ -206,7 +210,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: editingText }),
       });
-      const payload = (await response.json().catch(() => ({}))) as any;
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Unable to edit comment.");
 
       setCommentsState((prev) => prev.map((c) => (c.id === commentId ? { ...c, body: editingText } : c)));
@@ -226,7 +230,7 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
       const response = await fetch(`/api/tracker/tasks/${task.id}/comments/${commentId}`, {
         method: "DELETE",
       });
-      const payload = (await response.json().catch(() => ({}))) as any;
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Unable to delete comment.");
 
       setCommentsState((prev) => prev.filter((c) => c.id !== commentId));

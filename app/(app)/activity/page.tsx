@@ -162,7 +162,7 @@ function timeAgo(createdAt: string): string {
 
 export default function ActivityRoutePage() {
   const router = useRouter();
-  const { notifications, unreadCount, markRead, markAllRead, deleteAll, deleteNotification } = useActivityNotifications();
+  const { notifications, unreadCount, markRead, markAllRead, deleteAll, deleteNotification, loading } = useActivityNotifications();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -236,7 +236,25 @@ export default function ActivityRoutePage() {
           <p className="mt-1 text-[12px] text-zinc-500">Meetings, deadlines, and scheduled activities with creator, timing, and status.</p>
         </div>
 
-        {notifications.length === 0 ? (
+        {loading ? (
+          <div className="divide-y divide-zinc-200">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-3 px-4 py-4 sm:px-6">
+                <div className="h-1.5 w-1.5 rounded-full mt-2.5 bg-zinc-100 animate-pulse" />
+                <div className="h-7 w-7 rounded-[7px] bg-zinc-100 animate-pulse" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="h-3 w-40 rounded bg-zinc-100 animate-pulse" />
+                  <div className="h-2.5 w-56 rounded bg-zinc-100 animate-pulse" />
+                  <div className="flex gap-2 mt-1">
+                    <div className="h-5 w-32 rounded-full bg-zinc-100 animate-pulse" />
+                    <div className="h-5 w-16 rounded-full bg-zinc-100 animate-pulse" />
+                  </div>
+                </div>
+                <div className="h-5 w-6 rounded-md bg-zinc-100 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="flex h-40 items-center justify-center text-[12px] text-zinc-500">No activity yet</div>
         ) : (
           <div>

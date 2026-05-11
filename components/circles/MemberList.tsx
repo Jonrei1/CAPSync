@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCircle } from "@/contexts/CircleContext";
 import supabase from "@/lib/supabaseClient";
 
@@ -54,30 +55,40 @@ export default function MemberList() {
       </div>
 
       <div className="flex flex-col gap-px">
-        {members.map((member, index) => {
-          const displayName = getMemberName(member.full_name, member.email);
-          const isYou = member.id === userId;
-
-          return (
-            <div key={member.id} className="flex items-center gap-2 rounded-md px-1.5 py-1.5">
-              <Avatar
-                className="h-6 w-6 text-[10px]"
-                style={{ backgroundColor: member.color ?? MEMBER_COLORS[index % MEMBER_COLORS.length] }}
-              >
-                {getInitials(displayName)}
-              </Avatar>
-              <span className="truncate text-[12px] font-medium text-zinc-900">
-                {displayName}
-                {isYou ? <span className="ml-1 font-normal text-zinc-500">(you)</span> : null}
-              </span>
-              <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
-            </div>
-          );
-        })}
-
         {members.length === 0 ? (
-          <div className="rounded-md px-2 py-2 text-[11px] text-zinc-500">No members to show.</div>
-        ) : null}
+          <div className="flex flex-col gap-px">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-md px-1.5 py-1.5">
+                <Skeleton className="h-6 w-6 rounded-full shrink-0" />
+                <Skeleton className="h-3 w-24 rounded flex-1" />
+                <Skeleton className="h-1.5 w-1.5 rounded-full ml-auto" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-px">
+            {members.map((member, index) => {
+              const displayName = getMemberName(member.full_name, member.email);
+              const isYou = member.id === userId;
+
+              return (
+                <div key={member.id} className="flex items-center gap-2 rounded-md px-1.5 py-1.5">
+                  <Avatar
+                    className="h-6 w-6 text-[10px]"
+                    style={{ backgroundColor: member.color ?? MEMBER_COLORS[index % MEMBER_COLORS.length] }}
+                  >
+                    {getInitials(displayName)}
+                  </Avatar>
+                  <span className="truncate text-[12px] font-medium text-zinc-900">
+                    {displayName}
+                    {isYou ? <span className="ml-1 font-normal text-zinc-500">(you)</span> : null}
+                  </span>
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

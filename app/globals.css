@@ -142,3 +142,12 @@
     @apply px-4 sm:px-5;
   }
 }
+
+/* Loading pulse keyframes used by the Skeleton primitive */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+.animate-pulse {
+  animation: pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

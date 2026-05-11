@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import { format } from "date-fns";
 import { ChevronDownIcon } from "lucide-react";
 import supabase from "@/lib/supabaseClient";
@@ -15,7 +16,6 @@ import WeekCalendarGrid, {
 } from "../../../components/calendar/WeekCalendarGrid";
 import { cn } from "@/lib/utils";
 import styles from "./page.module.css";
-
 type CircleRow = {
   id: string;
   name: string;
@@ -1447,7 +1447,7 @@ export default function MainCalendarPage() {
             tooltipRowClassName={ds.calendar.tooltipRow}
             tooltipDotClassName={ds.calendar.tooltipDot}
           />
-        ) : (
+          ) : (
           <div className={styles.focusWrap}>
             <div className={styles.focusGrid}>
               {circles
@@ -1500,9 +1500,14 @@ export default function MainCalendarPage() {
             {circles.length} circles · {visibleTaskCount} assigned tasks this week
           </span>
           <span>
-            {loading
-              ? "Loading calendar..."
-              : "Routines and tasks are shown in one unified weekly timeline."}
+            {loading ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner className="h-4 w-4 text-zinc-400" />
+                Loading calendar...
+              </span>
+            ) : (
+              "Routines and tasks are shown in one unified weekly timeline."
+            )}
           </span>
         </div>
       </div>

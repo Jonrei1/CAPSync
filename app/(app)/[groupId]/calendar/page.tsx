@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import CalendarShell from "@/components/circle-calendar/CalendarShell";
 import { createClient } from "@/lib/supabaseServer";
 import { computeFreeWindows } from "@/lib/schedule/computeFreeWindows";
@@ -415,6 +416,43 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
       
 
       <div className="min-h-0 flex-1">
+      <Suspense
+        fallback={
+          <div className="flex flex-col gap-0 flex-1 min-h-0">
+            <div className="grid border-b" style={{ gridTemplateColumns: "60px repeat(7, minmax(0,1fr))" }}>
+              <div className="h-[76px] border-r" />
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="border-l px-2 py-2 flex flex-col items-center gap-2">
+                  <div className="h-2.5 w-6 rounded bg-zinc-100 animate-pulse" />
+                  <div className="h-7 w-7 rounded-full bg-zinc-100 animate-pulse" />
+                </div>
+              ))}
+            </div>
+            <div className="grid flex-1 overflow-hidden" style={{ gridTemplateColumns: "60px repeat(7, minmax(0,1fr))" }}>
+              <div className="border-r">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-[60px] flex items-start justify-end pr-2 pt-1 border-t">
+                    <div className="h-2.5 w-8 rounded bg-zinc-100 animate-pulse" />
+                  </div>
+                ))}
+              </div>
+              {Array.from({ length: 7 }).map((_, colI) => (
+                <div key={colI} className="border-l relative">
+                  {Array.from({ length: 8 }).map((_, rowI) => (
+                    <div key={rowI} className="h-[60px] border-t" />
+                  ))}
+                  {colI % 2 === 0 && (
+                    <div
+                      className="absolute rounded-md left-[2%] right-[2%] bg-zinc-100 animate-pulse"
+                      style={{ top: `${30 + colI * 20}px`, height: `${60 + colI * 15}px` }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+      >
       <CalendarShell
         members={members}
         blocks={blocks}
@@ -427,6 +465,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         weekOffset={safeWeekOffset}
         selectedDate={toDateParam(selectedDate)}
       />
+      </Suspense>
       </div>
     </div>
   );
