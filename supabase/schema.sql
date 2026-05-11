@@ -390,7 +390,7 @@ as $$
     from public.group_members gm
     where gm.group_id = target_group_id
       and gm.member_id = target_user_id
-      and gm.role in ('pm', 'admin', 'owner')
+          and gm.role in ('pm', 'admin', 'owner', 'copm')
   );
 $$;
 

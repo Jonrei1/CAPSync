@@ -36,6 +36,8 @@ type CircleContextValue = {
   setActiveCircle: Dispatch<SetStateAction<Group | null>>;
   members: Profile[];
   updateMemberColor: (memberId: string, color: string) => void;
+  updateMemberRole: (memberId: string, role: string) => void;
+  removeMember: (memberId: string) => void;
   dialogOpen: boolean;
   setDialogOpen: Dispatch<SetStateAction<boolean>>;
   dialogTab: "join" | "create";
@@ -59,6 +61,16 @@ export function CircleProvider({ children }: CircleProviderProps) {
     setMembers((current) =>
       current.map((member) => (member.id === memberId ? { ...member, color } : member)),
     );
+  }, []);
+
+  const updateMemberRole = useCallback((memberId: string, role: string) => {
+    setMembers((current) =>
+      current.map((member) => (member.id === memberId ? { ...member, memberRole: role } : member)),
+    );
+  }, []);
+
+  const removeMember = useCallback((memberId: string) => {
+    setMembers((current) => current.filter((member) => member.id !== memberId));
   }, []);
 
   const openJoinCreateDialog = (tab: "join" | "create") => {
@@ -137,13 +149,15 @@ export function CircleProvider({ children }: CircleProviderProps) {
       setActiveCircle, 
       members,
       updateMemberColor,
+      updateMemberRole,
+      removeMember,
       dialogOpen,
       setDialogOpen,
       dialogTab,
       setDialogTab,
       openJoinCreateDialog,
     }),
-    [activeCircle, members, updateMemberColor, dialogOpen, dialogTab],
+    [activeCircle, members, updateMemberColor, updateMemberRole, removeMember, dialogOpen, dialogTab],
   );
 
   return <CircleContext.Provider value={value}>{children}</CircleContext.Provider>;

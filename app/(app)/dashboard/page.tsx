@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Copy, FolderKanban, Users, WalletCards, CalendarDays } from "lucide-react";
+import { Copy, FolderKanban, Users, WalletCards, CalendarDays, Eye, EyeOff, MoreVertical, Shield, Trash2 } from "lucide-react";
+import MemberManagementModal from "@/components/circles/MemberManagementModal";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,15 @@ function memberInitials(name: string) {
 }
 
 export default function DashboardPage() {
-  const { activeCircle, setActiveCircle, members, openJoinCreateDialog, updateMemberColor } = useCircle();
+  const {
+    activeCircle,
+    setActiveCircle,
+    members,
+    openJoinCreateDialog,
+    updateMemberColor,
+    updateMemberRole,
+    removeMember,
+  } = useCircle();
   const [stats, setStats] = useState<DashboardStats>({
     doneCount: 0,
     overdueCount: 0,
@@ -54,7 +63,12 @@ export default function DashboardPage() {
   const [savingCircleColor, setSavingCircleColor] = useState(false);
   const [memberColorError, setMemberColorError] = useState("");
   const [circleColorError, setCircleColorError] = useState("");
-
+  const [memberManagementOpen, setMemberManagementOpen] = useState(false);
+  const [showInviteCode, setShowInviteCode] = useState(false);
+  const [openMenuMemberId, setOpenMenuMemberId] = useState<string | null>(null);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [promotingMemberId, setPromotingMemberId] = useState<string | null>(null);
+  const [demotingMemberId, setDemotingMemberId] = useState<string | null>(null);
   useEffect(() => {
     let mounted = true;
 
@@ -169,7 +183,10 @@ export default function DashboardPage() {
       ? (memberColorDraftByCircle[activeCircle.id] ?? yourMembership.color ?? MEMBER_COLORS[0])
       : MEMBER_COLORS[0];
 
-  const isPm = (yourMembership?.memberRole ?? "").toLowerCase() === "pm";
+  const membershipRole = (yourMembership?.memberRole ?? "").toLowerCase();
+  const isPm = membershipRole === "pm";
+  const isCoPm = membershipRole === "copm";
+  const canManageCircle = isPm || isCoPm;
 
   const currentCircleColor =
     activeCircle
@@ -339,10 +356,20 @@ export default function DashboardPage() {
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Badge variant={isPm ? "success" : "secondary"}>{isPm ? "PM" : "Member"}</Badge>
-            {isPm && activeCircle.invite_code ? (
+            <Badge variant={isPm ? "success" : isCoPm ? "secondary" : "outline"}>{isPm ? "PM" : isCoPm ? "Co-PM" : "Member"}</Badge>
+            {canManageCircle && activeCircle.invite_code ? (
               <div className="inline-flex items-center gap-2 rounded-full border bg-zinc-100 px-3 py-1 text-xs">
-                <span className="font-medium">Code: {activeCircle.invite_code}</span>
+                <span className="font-medium">
+                  Code: {showInviteCode ? activeCircle.invite_code : "••••••"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowInviteCode(!showInviteCode)}
+                  className="inline-flex cursor-pointer items-center gap-1 text-zinc-600 hover:text-zinc-900"
+                  title={showInviteCode ? "Hide code" : "Show code"}
+                >
+                  {showInviteCode ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
+                </button>
                 <button
                   type="button"
                   onClick={handleCopyInviteCode}
@@ -353,6 +380,17 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : null}
+            {canManageCircle && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                onClick={() => setMemberManagementOpen(true)}
+                title="Manage members"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -374,7 +412,7 @@ export default function DashboardPage() {
             }}
             className="h-8 w-10 cursor-pointer rounded border p-1"
             aria-label="Choose circle color"
-            disabled={!isPm}
+            disabled={!canManageCircle}
           />
           {MEMBER_COLORS.map((color) => (
             <button
@@ -393,7 +431,7 @@ export default function DashboardPage() {
               ].join(" ")}
               style={{ backgroundColor: color }}
               aria-label={`Pick circle color ${color}`}
-              disabled={!isPm}
+              disabled={!canManageCircle}
             />
           ))}
           <Button
@@ -401,7 +439,7 @@ export default function DashboardPage() {
             size="sm"
             className="cursor-pointer"
             onClick={handleSaveCircleColor}
-            disabled={!isPm || savingCircleColor}
+            disabled={!canManageCircle || savingCircleColor}
           >
             {savingCircleColor ? (
               <span className="inline-flex items-center gap-1.5">
@@ -412,7 +450,7 @@ export default function DashboardPage() {
               "Save circle color"
             )}
           </Button>
-          {!isPm ? <span className="text-xs text-zinc-500">Only PM can change circle color.</span> : null}
+          {!canManageCircle ? <span className="text-xs text-zinc-500">Only PM and Co-PM can change circle color.</span> : null}
         </div>
         {circleColorError ? <p className="mt-2 text-xs text-red-600">{circleColorError}</p> : null}
       </section>
@@ -431,10 +469,71 @@ export default function DashboardPage() {
           ) : (
             members.map((member, index) => {
               const name = memberName(member.full_name, member.email);
-              const role = (member.memberRole ?? "member").toLowerCase() === "pm" ? "PM" : "Member";
+              const role = (member.memberRole ?? "member").toLowerCase();
+              const roleDisplay = role === "pm" ? "PM" : role === "copm" ? "Co-PM" : "Member";
+              const isYou = member.id === userId;
+              const isOpen = openMenuMemberId === member.id;
+
+              async function handlePromote() {
+                if (!activeCircle) return;
+                setPromotingMemberId(member.id);
+                try {
+                  const response = await fetch(`/api/circles/${activeCircle.id}/members/${member.id}/promote`, {
+                    method: "POST",
+                  });
+                  if (!response.ok) {
+                    throw new Error(await response.text());
+                  }
+                  updateMemberRole(member.id, "copm");
+                } catch (e) {
+                  console.error("Failed to promote:", e);
+                } finally {
+                  setPromotingMemberId(null);
+                  setOpenMenuMemberId(null);
+                }
+              }
+
+              async function handleRemove() {
+                if (!activeCircle) return;
+                if (!confirm(`Remove ${name} from this circle?`)) return;
+                setRemovingMemberId(member.id);
+                try {
+                  const response = await fetch(`/api/circles/${activeCircle.id}/members/${member.id}/remove`, {
+                    method: "POST",
+                  });
+                  if (!response.ok) {
+                    throw new Error(await response.text());
+                  }
+                  removeMember(member.id);
+                } catch (e) {
+                  console.error("Failed to remove:", e);
+                } finally {
+                  setRemovingMemberId(null);
+                  setOpenMenuMemberId(null);
+                }
+              }
+
+              async function handleDemote() {
+                if (!activeCircle) return;
+                setDemotingMemberId(member.id);
+                try {
+                  const response = await fetch(`/api/circles/${activeCircle.id}/members/${member.id}/demote`, {
+                    method: "POST",
+                  });
+                  if (!response.ok) {
+                    throw new Error(await response.text());
+                  }
+                  updateMemberRole(member.id, "member");
+                } catch (e) {
+                  console.error("Failed to demote:", e);
+                } finally {
+                  setDemotingMemberId(null);
+                  setOpenMenuMemberId(null);
+                }
+              }
 
               return (
-                <Card key={member.id} className="gap-4 py-5">
+                <Card key={member.id} className="gap-4 py-5 relative group">
                   <CardContent className="flex flex-col items-center gap-2 text-center">
                     <Avatar
                       className="h-10 w-10 text-xs"
@@ -443,9 +542,62 @@ export default function DashboardPage() {
                       {memberInitials(name)}
                     </Avatar>
                     <div className="text-sm font-medium text-zinc-900">{name}</div>
-                    <Badge variant={role === "PM" ? "success" : "secondary"}>{role}</Badge>
+                    <Badge variant={role === "pm" ? "success" : role === "copm" ? "secondary" : "outline"}>{roleDisplay}</Badge>
                     <span className="h-2 w-2 rounded-full bg-[#22c55e]" />
                   </CardContent>
+                  
+                  {canManageCircle && !isYou && (
+                    <div className="absolute top-2 right-2">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenMenuMemberId(isOpen ? null : member.id)}
+                          className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                          title="Member actions"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                        
+                        {isOpen && (
+                          <div className="absolute right-0 top-8 z-10 w-40 rounded-lg border bg-white shadow-lg">
+                            {role === "copm" && (
+                              <button
+                                type="button"
+                                onClick={handleDemote}
+                                disabled={demotingMemberId === member.id}
+                                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-xs text-amber-600 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <Shield className="h-4 w-4" />
+                                Demote to Member
+                              </button>
+                            )}
+                            {role !== "copm" && role !== "owner" && (
+                              <button
+                                type="button"
+                                onClick={handlePromote}
+                                disabled={promotingMemberId === member.id}
+                                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-xs text-zinc-700 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <Shield className="h-4 w-4" />
+                                Promote to Co-PM
+                              </button>
+                            )}
+                            {role !== "owner" && (
+                              <button
+                                type="button"
+                                onClick={handleRemove}
+                                disabled={removingMemberId === member.id}
+                                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-xs text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </Card>
               );
             })
@@ -556,6 +708,15 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </section>
+
+      <MemberManagementModal
+        open={memberManagementOpen}
+        onOpenChange={setMemberManagementOpen}
+        groupId={activeCircle.id}
+        members={members}
+        currentUserId={userId}
+            isPm={canManageCircle}
+      />
     </div>
   );
 }
