@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, CircleAlert, Kanban, ListTree, Plus, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 
 export default function TrackerWorkspace({ group, members, sprints, currentUserId, canManage = false }: TrackerWorkspaceProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [methodologyOpen, setMethodologyOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TrackerTask | null>(null);
@@ -56,6 +57,20 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
   const membersById = useMemo(() => new Map(members.map((member) => [member.id, member])), [members]);
   const tasks = useMemo(() => getAllTasks(sprints), [sprints]);
   const stats = useMemo(() => getTrackerStats(tasks), [tasks]);
+
+  useEffect(() => {
+    const taskId = searchParams.get("task");
+    if (!taskId) {
+      return;
+    }
+
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      setSelectedTask(task);
+    }
+  }, [searchParams, tasks]);
+
+  const autoExpandSprintId = searchParams.get("sprint");
 
   function refresh() {
     router.refresh();
@@ -174,6 +189,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
           onOpenTask={setSelectedTask}
           onMarkSprintComplete={markSprintComplete}
           onRefresh={refresh}
+          autoExpandSprintId={autoExpandSprintId}
         />
         <AiTaskAssistant groupId={group.id} />
       </div>

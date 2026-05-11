@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { ChevronDownIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import FloatingTooltip, { type FloatingTooltipContent } from "@/components/calendar/FloatingTooltip";
 import WeekCalendarGrid, {
@@ -178,8 +178,6 @@ export default function CalendarShell({
   selectedDate,
 }: CalendarShellProps) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const ds = useDesignStandard();
   const [layout, setLayout] = useState<Layout>("week");
   const [visibleMemberIds, setVisibleMemberIds] = useState<string[]>(() => members.map((member) => member.id));
@@ -690,6 +688,7 @@ export default function CalendarShell({
               dayDeadlines.map((deadline) => ({
                 id: `deadline-${deadline.lbl}`,
                 label: deadline.lbl,
+                href: deadline.taskId ? `/${groupId}/tracker?task=${deadline.taskId}${deadline.sprintId ? `&sprint=${deadline.sprintId}` : ""}` : undefined,
               }))
             );
             setDeadlineModalOpen(true);

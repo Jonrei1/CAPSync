@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   addDays,
   addMonths,
@@ -45,6 +45,7 @@ function toDateKey(date: Date) {
 
 export default function TrackerCalendar({ group, members, sprints, tasks, currentUserId, canManage }: TrackerCalendarProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TrackerTask | null>(null);
@@ -66,6 +67,29 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
     return eachDayOfInterval({ start: first, end: last });
   }, [month]);
   const selectedEvents = selectedDate ? eventsByDate.get(selectedDate) ?? [] : [];
+
+  useEffect(() => {
+    const dateParam = searchParams.get("date");
+    const taskId = searchParams.get("task");
+
+    if (!dateParam) {
+      return;
+    }
+
+    setSelectedDate(dateParam);
+
+    if (!taskId) {
+      setSelectedTask(null);
+      return;
+    }
+
+    const task = tasks.find((entry) => entry.id === taskId);
+    if (!task) {
+      return;
+    }
+
+    setSelectedTask(task);
+  }, [searchParams, tasks]);
 
   function refresh() {
     router.refresh();
@@ -116,7 +140,7 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
           </Button>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" className="w-[140px] text-center text-sm font-semibold hover:bg-muted">
+              <Button variant="ghost" className="w-35 text-center text-sm font-semibold hover:bg-muted">
                 {format(month, "MMMM yyyy")}
               </Button>
             </PopoverTrigger>

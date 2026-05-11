@@ -33,6 +33,7 @@ type TaskListProps = {
   onOpenTask: (task: TrackerTask) => void;
   onMarkSprintComplete: (sprintId: string) => void;
   onRefresh?: () => void;
+  autoExpandSprintId?: string | null;
 };
 
 const fieldClassName = cn(designTokens.spacing.field, "gap-2");
@@ -47,9 +48,15 @@ export default function TaskList({
   onOpenTask,
   onMarkSprintComplete,
   onRefresh,
+  autoExpandSprintId,
 }: TaskListProps) {
-  // Start with all sprint sections closed by default to avoid overwhelming the UI
-  const defaultOpen = useMemo(() => new Set<string>(), []);
+  // Start with all sprint sections closed by default, unless we have an auto-expand ID
+  const defaultOpen = useMemo(() => {
+    if (autoExpandSprintId) {
+      return new Set([autoExpandSprintId]);
+    }
+    return new Set<string>();
+  }, [autoExpandSprintId]);
   const [openSprintIds, setOpenSprintIds] = useState<Set<string>>(defaultOpen);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newSprintTitle, setNewSprintTitle] = useState("");

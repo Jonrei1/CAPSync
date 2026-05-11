@@ -143,4 +143,6 @@ export type FreeWindow = {
 export type CalendarDeadline = {
 	days: string[];
 	lbl: string;
+	taskId?: string;
+	sprintId?: string | null;
 };

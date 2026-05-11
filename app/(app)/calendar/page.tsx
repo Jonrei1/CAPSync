@@ -29,6 +29,7 @@ type TaskRow = {
   due_date: string | null;
   status: string;
   group_id: string;
+  sprint_id?: string | null;
   starts_at?: string | null;
   ends_at?: string | null;
 };
@@ -437,7 +438,7 @@ export default function MainCalendarPage() {
         circleIds.length > 0 
           ? supabase
               .from("tasks")
-              .select("id, title, due_date, status, group_id, starts_at, ends_at")
+              .select("id, title, due_date, status, group_id, sprint_id, starts_at, ends_at")
               .in("group_id", circleIds)
               .gte("due_date", start)
               .lte("due_date", end)
@@ -692,6 +693,7 @@ export default function MainCalendarPage() {
               dayTasks.map((task) => ({
                 id: task.id,
                 label: task.title,
+                href: `/${task.group_id}/tracker?task=${task.id}${task.sprint_id ? `&sprint=${task.sprint_id}` : ""}`,
               }))
             );
             setDeadlineModalOpen(true);

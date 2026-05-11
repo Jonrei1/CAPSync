@@ -359,7 +359,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
       .lte("due_date", weekEnd.toISOString()),
     supabase
       .from("tasks")
-      .select("id, title, due_date, status, group_id, starts_at, ends_at")
+      .select("id, title, due_date, status, group_id, sprint_id, starts_at, ends_at")
       .eq("group_id", groupId)
       .gte("due_date", weekStart.toISOString())
       .lte("due_date", weekEnd.toISOString()),
@@ -377,7 +377,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
   const personalRoutines = (personalRoutinesResult.data ?? []) as PersonalRoutineRow[];
   const schedules = (schedulesResult.data ?? []) as ScheduleRow[];
   const deadlines = (deadlinesResult.data ?? []) as DeadlineRow[];
-  const tasks = (tasksResult.data ?? []) as Array<{ id: string; title: string; due_date: string; status: string; starts_at: string | null; ends_at: string | null }>;
+  const tasks = (tasksResult.data ?? []) as Array<{ id: string; title: string; due_date: string; status: string; group_id: string; sprint_id: string | null; starts_at: string | null; ends_at: string | null }>;
 
   const DAY_KEY_BY_INDEX = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
   type DayKey = (typeof DAY_KEY_BY_INDEX)[number];
@@ -442,7 +442,11 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
   const explicitDeadlines = deadlines.map(mapDeadline).filter((deadline): deadline is CalendarDeadline => Boolean(deadline));
   const taskDeadlines = tasks
     .filter(t => !(t.starts_at && t.ends_at))
-    .map(t => mapDeadline({ due_date: t.due_date, title: t.title }))
+    .map(t => {
+      const base = mapDeadline({ due_date: t.due_date, title: t.title });
+      if (!base) return null;
+      return { ...base, taskId: t.id, sprintId: t.sprint_id } as CalendarDeadline;
+    })
     .filter((deadline): deadline is CalendarDeadline => Boolean(deadline));
   
   const deadlineData = [...explicitDeadlines, ...taskDeadlines];
