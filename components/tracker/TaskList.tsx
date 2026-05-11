@@ -48,15 +48,8 @@ export default function TaskList({
   onMarkSprintComplete,
   onRefresh,
 }: TaskListProps) {
-  const defaultOpen = useMemo(
-    () =>
-      new Set(
-        sprints
-          .filter((sprint, index) => normalizeSprintStatus(sprint.status) === "active" || !isSprintLocked(sprints, index, methodology))
-          .map((sprint) => sprint.id),
-      ),
-    [methodology, sprints],
-  );
+  // Start with all sprint sections closed by default to avoid overwhelming the UI
+  const defaultOpen = useMemo(() => new Set<string>(), []);
   const [openSprintIds, setOpenSprintIds] = useState<Set<string>>(defaultOpen);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newSprintTitle, setNewSprintTitle] = useState("");
@@ -66,8 +59,9 @@ export default function TaskList({
   const [addingSpring, setAddingSpring] = useState(false);
   const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [backlogOpen, setBacklogOpen] = useState(true);
-  const [tasksOpen, setTasksOpen] = useState(true);
+  // Keep backlog and task lists collapsed on initial load
+  const [backlogOpen, setBacklogOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const method = METHODOLOGIES[methodology];
