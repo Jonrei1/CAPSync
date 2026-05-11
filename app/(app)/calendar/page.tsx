@@ -643,6 +643,17 @@ export default function MainCalendarPage() {
     return events;
   }, [circleMap, dayIndexByKey, density, visibleTasks]);
 
+  const deadlineDateObjects = useMemo(() => {
+    return visibleTasks
+      .filter((task) => task.due_date && !(task.starts_at && task.ends_at))
+      .map((task) => {
+        const parts = task.due_date!.split("-");
+        const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        date.setHours(12, 0, 0, 0);
+        return date;
+      });
+  }, [visibleTasks]);
+
   const taskBadges = useMemo<import("../../../components/calendar/WeekCalendarGrid").CalendarGridBadge[]>(() => {
     if (density === "routines") {
       return [];
@@ -1394,7 +1405,8 @@ export default function MainCalendarPage() {
                     mode="single"
                     selected={activeDate}
                     defaultMonth={activeDate}
-                    onSelect={(nextDate) => {
+                    deadlineDates={deadlineDateObjects}
+                    onSelect={(nextDate: Date | undefined) => {
                       if (nextDate) {
                         syncCalendarDate(nextDate);
                         setDatePickerOpen(false);

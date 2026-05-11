@@ -230,13 +230,20 @@ function mapSchedule(row: ScheduleRow): CalendarBlock | null {
 }
 
 function mapDeadline(row: DeadlineRow): CalendarDeadline | null {
-  const day = dayFromDateString(row.due_date);
-  if (!day) {
-    return null;
-  }
+  if (!row.due_date) return null;
+  const parsed = new Date(row.due_date);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  // Normalize to midday to avoid TZ edge cases and represent as YYYY-MM-DD
+  const normalized = new Date(parsed);
+  normalized.setHours(12, 0, 0, 0);
+  const dateStr = `${normalized.getFullYear()}-${String(normalized.getMonth() + 1).padStart(2, "0")}-${String(
+    normalized.getDate()
+  ).padStart(2, "0")}`;
 
   return {
-    days: [day],
+    // store the exact date string so consumers can resolve to the proper week date
+    days: [dateStr],
     lbl: row.title ?? row.label ?? row.name ?? "Deadline",
   };
 }

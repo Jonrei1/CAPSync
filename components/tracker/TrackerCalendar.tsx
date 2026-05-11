@@ -62,6 +62,14 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
     });
     return next;
   }, [events]);
+
+  const deadlineDateObjects = useMemo(() => {
+    return Array.from(eventsByDate.values())
+      .flat()
+      .filter((event) => event.isDeadline)
+      .map((event) => parseISO(event.date));
+  }, [eventsByDate]);
+
   const calendarDays = useMemo(() => {
     const first = startOfWeek(startOfMonth(month));
     const last = endOfWeek(endOfMonth(month));
@@ -149,8 +157,9 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
               <Calendar
                 mode="single"
                 selected={month}
-                onSelect={(newDate) => newDate && setMonth(newDate)}
+                onSelect={(newDate: Date | undefined) => newDate && setMonth(newDate)}
                 defaultMonth={month}
+                deadlineDates={deadlineDateObjects}
               />
             </PopoverContent>
           </Popover>

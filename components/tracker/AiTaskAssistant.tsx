@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bot, MessageSquareText, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,6 +24,7 @@ const SUGGESTIONS = [
 ];
 
 export default function AiTaskAssistant({ groupId }: AiTaskAssistantProps) {
+  const [mounted, setMounted] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -34,6 +35,10 @@ export default function AiTaskAssistant({ groupId }: AiTaskAssistantProps) {
   const [loading, setLoading] = useState(false);
 
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function sendPrompt(value = prompt) {
     const nextPrompt = value.trim();
@@ -70,23 +75,25 @@ export default function AiTaskAssistant({ groupId }: AiTaskAssistantProps) {
 
   return (
     <>
-      <Button
-        onClick={() => setOpen((current) => !current)}
-        size="icon-lg"
-        className={cn(
-          "fixed bottom-6 right-6 z-50 cursor-pointer rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95",
-          open && "bg-purple-700 hover:bg-purple-800"
-        )}
-      >
-        {open ? <X className="size-5 text-white" /> : <MessageSquareText className="size-5" />}
-      </Button>
+      {mounted && (
+        <>
+          <Button
+            onClick={() => setOpen((current) => !current)}
+            size="icon-lg"
+            className={cn(
+              "fixed bottom-6 right-6 z-50 cursor-pointer rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95",
+              open && "bg-purple-700 hover:bg-purple-800"
+            )}
+          >
+            {open ? <X className="size-5 text-white" /> : <MessageSquareText className="size-5" />}
+          </Button>
 
-      <div
-        className={cn(
-          "fixed bottom-20 right-6 z-50 flex w-[360px] origin-bottom-right flex-col gap-0 overflow-hidden rounded-xl border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 py-0 shadow-2xl transition-all duration-200",
-          open ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
-        )}
-      >
+          <div
+            className={cn(
+              "fixed bottom-20 right-6 z-50 flex w-[360px] origin-bottom-right flex-col gap-0 overflow-hidden rounded-xl border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 py-0 shadow-2xl transition-all duration-200",
+              open ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
+            )}
+          >
         <div className="flex items-center justify-between border-b border-purple-200 px-4 py-3 bg-white/50 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Bot className="size-4 text-purple-700" />
@@ -139,6 +146,8 @@ export default function AiTaskAssistant({ groupId }: AiTaskAssistantProps) {
           </Button>
         </form>
       </div>
+        </>
+      )}
     </>
   );
 }

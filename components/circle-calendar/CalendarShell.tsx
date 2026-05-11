@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { ChevronDownIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 import FloatingTooltip, { type FloatingTooltipContent } from "@/components/calendar/FloatingTooltip";
 import WeekCalendarGrid, {
@@ -178,6 +178,8 @@ export default function CalendarShell({
   selectedDate,
 }: CalendarShellProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const ds = useDesignStandard();
   const [layout, setLayout] = useState<Layout>("week");
   const [visibleMemberIds, setVisibleMemberIds] = useState<string[]>(() => members.map((member) => member.id));
@@ -548,6 +550,30 @@ export default function CalendarShell({
     }
   }
 
+  const deadlineDateObjects = useMemo(() => {
+    return deadlines
+      .map((deadline) => {
+        const raw = deadline.days[0];
+        if (!raw) return null;
+
+        // If the producer stored an exact date string (YYYY-MM-DD), use that
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+          const parts = raw.split("-").map((p) => Number(p));
+          const d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0, 0);
+          if (Number.isNaN(d.getTime())) return null;
+          return d;
+        }
+
+        // Otherwise treat as day key (sun, mon, ...)
+        const dayIndex = DAY_KEYS.indexOf(raw as typeof DAY_KEYS[number]);
+        if (dayIndex === -1) return null;
+        const date = new Date(weekDates[dayIndex]);
+        date.setHours(12, 0, 0, 0);
+        return date;
+      })
+      .filter((date): date is Date => Boolean(date));
+  }, [deadlines, weekDates]);
+
   const weekView = useMemo(() => {
     const dayIndexByKey = new Map<string, number>(DAY_KEYS.map((key, index) => [key, index]));
     const foregroundEvents: CalendarGridEvent[] = [];
@@ -649,14 +675,32 @@ export default function CalendarShell({
       }
     }
 
-    // Group deadlines by day
+    // Group deadlines by day. Accept either weekday keys (sun/mon/...) or exact
+    // date strings (YYYY-MM-DD) produced by server mapping to avoid TZ drift.
     const deadlinesByDay = new Map<number, CalendarDeadline[]>();
     deadlines.forEach((deadline) => {
-      deadline.days.forEach((dayKey) => {
-        const dayIndex = dayIndexByKey.get(dayKey);
-        if (dayIndex === undefined) {
-          return;
+      deadline.days.forEach((raw) => {
+        if (!raw) return;
+
+        let dayIndex: number | undefined;
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+          // find matching date in this week
+          const parts = raw.split("-").map((p) => Number(p));
+          const d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0, 0);
+          for (let i = 0; i < weekDates.length; i++) {
+            const wd = new Date(weekDates[i]);
+            wd.setHours(12, 0, 0, 0);
+            if (wd.getFullYear() === d.getFullYear() && wd.getMonth() === d.getMonth() && wd.getDate() === d.getDate()) {
+              dayIndex = i;
+              break;
+            }
+          }
+        } else {
+          dayIndex = dayIndexByKey.get(raw);
         }
+
+        if (dayIndex === undefined) return;
 
         const list = deadlinesByDay.get(dayIndex) ?? [];
         list.push(deadline);
@@ -1177,6 +1221,7 @@ export default function CalendarShell({
                     mode="single"
                     selected={activeDate}
                     defaultMonth={activeDate}
+                    deadlineDates={deadlineDateObjects}
                     onSelect={(nextDate) => {
                       if (!nextDate) {
                         return;

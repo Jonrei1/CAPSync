@@ -2,21 +2,32 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker } from "react-day-picker";
+import { DayPicker, type DayPickerProps } from "react-day-picker";
 
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+interface CalendarProps extends Omit<DayPickerProps, "classNames"> {
+  classNames?: DayPickerProps["classNames"];
+  deadlineDates?: Date[];
+  selected?: Date | Date[] | undefined;
+  onSelect?: (date: Date | undefined) => void;
+}
 
 function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  deadlineDates = [],
   ...props
-}: React.ComponentProps<typeof DayPicker>) {
+}: CalendarProps) {
+  const modifiers = deadlineDates.length > 0 ? { hasDeadline: deadlineDates } : {};
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
+      modifiers={modifiers}
       classNames={{
         months: "flex flex-col gap-4",
         month: "space-y-4",
@@ -43,9 +54,9 @@ function Calendar({
         week: "mt-1 flex w-full",
         day: cn(
           buttonVariants({ variant: "ghost", size: "icon-sm" }),
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
+          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 relative",
         ),
-        day_button: "h-9 w-9 rounded-md p-0",
+        day_button: "h-9 w-9 rounded-md p-0 relative flex items-center justify-center",
         selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
         today: "bg-accent text-accent-foreground font-semibold ring-1 ring-primary/35",
@@ -64,6 +75,31 @@ function Calendar({
             return <ChevronRight className={cn("h-4 w-4", iconClassName)} {...iconProps} />;
           }
           return <ChevronRight className={cn("h-4 w-4", iconClassName)} {...iconProps} />;
+        },
+        DayButton: (props) => {
+          const isDeadline = modifiers.hasDeadline?.some((d) => {
+            const date = props.day.date;
+            return (
+              d.getFullYear() === date.getFullYear() &&
+              d.getMonth() === date.getMonth() &&
+              d.getDate() === date.getDate()
+            );
+          });
+
+          return (
+            <button
+              {...props}
+              className={cn(props.className, "relative")}
+            >
+              {props.children}
+              {isDeadline && (
+                <span
+                  className="absolute bottom-1 left-1/2 -translate-x-1/2 size-1.5 rounded-full bg-red-500"
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          );
         },
       }}
       {...props}
