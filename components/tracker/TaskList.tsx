@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, History, LockKeyhole, Plus, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ type TaskListProps = {
   onMarkSprintComplete: (sprintId: string) => void;
   onRefresh?: () => void;
   autoExpandSprintId?: string | null;
+  autoOpenBacklog?: boolean;
 };
 
 const fieldClassName = cn(designTokens.spacing.field, "gap-2");
@@ -49,6 +50,7 @@ export default function TaskList({
   onMarkSprintComplete,
   onRefresh,
   autoExpandSprintId,
+  autoOpenBacklog,
 }: TaskListProps) {
   // Start with all sprint sections closed by default, unless we have an auto-expand ID
   const defaultOpen = useMemo(() => {
@@ -67,8 +69,15 @@ export default function TaskList({
   const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   // Keep backlog and task lists collapsed on initial load
-  const [backlogOpen, setBacklogOpen] = useState(false);
+  const [backlogOpen, setBacklogOpen] = useState(autoOpenBacklog ?? false);
   const [tasksOpen, setTasksOpen] = useState(false);
+
+  // Auto-open backlog if a backlog task is selected
+  useEffect(() => {
+    if (autoOpenBacklog) {
+      setBacklogOpen(true);
+    }
+  }, [autoOpenBacklog]);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const method = METHODOLOGIES[methodology];

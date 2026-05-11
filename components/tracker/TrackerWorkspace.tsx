@@ -71,6 +71,9 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
   }, [searchParams, tasks]);
 
   const autoExpandSprintId = searchParams.get("sprint");
+  
+  // Auto-open backlog if selected task is in the backlog (no sprint)
+  const autoOpenBacklog = selectedTask ? selectedTask.sprint_id === null : false;
 
   function refresh() {
     router.refresh();
@@ -190,6 +193,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
           onMarkSprintComplete={markSprintComplete}
           onRefresh={refresh}
           autoExpandSprintId={autoExpandSprintId}
+          autoOpenBacklog={autoOpenBacklog}
         />
       </div>
 

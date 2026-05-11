@@ -20,8 +20,16 @@ export function useUnreadMeetings() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setUnread([]); setLoading(false); return; }
+    setLoading(true);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+
+    if (!user) {
+      setUnread([]);
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("schedule_invites")
@@ -104,7 +112,8 @@ export function useUnreadMeetings() {
   useEffect(() => {
     let channel = supabase.channel("unread-meetings");
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user ?? null;
       if (!user) return;
 
       channel = supabase

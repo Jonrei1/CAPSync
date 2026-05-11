@@ -31,40 +31,59 @@ export function useActivityNotifications() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user ?? null;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      if (!user) {
+        setNotifications([]);
+        return;
+      }
 
-    if (!user) {
-      setNotifications([]);
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("activity_notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (error || !data) {
-      const fallback = await supabase
+      const { data, error } = await supabase
         .from("activity_notifications")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
 
-      if (fallback.error || !fallback.data) {
-        setNotifications([]);
-        setLoading(false);
+      if (error || !data) {
+        const fallback = await supabase
+          .from("activity_notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (fallback.error || !fallback.data) {
+          setNotifications([]);
+          return;
+        }
+
+        setNotifications(
+          fallback.data.map((row) => ({
+            id: row.id,
+            groupId: row.group_id ?? null,
+            groupName: row.group_name?.trim() || (row.group_id ? "Circle" : FALLBACK_GROUP_NAME),
+            groupColor: row.group_color ?? FALLBACK_GROUP_COLOR,
+            type: row.type,
+            title: row.title,
+            eventDate: row.event_date ?? null,
+            eventStartHour: row.event_start_hour ?? null,
+            eventEndHour: row.event_end_hour ?? null,
+            link: row.link,
+            createdByName: row.created_by_name ?? null,
+            createdAt: row.created_at,
+            readAt: row.read_at ?? null,
+          })),
+        );
         return;
       }
 
       setNotifications(
-        fallback.data.map((row) => ({
+        data.map((row) => ({
           id: row.id,
           groupId: row.group_id ?? null,
           groupName: row.group_name?.trim() || (row.group_id ? "Circle" : FALLBACK_GROUP_NAME),
@@ -80,28 +99,9 @@ export function useActivityNotifications() {
           readAt: row.read_at ?? null,
         })),
       );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setNotifications(
-      data.map((row) => ({
-        id: row.id,
-        groupId: row.group_id ?? null,
-        groupName: row.group_name?.trim() || (row.group_id ? "Circle" : FALLBACK_GROUP_NAME),
-        groupColor: row.group_color ?? FALLBACK_GROUP_COLOR,
-        type: row.type,
-        title: row.title,
-        eventDate: row.event_date ?? null,
-        eventStartHour: row.event_start_hour ?? null,
-        eventEndHour: row.event_end_hour ?? null,
-        link: row.link,
-        createdByName: row.created_by_name ?? null,
-        createdAt: row.created_at,
-        readAt: row.read_at ?? null,
-      })),
-    );
-    setLoading(false);
   }, []);
 
   const markRead = useCallback(async (id: string) => {
@@ -125,8 +125,9 @@ export function useActivityNotifications() {
     const timestamp = new Date().toISOString();
 
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
 
     if (!user) {
       return;
@@ -144,8 +145,9 @@ export function useActivityNotifications() {
 
   const deleteAll = useCallback(async () => {
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
 
     if (!user) {
       return;
