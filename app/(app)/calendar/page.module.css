@@ -353,8 +353,8 @@
   padding: 7px 4px;
   text-align: center;
   border-left: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
   background: transparent;
-  border: none;
   cursor: inherit;
   font-family: inherit;
   font-size: inherit;
