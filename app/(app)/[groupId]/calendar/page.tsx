@@ -337,7 +337,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
 
   const memberIds = membersData.map((row) => row.member_id).filter((memberId): memberId is string => Boolean(memberId));
 
-  const [personalRoutinesResult, schedulesResult, deadlinesResult] = await Promise.all([
+  const [personalRoutinesResult, schedulesResult, deadlinesResult, tasksResult] = await Promise.all([
     memberIds.length > 0
       ? supabase
           .from("personal_routines")
@@ -357,6 +357,12 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
       .eq("group_id", groupId)
       .gte("due_date", weekStart.toISOString())
       .lte("due_date", weekEnd.toISOString()),
+    supabase
+      .from("tasks")
+      .select("id, title, due_date, status, group_id, starts_at, ends_at")
+      .eq("group_id", groupId)
+      .gte("due_date", weekStart.toISOString())
+      .lte("due_date", weekEnd.toISOString()),
   ]);
 
   if (personalRoutinesResult.error) {
@@ -371,6 +377,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
   const personalRoutines = (personalRoutinesResult.data ?? []) as PersonalRoutineRow[];
   const schedules = (schedulesResult.data ?? []) as ScheduleRow[];
   const deadlines = (deadlinesResult.data ?? []) as DeadlineRow[];
+  const tasks = (tasksResult.data ?? []) as Array<{ id: string; title: string; due_date: string; status: string; starts_at: string | null; ends_at: string | null }>;
 
   const DAY_KEY_BY_INDEX = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
   type DayKey = (typeof DAY_KEY_BY_INDEX)[number];
@@ -407,9 +414,38 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
   });
 
   const scheduleBlocks = schedules.map(mapSchedule).filter((block): block is CalendarBlock => Boolean(block));
-  const blocks = mergeBlocks(routineBlocks, scheduleBlocks);
+  
+  // Tasks with specific times become blocks, otherwise they become deadlines
+  const taskBlocks = tasks
+    .filter(t => t.starts_at && t.ends_at)
+    .map(t => {
+      const day = dayFromDateString(t.due_date);
+      if (!day) return null;
+      const startAt = new Date(t.starts_at!);
+      const endAt = new Date(t.ends_at!);
+      if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) return null;
+      return {
+        memberId: "task-" + t.id,
+        days: [day],
+        s: startAt.getHours() + startAt.getMinutes() / 60,
+        e: endAt.getHours() + endAt.getMinutes() / 60,
+        lbl: t.title,
+        sub: `Task · ${t.status}`,
+        routine: false,
+      } as CalendarBlock;
+    })
+    .filter((block): block is CalendarBlock => Boolean(block));
+
+  const blocks = mergeBlocks(routineBlocks, [...scheduleBlocks, ...taskBlocks]);
   const freeWindows = computeFreeWindows(members, blocks, weekStart);
-  const deadlineData = deadlines.map(mapDeadline).filter((deadline): deadline is CalendarDeadline => Boolean(deadline));
+  
+  const explicitDeadlines = deadlines.map(mapDeadline).filter((deadline): deadline is CalendarDeadline => Boolean(deadline));
+  const taskDeadlines = tasks
+    .filter(t => !(t.starts_at && t.ends_at))
+    .map(t => mapDeadline({ due_date: t.due_date, title: t.title }))
+    .filter((deadline): deadline is CalendarDeadline => Boolean(deadline));
+  
+  const deadlineData = [...explicitDeadlines, ...taskDeadlines];
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">

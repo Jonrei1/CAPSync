@@ -11,6 +11,7 @@ import WeekCalendarGrid, {
   type CalendarGridBadge,
   type CalendarGridEvent,
 } from "@/components/calendar/WeekCalendarGrid";
+import DeadlineModal, { type DeadlineItem } from "@/components/calendar/DeadlineModal";
 import AddMeetingDialog from "@/components/circle-calendar/AddMeetingDialog";
 import EditMeetingDialog from "@/components/circle-calendar/EditMeetingDialog";
 import { Button } from "@/components/ui/button";
@@ -208,6 +209,9 @@ export default function CalendarShell({
   const [nowTick, setNowTick] = useState(() => new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [hoverTooltip, setHoverTooltip] = useState<FloatingTooltipContent | null>(null);
+  const [deadlineModalOpen, setDeadlineModalOpen] = useState(false);
+  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | null>(null);
+  const [selectedDeadlineItems, setSelectedDeadlineItems] = useState<DeadlineItem[]>([]);
   const tooltipElementRef = useRef<HTMLDivElement | null>(null);
   const tooltipRafRef = useRef<number | null>(null);
   const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -647,20 +651,50 @@ export default function CalendarShell({
       }
     }
 
-    deadlines.forEach((deadline, index) => {
+    // Group deadlines by day
+    const deadlinesByDay = new Map<number, CalendarDeadline[]>();
+    deadlines.forEach((deadline) => {
       deadline.days.forEach((dayKey) => {
         const dayIndex = dayIndexByKey.get(dayKey);
         if (dayIndex === undefined) {
           return;
         }
 
-        deadlineBadges.push({
-          id: `deadline-${dayKey}-${index}`,
-          dayIndex,
-          label: deadline.lbl,
-          color: "#dc2626",
-          tooltip: { title: "Deadline", rows: [{ dot: "#dc2626", text: deadline.lbl }] },
-        });
+        const list = deadlinesByDay.get(dayIndex) ?? [];
+        list.push(deadline);
+        deadlinesByDay.set(dayIndex, list);
+      });
+    });
+
+    // Create one badge per day with all deadlines
+    deadlinesByDay.forEach((dayDeadlines, dayIndex) => {
+      deadlineBadges.push({
+        id: `deadlines-${dayIndex}`,
+        dayIndex,
+        label: "•", // Red dot
+        color: "#dc2626",
+        tooltip: {
+          title: "Deadlines",
+          rows: dayDeadlines.map((deadline) => ({
+            dot: "#dc2626",
+            text: deadline.lbl,
+          })),
+        },
+        onClick: () => {
+          // Open modal with all deadlines for this day
+          const dayKey = DAY_KEYS[dayIndex];
+          const weekDate = weekDates[dayIndex];
+          if (weekDate) {
+            setSelectedDeadlineDate(weekDate);
+            setSelectedDeadlineItems(
+              dayDeadlines.map((deadline) => ({
+                id: `deadline-${deadline.lbl}`,
+                label: deadline.lbl,
+              }))
+            );
+            setDeadlineModalOpen(true);
+          }
+        },
       });
     });
 
@@ -1485,6 +1519,13 @@ export default function CalendarShell({
         members={members}
         scheduleId={editMeetingId}
         mode={editMeetingMode}
+      />
+
+      <DeadlineModal
+        open={deadlineModalOpen}
+        onOpenChange={setDeadlineModalOpen}
+        date={selectedDeadlineDate}
+        deadlines={selectedDeadlineItems}
       />
     </div>
   );

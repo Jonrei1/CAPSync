@@ -174,12 +174,22 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
           id: created.id ?? `temp-${Date.now()}`,
           body: created.body ?? comment.trim(),
           author,
+          task_id: task.id,
+          author_id: currentUserId,
+          created_at: new Date().toISOString(),
         };
-        setCommentsState((prev) => [...prev, normalized]);
+        setCommentsState((prev) => [...prev, normalized as TrackerComment]);
       } else {
         const author = members.find((m) => m.id === currentUserId) ?? null;
-        const fallback = { id: `temp-${Date.now()}`, body: comment.trim(), author };
-        setCommentsState((prev) => [...prev, fallback]);
+        const fallback = { 
+          id: `temp-${Date.now()}`, 
+          body: comment.trim(), 
+          author,
+          task_id: task.id,
+          author_id: currentUserId,
+          created_at: new Date().toISOString(),
+        };
+        setCommentsState((prev) => [...prev, fallback as TrackerComment]);
       }
 
       setComment("");

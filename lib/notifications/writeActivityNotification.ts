@@ -45,7 +45,7 @@ export async function writeActivityNotification(input: WriteActivityNotification
     if (message.includes("event_end_hour") && message.includes("schema cache")) {
       const rowsWithoutEndHour = rows.map((row) => {
         const nextRow = { ...row };
-        delete nextRow.event_end_hour;
+        delete (nextRow as any).event_end_hour;
         return nextRow;
       });
       const retry = await input.supabase.from("activity_notifications").insert(rowsWithoutEndHour);

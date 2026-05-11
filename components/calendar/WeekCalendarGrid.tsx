@@ -408,8 +408,27 @@ export default function WeekCalendarGrid({
           {weekDates.map((date, index) => {
             const isToday = date.toDateString() === todayKey;
             const isSelected = selectedKey !== "" && date.toDateString() === selectedKey;
+            const hasBadge = badgesByDay.get(index) && badgesByDay.get(index)!.length > 0;
+            const badge = hasBadge ? badgesByDay.get(index)![0] : null;
+            
             return (
-              <div key={date.toISOString()} className={cn(styles.dayHeader, isSelected && styles.selectedCol)}>
+              <button
+                key={date.toISOString()}
+                type="button"
+                className={cn(styles.dayHeader, isSelected && styles.selectedCol, hasBadge && "cursor-pointer")}
+                onClick={hasBadge && badge?.onClick ? badge.onClick : undefined}
+                onMouseEnter={hasBadge && badge?.tooltip ? (mouseEvent) => {
+                  const tooltipEvent = new MouseEvent('mouseenter', {
+                    bubbles: true,
+                    cancelable: true,
+                    clientX: mouseEvent.clientX,
+                    clientY: mouseEvent.clientY,
+                  });
+                  openTooltip(mouseEvent, badge.tooltip!);
+                } : undefined}
+                onMouseMove={hasBadge && badge?.tooltip ? trackTooltip : undefined}
+                onMouseLeave={hasBadge && badge?.tooltip ? closeTooltip : undefined}
+              >
                 <div className={styles.dayName}>{DAY_LABELS[index] ?? DAY_LABELS[date.getDay()]}</div>
                 {isToday && isSelected ? (
                   <div className={cn(styles.dayNumSelected, styles.dayNumSelectedToday)}>{date.getDate()}</div>
@@ -420,7 +439,11 @@ export default function WeekCalendarGrid({
                 ) : (
                   <div className={styles.dayNum}>{date.getDate()}</div>
                 )}
-              </div>
+                
+                {hasBadge && badge && (
+                  <div className={styles.deadlineIndicator} style={badge.color ? { backgroundColor: badge.color } : undefined} />
+                )}
+              </button>
             );
           })}
         </div>
@@ -531,23 +554,7 @@ export default function WeekCalendarGrid({
                   );
                 })}
 
-                {dayBadges.map((badge) => {
-                  const tooltip = badge.tooltip;
-                  return (
-                  <button
-                    key={badge.id}
-                    type="button"
-                    className={styles.deadlineBadge}
-                    style={badge.color ? { backgroundColor: badge.color } : undefined}
-                    onClick={badge.onClick}
-                    onMouseEnter={tooltip ? (mouseEvent) => openTooltip(mouseEvent, tooltip) : undefined}
-                    onMouseMove={tooltip ? trackTooltip : undefined}
-                    onMouseLeave={tooltip ? closeTooltip : undefined}
-                  >
-                    {badge.label}
-                  </button>
-                  );
-                })}
+                {/* Deadlines were moved to the header */}
               </div>
             );
           })}

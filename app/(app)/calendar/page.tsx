@@ -14,6 +14,7 @@ import { writeActivityNotification } from "@/lib/notifications/writeActivityNoti
 import WeekCalendarGrid, {
   type CalendarGridEvent,
 } from "../../../components/calendar/WeekCalendarGrid";
+import DeadlineModal, { type DeadlineItem } from "@/components/calendar/DeadlineModal";
 import { cn } from "@/lib/utils";
 import styles from "./page.module.css";
 type CircleRow = {
@@ -204,6 +205,9 @@ export default function MainCalendarPage() {
   const [scopeTarget, setScopeTarget] = useState<ScopeTarget | null>(null);
   const [scopeChoice, setScopeChoice] = useState<"occurrence" | "all">("occurrence");
   const [deleteChoice, setDeleteChoice] = useState<"occurrence" | "all" | null>(null);
+  const [deadlineModalOpen, setDeadlineModalOpen] = useState(false);
+  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | null>(null);
+  const [selectedDeadlineItems, setSelectedDeadlineItems] = useState<DeadlineItem[]>([]);
   const [editingRoutine, setEditingRoutine] = useState<RoutineRow | null>(null);
   const [editScope, setEditScope] = useState<"occurrence" | "all">("all");
   const [editOccurrenceDate, setEditOccurrenceDate] = useState<string | null>(null);
@@ -430,13 +434,15 @@ export default function MainCalendarPage() {
       const circleIds = userCircles?.map(c => c.group_id) || [];
  
       const [tasksResult, schedulesResult, groupMeetingsResult] = await Promise.all([
-        supabase
-          .from("tasks")
-          .select("id, title, due_date, status, group_id, starts_at, ends_at")
-          .eq("assigned_to", userId)
-          .gte("due_date", start)
-          .lte("due_date", end)
-          .order("due_date", { ascending: true }),
+        circleIds.length > 0 
+          ? supabase
+              .from("tasks")
+              .select("id, title, due_date, status, group_id, starts_at, ends_at")
+              .in("group_id", circleIds)
+              .gte("due_date", start)
+              .lte("due_date", end)
+              .order("due_date", { ascending: true })
+          : Promise.resolve({ data: [] }),
         supabase
           .from("scheduled_blocks")
           .select("id, label, details, color, scheduled_date, start_time, end_time")
@@ -579,7 +585,7 @@ export default function MainCalendarPage() {
     const grouped = new Map<number, TaskRow[]>();
 
     for (const task of visibleTasks) {
-      if (!task.due_date) {
+      if (!task.due_date || !task.starts_at || !task.ends_at) {
         continue;
       }
 
@@ -596,22 +602,20 @@ export default function MainCalendarPage() {
     const events: CalendarGridEvent[] = [];
 
     grouped.forEach((dayTasks, dayIndex) => {
-      dayTasks.forEach((task, index) => {
+      dayTasks.forEach((task) => {
         const circle = circleMap.get(task.group_id);
         const color = circle?.color ?? "#4f46e5";
         const sub = `${circle?.name ?? "Circle"} · ${task.status}`;
-        const startAt = task.starts_at ? new Date(task.starts_at) : null;
-        const endAt = task.ends_at ? new Date(task.ends_at) : null;
+        
+        const startAt = new Date(task.starts_at!);
+        const endAt = new Date(task.ends_at!);
 
-        const startHour =
-          startAt && !Number.isNaN(startAt.getTime())
-            ? startAt.getHours() + startAt.getMinutes() / 60
-            : 9 + index * 0.6;
+        if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+          return;
+        }
 
-        const endHour =
-          endAt && !Number.isNaN(endAt.getTime())
-            ? endAt.getHours() + endAt.getMinutes() / 60
-            : startHour + 1;
+        const startHour = startAt.getHours() + startAt.getMinutes() / 60;
+        const endHour = endAt.getHours() + endAt.getMinutes() / 60;
 
         events.push({
           id: task.id,
@@ -628,7 +632,7 @@ export default function MainCalendarPage() {
             rows: [
               { dot: color, text: sub },
               { text: `${formatTooltipTime(startHour)} - ${formatTooltipTime(endHour)}` },
-              { text: "Manual block" },
+              { text: "Scheduled task" },
             ],
           },
         });
@@ -636,6 +640,67 @@ export default function MainCalendarPage() {
     });
 
     return events;
+  }, [circleMap, dayIndexByKey, density, visibleTasks]);
+
+  const taskBadges = useMemo<import("../../../components/calendar/WeekCalendarGrid").CalendarGridBadge[]>(() => {
+    if (density === "routines") {
+      return [];
+    }
+
+    const grouped = new Map<number, TaskRow[]>();
+
+    for (const task of visibleTasks) {
+      if (!task.due_date || (task.starts_at && task.ends_at)) {
+        continue;
+      }
+
+      const dayIndex = dayIndexByKey.get(task.due_date);
+      if (dayIndex === undefined) {
+        continue;
+      }
+
+      const list = grouped.get(dayIndex) ?? [];
+      list.push(task);
+      grouped.set(dayIndex, list);
+    }
+
+    const badges: import("../../../components/calendar/WeekCalendarGrid").CalendarGridBadge[] = [];
+
+    grouped.forEach((dayTasks, dayIndex) => {
+      // Create only one badge per day with a dot indicator
+      badges.push({
+        id: `deadlines-${dayIndex}`,
+        dayIndex,
+        label: "•", // Red dot
+        color: "#dc2626",
+        tooltip: {
+          title: "Deadlines",
+          rows: dayTasks.map((task) => ({
+            dot: "#dc2626",
+            text: task.title,
+          })),
+        },
+        onClick: () => {
+          // Open modal with all deadlines for this day
+          const taskDateStr = dayTasks[0]?.due_date;
+          if (taskDateStr) {
+            const parts = taskDateStr.split("-");
+            const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            date.setHours(12, 0, 0, 0);
+            setSelectedDeadlineDate(date);
+            setSelectedDeadlineItems(
+              dayTasks.map((task) => ({
+                id: task.id,
+                label: task.title,
+              }))
+            );
+            setDeadlineModalOpen(true);
+          }
+        },
+      });
+    });
+
+    return badges;
   }, [circleMap, dayIndexByKey, density, visibleTasks]);
 
   const scheduleEvents = useMemo<CalendarGridEvent[]>(() => {
@@ -1375,7 +1440,7 @@ export default function MainCalendarPage() {
                     <span className={styles.circleName} style={{ color }}>
                       {circle.name}
                     </span>
-                    <span className={styles.circleSub}>{routineCount} routines · {taskCount} tasks assigned</span>
+                    <span className={styles.circleSub}>{routineCount} routines · {taskCount} tasks</span>
                   </span>
                   <span
                     className={styles.circleChipCheck}
@@ -1425,6 +1490,7 @@ export default function MainCalendarPage() {
             weekDates={weekDates}
             foregroundEvents={[...taskEvents, ...scheduleEvents]}
             backgroundEvents={routineEvents}
+            badges={taskBadges}
             now={now}
             selectedDate={activeDate}
             onRoutineAction={(routineId, action, occurrenceDate, dayIndex) => {
@@ -1470,7 +1536,7 @@ export default function MainCalendarPage() {
 
                       {circleTasks.length === 0 ? (
                         <div className={styles.focusTask} style={{ color: "#9ca3af" }}>
-                          No tasks assigned this week.
+                          No tasks due this week.
                         </div>
                       ) : (
                         circleTasks.map((task) => (
@@ -2125,6 +2191,13 @@ export default function MainCalendarPage() {
           </div>
         </div>
       )}
+
+      <DeadlineModal
+        open={deadlineModalOpen}
+        onOpenChange={setDeadlineModalOpen}
+        date={selectedDeadlineDate}
+        deadlines={selectedDeadlineItems}
+      />
     </div>
   );
 }
