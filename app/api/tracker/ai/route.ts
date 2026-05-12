@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { errorResponse, getAuthenticatedSupabase, getMembership, isPlainObject } from "@/app/api/tracker/tracker-api-utils";
 
 const SYSTEM_PROMPT =
-  "You are a helpful capstone project tracker assistant integrated into CAPSync. Keep responses under 150 words, practical, and specific to student thesis/capstone work. Do not replace the team's workflow. Suggest next actions.";
+  "You are a helpful capstone project tracker assistant integrated into Libré. Keep responses under 150 words, practical, and specific to student thesis/capstone work. Do not replace the team's workflow. Suggest next actions.";
 
 export async function POST(request: Request) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     .map((task) => `${task.title} - ${task.status}, due ${task.due_date ?? "none"}, priority ${task.priority ?? "medium"}`)
     .join("\n");
 
-  const context = `Group: ${group?.name ?? "CAPSync circle"}
+  const context = `Group: ${group?.name ?? "Libré circle"}
 Methodology: ${group?.methodology ?? "scrum"}
 Sprints:
 ${sprintSummary || "No sprints yet."}

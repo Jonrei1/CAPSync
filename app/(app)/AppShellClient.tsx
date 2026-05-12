@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, CalendarDays, LogOut, Menu } from "lucide-react";
@@ -148,9 +149,10 @@ function AppShell({ children }: AppLayoutProps) {
           ✕
         </Button>
 
-        <div className="mb-2 border-b px-4 pb-4 text-[15px] font-semibold tracking-[-0.03em] text-zinc-900">
-          CAP<span className="text-green-600">Sync</span>
-        </div>
+        <Link href="/dashboard" className="mb-2 flex items-center gap-2 border-b px-4 pb-4 text-[15px] font-semibold tracking-[-0.03em] text-zinc-900">
+          <Image src="/images/logo.png" alt="Libré logo" width={24} height={24} className="h-6 w-6 rounded-md object-contain" priority />
+          <span>Libré</span>
+        </Link>
 
         <div className="px-3">
           <div className="mb-1 px-1 text-[11px] font-medium tracking-[0.08em] text-zinc-500 uppercase">Main</div>

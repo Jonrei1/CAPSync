@@ -12,7 +12,7 @@ const MIN_PASSWORD_LENGTH = 12;
 
 function fallbackAccountName(email: string) {
   const [username] = email.split("@");
-  return username || "CAPSync User";
+  return username || "Libré User";
 }
 
 function isValidEmail(email: string) {

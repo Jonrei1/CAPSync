@@ -10,10 +10,12 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Libré",
+  applicationName: "Libré",
   description: "Collaborative planning and scheduling for circles and sprints.",
   manifest: "/site.webmanifest",
   icons: {
     icon: [
+      { url: "/images/logo.png", type: "image/png", sizes: "512x512" },
       { url: "/favicon.ico", sizes: "any" },
       { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
       { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },

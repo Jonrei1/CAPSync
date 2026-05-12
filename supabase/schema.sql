@@ -1,4 +1,4 @@
--- CAPSync database schema
+-- Libré database schema
 -- Safe to re-run in Supabase SQL Editor.
 
 create table if not exists profiles (
