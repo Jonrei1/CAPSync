@@ -36,6 +36,7 @@ type TrackerCalendarProps = {
   tasks: TrackerTask[];
   currentUserId: string;
   canManage: boolean;
+  hideAssistant?: boolean;
 };
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -44,7 +45,7 @@ function toDateKey(date: Date) {
   return format(date, "yyyy-MM-dd");
 }
 
-export default function TrackerCalendar({ group, members, sprints, tasks, currentUserId, canManage }: TrackerCalendarProps) {
+export default function TrackerCalendar({ group, members, sprints, tasks, currentUserId, canManage, hideAssistant }: TrackerCalendarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [month, setMonth] = useState(startOfMonth(new Date()));
@@ -313,7 +314,7 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
         onSaved={refresh}
       />
       <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} currentUserId={currentUserId} onSaved={refresh} />
-      <AiTaskAssistant groupId={group.id} />
+      {!hideAssistant && <AiTaskAssistant groupId={group.id} />}
     </div>
   );
 }

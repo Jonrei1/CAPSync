@@ -3,18 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { FormEvent, useState, CSSProperties, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import TrackerCalendar from "@/components/tracker/TrackerCalendar";
+import type { Group, Profile, TrackerTask } from "@/types";
 
 type LoadingState = "google" | "email" | null;
 
@@ -24,12 +17,95 @@ function Spinner() {
   );
 }
 
+const dummyGroup: Group = {
+  id: "dummy",
+  name: "Design Circle",
+  methodology: "kanban",
+  created_by: "1",
+  created_at: "2024-01-01T00:00:00.000Z",
+  archived_at: null,
+  subject: "Productivity",
+  color: "#4f46e5",
+};
+
+const dummyMembers: Profile[] = [
+  { id: "1", email: "alice@example.com", full_name: "Alice L", created_at: "", color: "#4f46e5" },
+  { id: "2", email: "bob@example.com", full_name: "Bob M", created_at: "", color: "#16a34a" },
+];
+
+const lightThemeVars = {
+  '--background': 'oklch(1 0 0)',
+  '--foreground': 'oklch(0.145 0 0)',
+  '--card': 'oklch(1 0 0)',
+  '--card-foreground': 'oklch(0.145 0 0)',
+  '--popover': 'oklch(1 0 0)',
+  '--popover-foreground': 'oklch(0.145 0 0)',
+  '--primary': 'oklch(0.205 0 0)',
+  '--primary-foreground': 'oklch(0.985 0 0)',
+  '--secondary': 'oklch(0.97 0 0)',
+  '--secondary-foreground': 'oklch(0.205 0 0)',
+  '--muted': 'oklch(0.97 0 0)',
+  '--muted-foreground': 'oklch(0.556 0 0)',
+  '--accent': 'oklch(0.97 0 0)',
+  '--accent-foreground': 'oklch(0.205 0 0)',
+  '--destructive': 'oklch(0.577 0.245 27.325)',
+  '--border': 'oklch(0.922 0 0)',
+  '--input': 'oklch(0.922 0 0)',
+  '--ring': 'oklch(0.708 0 0)'
+} as CSSProperties;
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState<LoadingState>(null);
+
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const dummyTasks = useMemo(() => {
+    if (!isClient) return [];
+    const today = new Date();
+    return [
+      {
+        id: "t1",
+        group_id: "dummy",
+        title: "Finalize App Redesign",
+        description: "",
+        status: "doing",
+        priority: "high",
+        assigned_to: "1",
+        sprint_id: null,
+        due_date: today.toISOString(),
+        created_by: "1",
+        created_at: today.toISOString(),
+        updated_at: today.toISOString(),
+        starts_at: today.toISOString(),
+        ends_at: today.toISOString(),
+        is_all_day: false,
+      },
+      {
+        id: "t2",
+        group_id: "dummy",
+        title: "Review Q3 Roadmap",
+        description: "",
+        status: "todo",
+        priority: "medium",
+        assigned_to: "2",
+        sprint_id: null,
+        due_date: new Date(today.getTime() + 86400000 * 2).toISOString(),
+        created_by: "1",
+        created_at: today.toISOString(),
+        updated_at: today.toISOString(),
+        starts_at: null,
+        ends_at: null,
+        is_all_day: true,
+      }
+    ] as TrackerTask[];
+  }, [isClient]);
 
   const isBusy = loading !== null;
 
@@ -84,26 +160,38 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="font-sans flex min-h-screen flex-col bg-[radial-gradient(circle_at_0%_0%,rgba(219,234,254,0.9),transparent_45%),radial-gradient(circle_at_100%_100%,rgba(224,231,255,0.8),transparent_45%),radial-gradient(circle_at_100%_0%,rgba(240,249,255,0.9),transparent_40%),radial-gradient(circle_at_0%_100%,rgba(239,246,255,0.9),transparent_40%)]">
-      <main className="flex flex-1 items-center justify-center px-5 py-16 md:px-8">
-        <Card className="w-full max-w-110 gap-0 py-8 shadow-lg">
-          <CardHeader className="space-y-3.5 px-7 text-center md:px-8">
-            <div className="mb-3 flex items-center justify-center">
-              <div className="rounded-lg bg-primary p-2.5 text-primary-foreground shadow-sm">
-                <RefreshCw className="h-6 w-6" aria-hidden="true" />
-              </div>
-            </div>
-            <CardTitle className=" text-3xl tracking-tight">Welcome back</CardTitle>
-            <CardDescription className="text-sm leading-relaxed">
-              Enter your credentials to access your account
-            </CardDescription>
-          </CardHeader>
+    <div className="flex h-screen bg-background p-4 font-sans md:p-6 lg:p-8 overflow-hidden">
+      <div className="flex w-full overflow-hidden rounded-3xl bg-card border border-border shadow-2xl">
+        {/* Left Column: Form */}
+        <div className="relative flex w-full flex-col px-6 py-8 lg:w-1/2 xl:w-5/12 lg:px-12 xl:px-20 border-r border-border">
+          {/* Header/Brand */}
+          <div className="absolute left-8 top-8 flex items-center gap-2">
+            <Image 
+              src="/images/logo.png" 
+              alt="Libré Logo" 
+              width={28} 
+              height={28} 
+              className="object-contain"
+              priority 
+            />
+            <span className="text-xl font-bold tracking-tight text-foreground">Libré</span>
+          </div>
 
-          <CardContent className="space-y-7 px-7 md:px-8">
-            <form className="grid gap-6" onSubmit={handleEmailSignIn}>
-              <div className="grid gap-3 text-left">
-                <label htmlFor="email" className="text-sm font-medium mt-3">
-                  Email address
+          <div className="mx-auto flex w-full max-w-sm flex-col justify-center min-h-full py-8">
+            <div className="mb-6 text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-foreground">
+                Welcome Back
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Enter your email and password to access your account.
+              </p>
+            </div>
+
+            <form className="grid gap-4" onSubmit={handleEmailSignIn}>
+              {/* Email */}
+              <div className="grid gap-2 text-left">
+                <label htmlFor="email" className="text-sm font-medium text-foreground">
+                  Email
                 </label>
                 <Input
                   id="email"
@@ -114,21 +202,15 @@ export default function LoginPage() {
                   autoComplete="email"
                   required
                   disabled={isBusy}
+                  className="h-11 rounded-lg"
                 />
               </div>
 
-              <div className="grid gap-3 text-left">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="text-sm font-medium">
-                    Password
-                  </label>
-                  <button
-                    type="button"
-                    className="cursor-pointer text-xs font-medium text-primary hover:underline"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
+              {/* Password */}
+              <div className="grid gap-2 text-left">
+                <label htmlFor="password" className="text-sm font-medium text-foreground">
+                  Password
+                </label>
                 <Input
                   id="password"
                   type="password"
@@ -138,34 +220,46 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   required
                   disabled={isBusy}
+                  className="h-11 rounded-lg"
                 />
+              </div>
+
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-2">
+                    <input type="checkbox" id="remember" className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer" />
+                    <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">Remember Me</label>
+                 </div>
+                 <button type="button" className="text-sm font-medium text-primary hover:underline">
+                   Forgot Your Password?
+                 </button>
               </div>
 
               <Button
                 type="submit"
-                className="mt-2 h-11 w-full cursor-pointer"
+                className="mt-2 h-11 w-full rounded-lg text-base font-medium shadow-sm"
                 disabled={isBusy}
               >
                 {loading === "email" ? (
                   <span className="inline-flex items-center gap-2">
                     <Spinner />
-                    Signing in...
+                    Logging in...
                   </span>
                 ) : (
-                  "Sign in"
+                  "Log In"
                 )}
               </Button>
             </form>
 
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {error ? <p className="mt-4 text-center text-sm font-medium text-destructive">{error}</p> : null}
 
-            <div className="relative py-2">
+            <div className="relative mt-4 py-2">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  Or continue with
+                <span className="bg-card px-3 text-muted-foreground font-medium">
+                  Or Login With
                 </span>
               </div>
             </div>
@@ -173,7 +267,7 @@ export default function LoginPage() {
             <Button
               type="button"
               variant="outline"
-              className="h-11 w-full cursor-pointer gap-2"
+              className="mt-6 h-11 w-full rounded-lg bg-card font-medium text-foreground hover:bg-muted gap-2 shadow-sm"
               onClick={handleGoogleSignIn}
               disabled={isBusy}
             >
@@ -183,44 +277,65 @@ export default function LoginPage() {
                 <Image
                   src="/google-logo.svg"
                   alt="Google"
-                  width={16}
-                  height={16}
-                  className="h-4 w-4"
+                  width={18}
+                  height={18}
+                  className="h-4.5 w-4.5"
                 />
               )}
-              Continue with Google
+              Google
             </Button>
-          </CardContent>
 
-          <CardFooter className="flex-wrap justify-center gap-1 px-7 pb-8 pt-2 text-center text-sm text-muted-foreground md:px-8">
-            Don&apos;t have an account?
-            <Link href="/signup" className="font-semibold text-primary hover:underline">
-              Create an account
-            </Link>
-          </CardFooter>
-        </Card>
-      </main>
+            <div className="mt-8 text-center text-sm text-muted-foreground">
+              Don&apos;t Have An Account?{" "}
+              <Link href="/signup" className="font-semibold text-primary hover:underline">
+                Register Now.
+              </Link>
+            </div>
+          </div>
 
-      <footer className="w-full px-5 py-8 md:px-8">
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-5 text-xs text-muted-foreground md:flex-row">
-          <div className="font-bold text-foreground/80">CAPSync</div>
-          <nav className="flex flex-wrap justify-center gap-5">
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Terms of Service
-            </Link>
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Cookie Settings
-            </Link>
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Security
-            </Link>
-          </nav>
-          <div>© 2024 CAPSync. All rights reserved.</div>
+          <div className="absolute bottom-8 left-8 right-8 flex justify-between text-xs text-muted-foreground font-medium">
+            <div>Copyright © {new Date().getFullYear()} Libré.</div>
+            <Link href="#" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+          </div>
         </div>
-      </footer>
+
+        {/* Right Column: Visual */}
+        <div className="relative hidden w-0 flex-1 lg:flex flex-col justify-start bg-zinc-950 p-12 xl:p-20 pt-24 overflow-hidden">
+          <div className="absolute inset-0">
+            <div className="absolute top-0 left-0 right-0 h-full bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
+            <div className="absolute bottom-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.15),transparent_50%)] translate-x-1/3 translate-y-1/3"></div>
+            <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.1),transparent_50%)] rounded-full blur-3xl mix-blend-screen"></div>
+          </div>
+          
+          <div className="relative z-10 mx-auto w-full max-w-5xl text-left">
+            <h1 className="mb-4 text-3xl font-semibold leading-tight text-white xl:text-4xl">
+              Effortlessly manage your<br />circle and operations.
+            </h1>
+            <p className="mb-8 text-base text-zinc-300">
+              Log in to access your dashboard and synchronize your team.
+            </p>
+
+            {isClient && (
+              <div 
+                className="relative mt-12 h-[520px] w-full overflow-hidden rounded-2xl bg-background p-4 shadow-2xl ring-1 ring-border/50 flex justify-center"
+                style={lightThemeVars}
+              >
+                <div className="pointer-events-none origin-top transform scale-[0.55] xl:scale-[0.65] w-[160%] shrink-0">
+                  <TrackerCalendar 
+                    group={dummyGroup}
+                    members={dummyMembers}
+                    sprints={[]}
+                    tasks={dummyTasks}
+                    currentUserId="1"
+                    canManage={false}
+                    hideAssistant={true}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

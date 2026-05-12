@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Libr",
+  title: "Libré",
   description: "Collaborative planning and scheduling for circles and sprints.",
   manifest: "/site.webmanifest",
   icons: {
