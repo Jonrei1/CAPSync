@@ -213,15 +213,12 @@ export default function LoginPage() {
                 />
               </div>
 
-              {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between">
+                {/* Remember Me */}
+                <div className="flex items-center justify-between">
                  <div className="flex items-center gap-2">
                     <input type="checkbox" id="remember" className="h-4 w-4 rounded border-border accent-black focus:ring-black cursor-pointer" />
                     <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">Remember Me</label>
                  </div>
-                 <button type="button" className="text-sm font-medium text-primary hover:underline">
-                   Forgot Your Password?
-                 </button>
               </div>
 
               <Button
