@@ -3,11 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState, CSSProperties, useMemo, useEffect } from "react";
+import { FormEvent, useState, CSSProperties, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import CalendarShell from "@/components/circle-calendar/CalendarShell";
-import type { Group, Profile, TrackerTask, CalendarMember, CalendarBlock, FreeWindow, CalendarDeadline } from "@/types";
+import type { CalendarMember, CalendarBlock, FreeWindow, CalendarDeadline } from "@/types";
 
 type LoadingState = "google" | "email" | null;
 
@@ -16,22 +16,6 @@ function Spinner() {
     <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
   );
 }
-
-const dummyGroup: Group = {
-  id: "dummy",
-  name: "Design Circle",
-  methodology: "kanban",
-  created_by: "1",
-  created_at: "2024-01-01T00:00:00.000Z",
-  archived_at: null,
-  subject: "Productivity",
-  color: "#4f46e5",
-};
-
-const dummyMembers: Profile[] = [
-  { id: "1", email: "alice@example.com", full_name: "Alice L", created_at: "", color: "#4f46e5" },
-  { id: "2", email: "bob@example.com", full_name: "Bob M", created_at: "", color: "#ea580c" },
-];
 
 const dummyCalendarMembers: CalendarMember[] = [
   {
@@ -108,49 +92,9 @@ export default function LoginPage() {
 
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
-    setIsClient(true);
+    const animationFrameId = window.requestAnimationFrame(() => setIsClient(true));
+    return () => window.cancelAnimationFrame(animationFrameId);
   }, []);
-
-  const dummyTasks = useMemo(() => {
-    if (!isClient) return [];
-    const today = new Date();
-    return [
-      {
-        id: "t1",
-        group_id: "dummy",
-        title: "Finalize App Redesign",
-        description: "",
-        status: "doing",
-        priority: "high",
-        assigned_to: "1",
-        sprint_id: null,
-        due_date: today.toISOString(),
-        created_by: "1",
-        created_at: today.toISOString(),
-        updated_at: today.toISOString(),
-        starts_at: today.toISOString(),
-        ends_at: today.toISOString(),
-        is_all_day: false,
-      },
-      {
-        id: "t2",
-        group_id: "dummy",
-        title: "Review Q3 Roadmap",
-        description: "",
-        status: "todo",
-        priority: "medium",
-        assigned_to: "2",
-        sprint_id: null,
-        due_date: new Date(today.getTime() + 86400000 * 2).toISOString(),
-        created_by: "1",
-        created_at: today.toISOString(),
-        updated_at: today.toISOString(),
-        starts_at: null,
-        ends_at: null,
-        is_all_day: true,
-      }
-    ] as TrackerTask[];
-  }, [isClient]);
 
   const isBusy = loading !== null;
 
@@ -353,16 +297,17 @@ export default function LoginPage() {
           </div>
           
           <div className="relative z-10 mx-auto w-full max-w-5xl text-left">
-            <h1 className="mb-4 text-3xl font-semibold leading-tight text-white xl:text-4xl">
-              Effortlessly manage your<br />circle and operations.
+            <h1 className="mb-4 text-3xl font-semibold leading-tight text-white xl:text-4xl animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both">
+              Your team’s time finally Libré <br/>in one place.
+              
             </h1>
-            <p className="mb-8 text-base text-zinc-300">
-              Log in to access your dashboard and synchronize your team.
+            <p className="mb-8 text-base text-zinc-300 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150 fill-mode-both">
+              Coordinate events, track schedules, and keep everyone aligned effortlessly.
             </p>
 
             {isClient && (
               <div 
-                className="relative mt-12 h-[520px] w-full overflow-hidden rounded-2xl bg-background p-4 shadow-2xl ring-1 ring-border/50 flex justify-center"
+                className="relative mt-12 h-[520px] w-full overflow-hidden rounded-2xl bg-background p-4 shadow-2xl ring-1 ring-border/50 flex justify-center animate-in fade-in zoom-in-95 duration-1000 delay-300 fill-mode-both"
                 style={lightThemeVars}
               >
                 <div className="pointer-events-none origin-top transform scale-[0.55] xl:scale-[0.65] w-[160%] h-[720px] shrink-0">
@@ -377,7 +322,7 @@ export default function LoginPage() {
                     weekOffset={0}
                     selectedDate={new Date().toISOString().split("T")[0]}
                     startHour={8}
-                    endHour={14}
+                    endHour={15}
                   />
                 </div>
               </div>
