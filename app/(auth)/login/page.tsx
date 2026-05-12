@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState, CSSProperties, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import TrackerCalendar from "@/components/tracker/TrackerCalendar";
-import type { Group, Profile, TrackerTask } from "@/types";
+import CalendarShell from "@/components/circle-calendar/CalendarShell";
+import type { Group, Profile, TrackerTask, CalendarMember, CalendarBlock, FreeWindow, CalendarDeadline } from "@/types";
 
 type LoadingState = "google" | "email" | null;
 
@@ -30,7 +30,52 @@ const dummyGroup: Group = {
 
 const dummyMembers: Profile[] = [
   { id: "1", email: "alice@example.com", full_name: "Alice L", created_at: "", color: "#4f46e5" },
-  { id: "2", email: "bob@example.com", full_name: "Bob M", created_at: "", color: "#16a34a" },
+  { id: "2", email: "bob@example.com", full_name: "Bob M", created_at: "", color: "#ea580c" },
+];
+
+const dummyCalendarMembers: CalendarMember[] = [
+  {
+    id: "1",
+    name: "Alice L",
+    ini: "AL",
+    bg: "#4f46e5",
+    lt: "rgba(79, 70, 229, 0.15)",
+    bd: "rgba(79, 70, 229, 0.5)",
+    tc: "#2e2a85",
+    role: "pm",
+  },
+  {
+    id: "2",
+    name: "Bob M",
+    ini: "BM",
+    bg: "#ea580c",
+    lt: "rgba(234, 88, 12, 0.15)",
+    bd: "rgba(234, 88, 12, 0.5)",
+    tc: "#9a3412",
+    role: "member",
+  },
+];
+
+const dummyCalendarBlocks: CalendarBlock[] = [
+  // Alice's blocks (1 hr each)
+  { memberId: "1", days: ["mon", "wed", "fri"], s: 9, e: 10, lbl: "Stand-up", sub: "Main Hall", routine: true },
+  { memberId: "1", days: ["tue"], s: 10, e: 11, lbl: "Design Review", sub: "Room A", routine: false },
+  { memberId: "1", days: ["thu"], s: 14, e: 15, lbl: "Sprint Planning", sub: "Conference", routine: false },
+  // Bob's blocks (1 hr each)
+  { memberId: "2", days: ["mon", "wed"], s: 10, e: 11, lbl: "Code Review", sub: "Remote", routine: true },
+  { memberId: "2", days: ["tue", "thu"], s: 9, e: 10, lbl: "Dev Sync", sub: "Room B", routine: false },
+  { memberId: "2", days: ["fri"], s: 13, e: 14, lbl: "Retrospective", sub: "Main Hall", routine: false },
+];
+
+const dummyFreeWindows: FreeWindow[] = [
+  { days: ["mon", "tue", "wed"], s: 11, e: 13, memberIds: ["1", "2"], lbl: "Both free", dur: "2 hrs" },
+  { days: ["thu"], s: 10, e: 12, memberIds: ["1", "2"], lbl: "Both free", dur: "2 hrs" },
+  { days: ["fri"], s: 10, e: 12, memberIds: ["1", "2"], lbl: "Both free", dur: "2 hrs" },
+];
+
+const dummyCalendarDeadlines: CalendarDeadline[] = [
+  { days: ["wed"], lbl: "Project Milestone" },
+  { days: ["fri"], lbl: "Sprint Deadline" },
 ];
 
 const lightThemeVars = {
@@ -320,15 +365,19 @@ export default function LoginPage() {
                 className="relative mt-12 h-[520px] w-full overflow-hidden rounded-2xl bg-background p-4 shadow-2xl ring-1 ring-border/50 flex justify-center"
                 style={lightThemeVars}
               >
-                <div className="pointer-events-none origin-top transform scale-[0.55] xl:scale-[0.65] w-[160%] shrink-0">
-                  <TrackerCalendar 
-                    group={dummyGroup}
-                    members={dummyMembers}
-                    sprints={[]}
-                    tasks={dummyTasks}
-                    currentUserId="1"
-                    canManage={false}
-                    hideAssistant={true}
+                <div className="pointer-events-none origin-top transform scale-[0.55] xl:scale-[0.65] w-[160%] h-[720px] shrink-0">
+                  <CalendarShell
+                    members={dummyCalendarMembers}
+                    blocks={dummyCalendarBlocks}
+                    freeWindows={dummyFreeWindows}
+                    deadlines={dummyCalendarDeadlines}
+                    groupId="dummy"
+                    groupName="Design Circle"
+                    groupColor="#4f46e5"
+                    weekOffset={0}
+                    selectedDate={new Date().toISOString().split("T")[0]}
+                    startHour={8}
+                    endHour={14}
                   />
                 </div>
               </div>

@@ -34,6 +34,8 @@ type CalendarShellProps = {
   groupSubject?: string | null;
   weekOffset: number;
   selectedDate: string;
+  startHour?: number;
+  endHour?: number;
 };
 
 type Layout = "week" | "heat" | "dots" | "free";
@@ -176,6 +178,8 @@ export default function CalendarShell({
   groupSubject,
   weekOffset: _weekOffset,
   selectedDate,
+  startHour: propStartHour,
+  endHour: propEndHour,
 }: CalendarShellProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -812,8 +816,8 @@ export default function CalendarShell({
                 badges={deadlineBadges}
                 now={nowTick}
                 selectedDate={activeDate}
-                startHour={5}
-                endHour={24}
+                startHour={propStartHour ?? 5}
+                endHour={propEndHour ?? 24}
                 tooltipClassName={ds.calendar.tooltip}
                 tooltipTitleClassName={ds.calendar.tooltipTitle}
                 tooltipRowClassName={ds.calendar.tooltipRow}
