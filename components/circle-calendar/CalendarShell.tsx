@@ -60,6 +60,9 @@ const ROUTINE_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "
 const HEAT_COLORS = ["#f0fdf4", "#dbeafe", "#93c5fd", "#3b82f6", "#1e3a8a"];
 const HEAT_BORDERS = ["#86efac", "#bfdbfe", "#60a5fa", "#1d4ed8", "#172554"];
 const HEAT_TEXT = ["#15803d", "#1e40af", "#1e40af", "#ffffff", "#ffffff"];
+const MEETING_HEAT_COLORS = ["#f0fdf4", "#fef3c7", "#fed7aa", "#fd8c73", "#d32f2f"];
+const MEETING_HEAT_BORDERS = ["#86efac", "#fcd34d", "#fdba74", "#f97316", "#b71c1c"];
+const MEETING_HEAT_TEXT = ["#15803d", "#92400e", "#92400e", "#ffffff", "#ffffff"];
 
 const VIEW_TABS = [
   { key: "week" as Layout, label: "Calendar",     icon: "📅" },
@@ -635,7 +638,7 @@ export default function CalendarShell({
           scheduleId: block.id ?? undefined,
           link: (block.sub && block.sub !== "Personal" && block.sub !== "Routine" && block.sub !== "Personal routine") ? block.sub : undefined,
           onClick: block.id ? () => handleScheduleAction(block.id!, "view") : undefined,
-          tooltip: { title: block.lbl, rows: tooltipRows },
+          tooltip: block.routine ? { title: block.lbl, rows: tooltipRows } : undefined,
         });
       }
     }
@@ -851,15 +854,19 @@ export default function CalendarShell({
                         const busyMembers = visibleMembers.filter((member) =>
                           blocks.some((block) => block.memberId === member.id && block.days.includes(dayKey) && hour >= block.s && hour < block.e),
                         );
+                        const hasMeeting = blocks.some((block) => !block.routine && block.days.includes(dayKey) && hour >= block.s && hour < block.e);
                         const count = busyMembers.length;
                         const bucket = Math.min(count, 4);
+                        const colors = hasMeeting ? MEETING_HEAT_COLORS : HEAT_COLORS;
+                        const borders = hasMeeting ? MEETING_HEAT_BORDERS : HEAT_BORDERS;
+                        const textColors = hasMeeting ? MEETING_HEAT_TEXT : HEAT_TEXT;
 
                         return (
                           <button
                             key={`${dayKey}-${hour}`}
                             type="button"
-                            className="flex h-5.5 items-center justify-center rounded-[3px] border transition-transform duration-150 hover:scale-105"
-                            style={{ backgroundColor: HEAT_COLORS[bucket], borderColor: HEAT_BORDERS[bucket] }}
+                            className="flex h-5.5 items-center justify-center rounded-[3px] border transition-colors duration-150 hover:brightness-95"
+                            style={{ backgroundColor: colors[bucket], borderColor: borders[bucket] }}
                             onMouseEnter={(event) =>
                               showTip(
                                 event,
@@ -880,7 +887,7 @@ export default function CalendarShell({
                             {count === 0 ? (
                               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                             ) : (
-                              <span className="text-[8px] font-semibold" style={{ color: HEAT_TEXT[bucket] }}>
+                              <span className="text-[8px] font-semibold" style={{ color: textColors[bucket] }}>
                                 {count >= visibleCount && visibleCount > 0 ? "X" : count}
                               </span>
                             )}
@@ -892,26 +899,48 @@ export default function CalendarShell({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 border-t border-border/70 pt-3 text-[10px] text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-4 rounded-sm border border-emerald-300 bg-emerald-50" />
-                  0 - all free
+              <div className="space-y-2 border-t border-border/70 pt-3">
+                <div className="text-[10px] font-semibold text-muted-foreground">Routine blocks:</div>
+                <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-4 rounded-sm border border-emerald-300 bg-emerald-50" />
+                    0 - all free
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-4 rounded-sm bg-[#dbeafe]" />
+                    1 busy
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-4 rounded-sm bg-[#93c5fd]" />
+                    2 busy
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-4 rounded-sm bg-[#3b82f6]" />
+                    3 busy
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-4 rounded-sm bg-[#1e3a8a]" />
+                    All busy
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-4 rounded-sm bg-[#dbeafe]" />
-                  1 busy
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-4 rounded-sm bg-[#93c5fd]" />
-                  2 busy
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-4 rounded-sm bg-[#3b82f6]" />
-                  3 busy
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-4 rounded-sm bg-[#1e3a8a]" />
-                  All busy
+                <div className="text-[10px] font-semibold text-muted-foreground">With meetings:</div>
+                <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-4 rounded-sm border border-amber-300 bg-amber-50" />
+                    1+ meeting
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-4 rounded-sm bg-[#fed7aa]" />
+                    2+ meeting
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-4 rounded-sm bg-[#fd8c73]" />
+                    3+ meeting
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-4 rounded-sm bg-[#d32f2f]" />
+                    All meeting
+                  </div>
                 </div>
               </div>
 
@@ -976,7 +1005,7 @@ export default function CalendarShell({
                                     key={`${member.id}-${dayKey}-${hour}`}
                                     type="button"
                                     className={cn(
-                                      "flex h-5 flex-1 items-center justify-center rounded-[3px] border transition-transform duration-150 hover:scale-y-110",
+                                      "flex h-5 flex-1 items-center justify-center rounded-[3px] border transition-colors duration-150 hover:brightness-95",
                                       busy ? "border-transparent" : "border-emerald-300 bg-emerald-50",
                                     )}
                                     style={busy ? { backgroundColor: `${member.bg}CC` } : undefined}

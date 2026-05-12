@@ -23,6 +23,14 @@ function randomMemberColor() {
   return COLOR_POOL[Math.floor(Math.random() * COLOR_POOL.length)];
 }
 
+function getJoinCircleErrorMessage(error: { message: string; code?: string; details?: string }) {
+  if (error.code === "23505" || error.message.includes("group_members_group_id_member_id_key")) {
+    return "You already belong to this circle.";
+  }
+
+  return error.message;
+}
+
 const METHODOLOGY_OPTIONS = [
   {
     value: "simple",
@@ -136,7 +144,7 @@ export default function JoinCreateDialog({
     });
 
     if (memberError) {
-      setError(memberError.message);
+      setError(getJoinCircleErrorMessage(memberError));
       setLoading(false);
       return;
     }
