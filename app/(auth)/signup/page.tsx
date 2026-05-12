@@ -263,12 +263,12 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background p-4 font-sans md:p-6 lg:p-8 overflow-hidden">
-      <div className="flex w-full overflow-hidden rounded-3xl bg-card border border-border shadow-2xl">
+    <div className="flex min-h-screen bg-background p-2 sm:p-4 md:p-6 lg:p-8 font-sans overflow-y-auto">
+      <div className="flex w-full rounded-2xl sm:rounded-3xl bg-card border border-border shadow-2xl flex-col lg:flex-row">
         {/* Left Column: Form */}
-        <div className="relative flex w-full flex-col px-6 py-8 lg:w-1/2 xl:w-5/12 lg:px-12 xl:px-20 border-r border-border">
+        <div className="relative flex w-full flex-col px-4 py-6 sm:px-6 sm:py-8 lg:w-1/2 xl:w-5/12 lg:px-12 xl:px-20 border-b lg:border-b-0 lg:border-r border-border">
           {/* Header/Brand */}
-            <div className="absolute left-8 top-8 flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-8 lg:absolute lg:left-8 lg:top-8 lg:mb-0">
                    <Image 
                      src="/images/logo.png"
                      alt="Libré Logo" 
@@ -277,12 +277,12 @@ export default function SignupPage() {
                      className="object-contain"
                      priority 
                    />
-                   <span className="text-2xl font-bold tracking-normal text-foreground">Libré</span>
+                   <span className="text-xl sm:text-2xl font-bold tracking-normal text-foreground">Libré</span>
                  </div>
 
-          <div className="mx-auto flex w-full max-w-sm lg:max-w-md flex-col justify-center min-h-full py-8">
-            <div className="mb-6 text-center">
-              <h2 className="text-3xl font-bold tracking-tight text-foreground">
+          <div className="mx-auto flex w-full max-w-sm lg:max-w-md flex-col justify-center flex-1 py-4 sm:py-8">
+            <div className="mb-4 sm:mb-6 text-center">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                 Create Account
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -439,14 +439,14 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <div className="absolute bottom-8 left-8 right-8 flex justify-between text-xs text-muted-foreground font-medium">
+          <div className="flex flex-col sm:flex-row justify-between text-xs text-muted-foreground font-medium gap-2 mt-6 lg:mt-8 lg:absolute lg:bottom-8 lg:left-8 lg:right-8">
             <div>Copyright © {new Date().getFullYear()} Libré.</div>
             <Link href="#" className="hover:text-foreground transition-colors">Privacy Policy</Link>
           </div>
         </div>
 
         {/* Right Column: Visual */}
-        <div className="relative hidden w-0 flex-1 lg:flex flex-col justify-start bg-zinc-950 p-12 xl:p-20 pt-24 overflow-hidden">
+        <div className="relative hidden w-0 flex-1 lg:flex flex-col justify-start bg-zinc-950 p-6 lg:p-12 xl:p-20 pt-12 lg:pt-24 overflow-hidden">
           <div className="absolute inset-0">
             <div className="absolute top-0 left-0 right-0 h-full bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
             <div className="absolute bottom-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.15),transparent_50%)] translate-x-1/3 translate-y-1/3"></div>
