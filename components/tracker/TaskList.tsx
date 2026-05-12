@@ -35,6 +35,7 @@ type TaskListProps = {
   onRefresh?: () => void;
   autoExpandSprintId?: string | null;
   autoOpenBacklog?: boolean;
+  autoOpenTasks?: boolean;
 };
 
 const fieldClassName = cn(designTokens.spacing.field, "gap-2");
@@ -51,6 +52,7 @@ export default function TaskList({
   onRefresh,
   autoExpandSprintId,
   autoOpenBacklog,
+  autoOpenTasks,
 }: TaskListProps) {
   // Start with all sprint sections closed by default, unless we have an auto-expand ID
   const defaultOpen = useMemo(() => {
@@ -78,6 +80,28 @@ export default function TaskList({
       setBacklogOpen(true);
     }
   }, [autoOpenBacklog]);
+
+  useEffect(() => {
+    if (autoOpenTasks) {
+      setTasksOpen(true);
+    }
+  }, [autoOpenTasks]);
+
+  useEffect(() => {
+    if (!autoExpandSprintId) {
+      return;
+    }
+
+    setOpenSprintIds((current) => {
+      if (current.has(autoExpandSprintId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.add(autoExpandSprintId);
+      return next;
+    });
+  }, [autoExpandSprintId]);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const method = METHODOLOGIES[methodology];

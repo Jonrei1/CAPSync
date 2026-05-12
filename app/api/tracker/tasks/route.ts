@@ -80,6 +80,7 @@ export async function POST(request: Request) {
       groupName: groupRow?.name ?? "Circle",
       groupColor: groupRow?.color ?? "#4f46e5",
       taskId: data.id,
+      sprintId: data.sprint_id,
       taskTitle: title,
       event: "created",
       actorName,

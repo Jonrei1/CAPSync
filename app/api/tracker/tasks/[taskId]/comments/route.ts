@@ -19,7 +19,7 @@ export async function POST(request: Request, { params }: RouteProps) {
     return errorResponse("Comment body is required.", 400);
   }
 
-  const { data: task } = await auth.supabase.from("tasks").select("group_id").eq("id", taskId).maybeSingle();
+  const { data: task } = await auth.supabase.from("tasks").select("group_id, sprint_id").eq("id", taskId).maybeSingle();
   if (!task) {
     return errorResponse("Task not found.", 404);
   }
@@ -61,6 +61,7 @@ export async function POST(request: Request, { params }: RouteProps) {
         groupName: groupRow?.name ?? "Circle",
         groupColor: groupRow?.color ?? "#4f46e5",
         taskId,
+        sprintId: task?.sprint_id ?? null,
         taskTitle: taskRow.title,
         event: "commented",
         actorName,

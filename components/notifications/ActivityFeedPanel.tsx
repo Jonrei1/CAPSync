@@ -6,6 +6,7 @@ import { Calendar, CalendarPlus, CheckSquare2, Flag, Trash2, X } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { designStandard, designTokens } from "@/components/ui/design-standard";
+import { getNotificationHref } from "@/lib/notifications/getNotificationHref";
 import type { ActivityNotification } from "@/hooks/useActivityNotifications";
 
 type Props = {
@@ -104,7 +105,7 @@ export default function ActivityFeedPanel({
     }
 
     onClose();
-    router.push(notification.link);
+    router.push(getNotificationHref(notification));
   }
 
   async function handleDeleteAll() {

@@ -27,7 +27,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     return errorResponse("Invalid request body.", 400);
   }
 
-  const { data: task } = await auth.supabase.from("tasks").select("id, group_id").eq("id", taskId).maybeSingle();
+  const { data: task } = await auth.supabase.from("tasks").select("id, group_id, sprint_id").eq("id", taskId).maybeSingle();
   if (!task) {
     return errorResponse("Task not found.", 404);
   }
@@ -105,6 +105,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
         groupName: groupRow?.name ?? "Circle",
         groupColor: groupRow?.color ?? "#4f46e5",
         taskId: data.id,
+        sprintId: data.sprint_id,
         taskTitle: data.title,
         event,
         actorName,
@@ -158,6 +159,7 @@ export async function DELETE(request: Request, { params }: RouteProps) {
       groupName: groupRow?.name ?? "Circle",
       groupColor: groupRow?.color ?? "#4f46e5",
       taskId: task.id,
+      sprintId: task.sprint_id,
       taskTitle: task.title,
       event: "deleted",
       actorName,

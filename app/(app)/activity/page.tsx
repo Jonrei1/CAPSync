@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { designStandard, designTokens } from "@/components/ui/design-standard";
 import { cn } from "@/lib/utils";
+import { getNotificationHref } from "@/lib/notifications/getNotificationHref";
 import type { ActivityNotification } from "@/hooks/useActivityNotifications";
 import { useActivityNotifications } from "@/hooks/useActivityNotifications";
 
@@ -172,7 +173,7 @@ export default function ActivityRoutePage() {
       await markRead(notification.id);
     }
 
-    router.push(notification.link);
+    router.push(getNotificationHref(notification));
   }
 
   async function handleDeleteAll() {

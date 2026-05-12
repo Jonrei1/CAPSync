@@ -22,6 +22,7 @@ import {
   getInitials,
   getMemberColor,
   getTrackerStats,
+  getDueState,
   normalizeMethodology,
   STATUS_LABELS,
   STATUS_STYLES,
@@ -57,23 +58,31 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
   const membersById = useMemo(() => new Map(members.map((member) => [member.id, member])), [members]);
   const tasks = useMemo(() => getAllTasks(sprints), [sprints]);
   const stats = useMemo(() => getTrackerStats(tasks), [tasks]);
+  const taskIdParam = searchParams.get("task");
+  const taskFromUrl = useMemo(() => tasks.find((task) => task.id === taskIdParam) ?? null, [taskIdParam, tasks]);
+  const taskArea = useMemo(() => {
+    if (!taskFromUrl) {
+      return null;
+    }
+
+    if (taskFromUrl.sprint_id) {
+      return "sprint" as const;
+    }
+
+    return getDueState(taskFromUrl) === "overdue" ? "backlog" as const : "tasks" as const;
+  }, [taskFromUrl]);
 
   useEffect(() => {
-    const taskId = searchParams.get("task");
-    if (!taskId) {
+    if (!taskIdParam) {
       return;
     }
 
-    const task = tasks.find((t) => t.id === taskId);
-    if (task) {
-      setSelectedTask(task);
-    }
-  }, [searchParams, tasks]);
+    setSelectedTask(taskFromUrl);
+  }, [taskFromUrl, taskIdParam]);
 
-  const autoExpandSprintId = searchParams.get("sprint");
-  
-  // Auto-open backlog if selected task is in the backlog (no sprint)
-  const autoOpenBacklog = selectedTask ? selectedTask.sprint_id === null : false;
+  const autoExpandSprintId = taskArea === "sprint" ? taskFromUrl?.sprint_id ?? null : null;
+  const autoOpenBacklog = taskArea === "backlog";
+  const autoOpenTasks = taskArea === "tasks";
 
   function refresh() {
     router.refresh();
@@ -194,6 +203,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
           onRefresh={refresh}
           autoExpandSprintId={autoExpandSprintId}
           autoOpenBacklog={autoOpenBacklog}
+          autoOpenTasks={autoOpenTasks}
         />
       </div>
 

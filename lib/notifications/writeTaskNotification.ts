@@ -15,6 +15,7 @@ type WriteTaskNotificationInput = {
   groupName: string;
   groupColor: string;
   taskId: string;
+  sprintId?: string | null;
   taskTitle: string;
   event: TaskNotificationEvent;
   actorName: string;
@@ -84,7 +85,7 @@ export async function writeTaskNotification(input: WriteTaskNotificationInput): 
     type: "task",
     title,
     eventDate: input.dueDate ?? new Date().toISOString().slice(0, 10),
-    link: `/${input.groupId}/tracker`,
+    link: `/${input.groupId}/tracker?task=${input.taskId}${input.sprintId ? `&sprint=${input.sprintId}` : ""}`,
     createdByName: input.actorName,
   });
 }

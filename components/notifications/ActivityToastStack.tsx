@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar, CalendarPlus, CheckSquare2, Flag, X } from "lucide-react";
 import { designTokens } from "@/components/ui/design-standard";
+import { getNotificationHref } from "@/lib/notifications/getNotificationHref";
 import type { ActivityNotification } from "@/hooks/useActivityNotifications";
 
 type Props = {
   notifications: ActivityNotification[];
   onMarkRead: (id: string) => Promise<void>;
-  onOpenActivity: () => void;
 };
 
 const TOAST_DURATION_MS = 5_000;
@@ -57,7 +58,8 @@ function formatShortTime(notification: ActivityNotification): string {
   return `${dateText} · ${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
 }
 
-export default function ActivityToastStack({ notifications, onMarkRead, onOpenActivity }: Props) {
+export default function ActivityToastStack({ notifications, onMarkRead }: Props) {
+  const router = useRouter();
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [referenceNow] = useState(() => Date.now());
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -94,7 +96,7 @@ export default function ActivityToastStack({ notifications, onMarkRead, onOpenAc
   async function handleClick(notification: ActivityNotification) {
     dismiss(notification.id);
     await onMarkRead(notification.id);
-    onOpenActivity();
+    router.push(getNotificationHref(notification));
   }
 
   useEffect(() => {

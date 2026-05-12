@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCircle } from "@/contexts/CircleContext";
-import supabase from "@/lib/supabaseClient";
 
 const MEMBER_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "#ca8a04"];
 
@@ -24,24 +22,6 @@ function getInitials(name: string) {
 
 export default function MemberList() {
   const { activeCircle, members } = useCircle();
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadUser() {
-      const { data } = await supabase.auth.getUser();
-      if (mounted) {
-        setUserId(data.user?.id ?? null);
-      }
-    }
-
-    void loadUser();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   if (!activeCircle) {
     return null;
@@ -61,7 +41,6 @@ export default function MemberList() {
               <div key={i} className="flex items-center gap-2 rounded-md px-1.5 py-1.5">
                 <Skeleton className="h-6 w-6 rounded-full shrink-0" />
                 <Skeleton className="h-3 w-24 rounded flex-1" />
-                <Skeleton className="h-1.5 w-1.5 rounded-full ml-auto" />
               </div>
             ))}
           </div>
@@ -69,7 +48,6 @@ export default function MemberList() {
           <div className="flex flex-col gap-px">
             {members.map((member, index) => {
               const displayName = getMemberName(member.full_name, member.email);
-              const isYou = member.id === userId;
 
               return (
                 <div key={member.id} className="flex items-center gap-2 rounded-md px-1.5 py-1.5">
@@ -81,9 +59,7 @@ export default function MemberList() {
                   </Avatar>
                   <span className="truncate text-[12px] font-medium text-zinc-900">
                     {displayName}
-                    {isYou ? <span className="ml-1 font-normal text-zinc-500">(you)</span> : null}
                   </span>
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
                 </div>
               );
             })}

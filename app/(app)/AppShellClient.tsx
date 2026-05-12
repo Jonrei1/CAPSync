@@ -272,7 +272,7 @@ function AppShell({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
-      <ActivityToastStack notifications={notifications} onMarkRead={markRead} onOpenActivity={() => router.push("/activity")} />
+      <ActivityToastStack notifications={notifications} onMarkRead={markRead} />
       </div>
   </>
   );

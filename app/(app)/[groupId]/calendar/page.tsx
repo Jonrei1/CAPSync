@@ -9,8 +9,8 @@ import type { CalendarBlock, CalendarDeadline, CalendarMember } from "@/types";
 type PageProps = {
   params: { groupId: string } | Promise<{ groupId: string }>;
   searchParams?:
-    | { week?: string | string[]; date?: string | string[] }
-    | Promise<{ week?: string | string[]; date?: string | string[] }>;
+    | { week?: string | string[]; date?: string | string[]; start?: string | string[]; end?: string | string[] }
+    | Promise<{ week?: string | string[]; date?: string | string[]; start?: string | string[]; end?: string | string[] }>;
 };
 
 type MemberRow = {
@@ -279,9 +279,15 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
 
   const rawWeekOffset = Array.isArray(resolvedSearchParams?.week) ? resolvedSearchParams.week[0] : resolvedSearchParams?.week;
   const rawDate = Array.isArray(resolvedSearchParams?.date) ? resolvedSearchParams.date[0] : resolvedSearchParams?.date;
+  const rawStartHour = Array.isArray(resolvedSearchParams?.start) ? resolvedSearchParams.start[0] : resolvedSearchParams?.start;
+  const rawEndHour = Array.isArray(resolvedSearchParams?.end) ? resolvedSearchParams.end[0] : resolvedSearchParams?.end;
   const weekOffset = Number.parseInt(rawWeekOffset ?? "0", 10);
   const safeWeekOffset = Number.isNaN(weekOffset) ? 0 : weekOffset;
   const selectedDate = parseDateParam(rawDate) ?? addDays(new Date(), safeWeekOffset * 7);
+  const startHour = rawStartHour == null ? undefined : Number.parseFloat(rawStartHour);
+  const endHour = rawEndHour == null ? undefined : Number.parseFloat(rawEndHour);
+  const safeStartHour = startHour != null && Number.isFinite(startHour) ? startHour : undefined;
+  const safeEndHour = endHour != null && Number.isFinite(endHour) ? endHour : undefined;
   const weekStart = startOfWeek(selectedDate);
   const weekEnd = addDays(weekStart, 6);
   weekEnd.setHours(23, 59, 59, 999);
@@ -511,6 +517,8 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         groupSubject={group?.subject ?? null}
         weekOffset={safeWeekOffset}
         selectedDate={toDateParam(selectedDate)}
+        startHour={safeStartHour}
+        endHour={safeEndHour}
       />
       </Suspense>
       </div>

@@ -20,7 +20,6 @@ type DashboardStats = {
   doneCount: number;
   overdueCount: number;
   fundBalance: number;
-  membersOnline: number;
 };
 
 function memberName(fullName: string | null, email: string | null) {
@@ -37,6 +36,19 @@ function memberInitials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
+function formatMethodology(methodology: string | null | undefined) {
+  if (!methodology?.trim()) {
+    return "Not set";
+  }
+
+  return methodology
+    .trim()
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export default function DashboardPage() {
   const {
     activeCircle,
@@ -51,7 +63,6 @@ export default function DashboardPage() {
     doneCount: 0,
     overdueCount: 0,
     fundBalance: 0,
-    membersOnline: 0,
   });
   const [statsLoading, setStatsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -117,11 +128,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let mounted = true;
+    const activeCircleId = activeCircle?.id;
 
     async function loadStats() {
-      if (!activeCircle) {
+      if (!activeCircleId) {
         if (mounted) {
-          setStats({ doneCount: 0, overdueCount: 0, fundBalance: 0, membersOnline: 0 });
+          setStats({ doneCount: 0, overdueCount: 0, fundBalance: 0 });
         }
         return;
       }
@@ -134,18 +146,18 @@ export default function DashboardPage() {
         supabase
           .from("tasks")
           .select("id", { count: "exact", head: true })
-          .eq("group_id", activeCircle.id)
+          .eq("group_id", activeCircleId)
           .eq("status", "done"),
         supabase
           .from("tasks")
           .select("id", { count: "exact", head: true })
-          .eq("group_id", activeCircle.id)
+          .eq("group_id", activeCircleId)
           .lt("due_date", today)
           .neq("status", "done"),
         supabase
           .from("group_fund")
           .select("balance")
-          .eq("group_id", activeCircle.id)
+          .eq("group_id", activeCircleId)
           .maybeSingle(),
       ]);
 
@@ -160,7 +172,6 @@ export default function DashboardPage() {
           typeof fundResult.data?.balance === "number"
             ? fundResult.data.balance
             : Number(fundResult.data?.balance ?? 0),
-        membersOnline: members.length,
       });
 
       setStatsLoading(false);
@@ -171,7 +182,7 @@ export default function DashboardPage() {
     return () => {
       mounted = false;
     };
-  }, [activeCircle, members.length]);
+  }, [activeCircle?.id, members.length]);
 
   const yourMembership = useMemo(
     () => members.find((member) => member.id === userId),
@@ -543,7 +554,6 @@ export default function DashboardPage() {
                     </Avatar>
                     <div className="text-sm font-medium text-zinc-900">{name}</div>
                     <Badge variant={role === "pm" ? "success" : role === "copm" ? "secondary" : "outline"}>{roleDisplay}</Badge>
-                    <span className="h-2 w-2 rounded-full bg-[#22c55e]" />
                   </CardContent>
                   
                   {canManageCircle && !isYou && (
@@ -651,11 +661,13 @@ export default function DashboardPage() {
             <Card className="gap-3 bg-zinc-100 py-4">
               <CardHeader className="px-4 pb-0">
                 <CardDescription className="text-[11px] font-medium tracking-[0.06em] uppercase">
-                  Members online
+                  Methodology
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-4 pt-0">
-                <div className="text-2xl font-semibold tracking-tight text-green-600">{stats.membersOnline}</div>
+                <div className="text-xl font-semibold tracking-tight text-zinc-900">
+                  {formatMethodology(activeCircle.methodology)}
+                </div>
               </CardContent>
             </Card>
           </>
