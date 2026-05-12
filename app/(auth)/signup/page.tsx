@@ -268,17 +268,17 @@ export default function SignupPage() {
         {/* Left Column: Form */}
         <div className="relative flex w-full flex-col px-6 py-8 lg:w-1/2 xl:w-5/12 lg:px-12 xl:px-20 border-r border-border">
           {/* Header/Brand */}
-          <div className="absolute left-8 top-8 flex items-center gap-2">
-            <Image 
-              src="/images/logo.png" 
-              alt="Libré Logo" 
-              width={28} 
-              height={28} 
-              className="object-contain"
-              priority 
-            />
-            <span className="text-xl font-bold tracking-tight text-foreground">Libré</span>
-          </div>
+            <div className="absolute left-8 top-8 flex items-center gap-2">
+                   <Image 
+                     src="/images/logo.png"
+                     alt="Libré Logo" 
+                     width={40} 
+                     height={40} 
+                     className="object-contain"
+                     priority 
+                   />
+                   <span className="text-2xl font-bold tracking-normal text-foreground">Libré</span>
+                 </div>
 
           <div className="mx-auto flex w-full max-w-sm lg:max-w-md flex-col justify-center min-h-full py-8">
             <div className="mb-6 text-center">

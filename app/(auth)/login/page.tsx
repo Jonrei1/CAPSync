@@ -156,14 +156,14 @@ export default function LoginPage() {
           {/* Header/Brand */}
           <div className="absolute left-8 top-8 flex items-center gap-2">
             <Image 
-              src="/images/logo.png" 
+              src="/images/logo.png"
               alt="Libré Logo" 
-              width={28} 
-              height={28} 
+              width={40} 
+              height={40} 
               className="object-contain"
               priority 
             />
-            <span className="text-xl font-bold tracking-tight text-foreground">Libré</span>
+            <span className="text-2xl font-bold tracking-normal text-foreground">Libré</span>
           </div>
 
           <div className="mx-auto flex w-full max-w-sm flex-col justify-center min-h-full py-8">
