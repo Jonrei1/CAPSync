@@ -20,19 +20,20 @@ type Props = {
 
 type Tone = {
   accent: string;
+  background: string;
   icon: typeof Calendar;
 };
 
 function getTone(type: ActivityNotification["type"]): Tone {
   switch (type) {
     case "meeting":
-      return { accent: designTokens.palette.app.brandPrimary, icon: CalendarPlus };
+      return { accent: designTokens.palette.app.brandPrimary, background: "#4f46e51a", icon: CalendarPlus };
     case "deadline":
-      return { accent: designTokens.palette.app.status.danger, icon: Flag };
+      return { accent: designTokens.palette.app.status.danger, background: "#dc26261a", icon: Flag };
     case "schedule":
-      return { accent: designTokens.palette.app.brandAccent, icon: Calendar };
+      return { accent: designTokens.palette.app.brandAccent, background: "#16a34a1a", icon: Calendar };
     case "task":
-      return { accent: "#7c3aed", icon: CheckSquare2 };
+      return { accent: "#ca8a04", background: "#ca8a041a", icon: CheckSquare2 };
   }
 }
 
@@ -173,8 +174,12 @@ export default function ActivityFeedPanel({
             <div className="flex h-32 items-center justify-center text-[12px] text-zinc-500">No activity yet</div>
           ) : (
             notifications.map((notification) => {
-              const tone = getTone(notification.type);
+              let tone = getTone(notification.type);
               const isUnread = !notification.readAt;
+              const isAssigned = notification.title.toLowerCase().includes("assigned");
+              if (notification.type === "task" && isAssigned) {
+                tone = { accent: designTokens.palette.app.status.danger, background: "#dc26261a", icon: tone.icon };
+              }
 
               return (
                 <button
@@ -182,23 +187,17 @@ export default function ActivityFeedPanel({
                   type="button"
                   onClick={() => void handleRowClick(notification)}
                   className={[
-                    "flex w-full items-start gap-3 border-b border-zinc-100 px-4 py-3 text-left transition-colors hover:bg-zinc-50",
+                    "relative flex w-full items-start gap-3 border-b border-zinc-100 px-4 py-3 text-left transition-colors hover:bg-zinc-50",
                     isUnread ? "bg-zinc-50/60" : "",
                   ].join(" ")}
+                  style={isUnread ? { borderLeftWidth: "3px", borderLeftColor: tone.accent, paddingLeft: "calc(1rem - 3px)" } : {}}
                 >
                   <span
-                    className={[
-                      "mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full",
-                      isUnread ? "bg-indigo-600" : "bg-transparent",
-                    ].join(" ")}
-                  />
-
-                  <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-white"
-                    style={{ backgroundColor: tone.accent }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]"
+                    style={{ backgroundColor: tone.background, color: tone.accent }}
                     aria-hidden="true"
                   >
-                    <tone.icon className="h-3.5 w-3.5" />
+                    <tone.icon className="h-3.5 w-3.5" strokeWidth={2} />
                   </span>
 
                   <div className="min-w-0 flex-1">

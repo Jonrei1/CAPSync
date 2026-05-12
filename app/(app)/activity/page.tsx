@@ -12,19 +12,20 @@ import { useActivityNotifications } from "@/hooks/useActivityNotifications";
 
 type Tone = {
   accent: string;
+  background: string;
   icon: typeof Calendar;
 };
 
 function getTone(type: ActivityNotification["type"]): Tone {
   switch (type) {
     case "meeting":
-      return { accent: "#000000", icon: CalendarPlus }; // Purple 600
+      return { accent: designTokens.palette.app.brandPrimary, background: "#4f46e51a", icon: CalendarPlus };
     case "deadline":
-      return { accent: designTokens.palette.app.status.danger, icon: Flag };
+      return { accent: designTokens.palette.app.status.danger, background: "#dc26261a", icon: Flag };
     case "schedule":
-      return { accent: designTokens.palette.app.brandAccent, icon: Calendar };
+      return { accent: designTokens.palette.app.brandAccent, background: "#16a34a1a", icon: Calendar };
     case "task":
-      return { accent: "#7c3aed", icon: CheckSquare2 };
+      return { accent: "#ca8a04", background: "#ca8a041a", icon: CheckSquare2 };
   }
 }
 
@@ -259,7 +260,11 @@ export default function ActivityRoutePage() {
         ) : (
           <div>
             {notifications.map((notification) => {
-              const tone = getTone(notification.type);
+              let tone = getTone(notification.type);
+              const isAssigned = notification.title.toLowerCase().includes("assigned");
+              if (notification.type === "task" && isAssigned) {
+                tone = { accent: designTokens.palette.app.status.danger, background: "#dc26261a", icon: tone.icon };
+              }
               const isUnread = !notification.readAt;
               const Icon = tone.icon;
               const status = getEventStatus(notification);
@@ -276,17 +281,19 @@ export default function ActivityRoutePage() {
                   key={notification.id}
                   className={cn(
                     "relative flex gap-3 border-b border-zinc-200 px-4 py-4 transition-colors hover:bg-white sm:px-6",
-                    isUnread ? "bg-indigo-50/60" : ""
+                    ""
                   )}
+                  style={isUnread ? { paddingLeft: "calc(1rem - 3px)" } : undefined}
                 >
                   {isUnread && (
-                    <div className="absolute inset-y-0 left-0 w-0.5 bg-indigo-600" />
+                    <div className="absolute inset-y-0 left-0" style={{ width: 3, backgroundColor: tone.accent }} />
                   )}
                   <span
                     className={cn(
                       "mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full",
-                      isUnread ? "bg-indigo-600 animate-pulse" : "bg-transparent"
+                      isUnread ? "animate-pulse" : ""
                     )}
+                    style={isUnread ? { backgroundColor: tone.accent } : { backgroundColor: "transparent" }}
                   />
 
                   <button
@@ -299,11 +306,11 @@ export default function ActivityRoutePage() {
                     title={`View ${notification.title}`}
                   >
                     <span
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-white"
-                      style={{ backgroundColor: tone.accent }}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]"
+                      style={{ backgroundColor: tone.background, color: tone.accent }}
                       aria-hidden="true"
                     >
-                      <Icon className="h-3.5 w-3.5" />
+                      <Icon className="h-3.5 w-3.5" strokeWidth={2} />
                     </span>
 
                     <div className="min-w-0 flex-1">

@@ -17,19 +17,20 @@ const RECENT_WINDOW_MS = 10 * 60 * 1_000;
 
 type Tone = {
   accent: string;
+  background: string;
   icon: typeof Calendar;
 };
 
 function getTone(type: ActivityNotification["type"]): Tone {
   switch (type) {
     case "meeting":
-      return { accent: designTokens.palette.app.brandPrimary, icon: CalendarPlus };
+      return { accent: designTokens.palette.app.brandPrimary, background: "#4f46e51a", icon: CalendarPlus };
     case "deadline":
-      return { accent: designTokens.palette.app.status.danger, icon: Flag };
+      return { accent: designTokens.palette.app.status.danger, background: "#dc26261a", icon: Flag };
     case "schedule":
-      return { accent: designTokens.palette.app.brandAccent, icon: Calendar };
+      return { accent: designTokens.palette.app.brandAccent, background: "#16a34a1a", icon: Calendar };
     case "task":
-      return { accent: "#7c3aed", icon: CheckSquare2 };
+      return { accent: "#ca8a04", background: "#ca8a041a", icon: CheckSquare2 };
   }
 }
 
@@ -140,21 +141,25 @@ export default function ActivityToastStack({ notifications, onMarkRead, onOpenAc
       aria-label="Activity notifications"
     >
       {recentUnread.map((notification) => {
-        const tone = getTone(notification.type);
+        let tone = getTone(notification.type);
+        const isAssigned = notification.title.toLowerCase().includes("assigned");
+        if (notification.type === "task" && isAssigned) {
+          tone = { accent: designTokens.palette.app.status.danger, background: "#dc26261a", icon: tone.icon };
+        }
 
         return (
           <div
             key={notification.id}
             className="pointer-events-auto flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 shadow-lg"
-            style={{ borderLeftWidth: 2, borderLeftColor: tone.accent }}
+            style={{ borderLeftWidth: 3, borderLeftColor: tone.accent }}
             role="alert"
           >
             <span
-              className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white"
-              style={{ backgroundColor: tone.accent }}
+              className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+              style={{ backgroundColor: tone.background, color: tone.accent }}
               aria-hidden="true"
             >
-              <tone.icon className="h-3.5 w-3.5" />
+              <tone.icon className="h-3.5 w-3.5" strokeWidth={2} />
             </span>
 
             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => void handleClick(notification)}>
