@@ -157,7 +157,6 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
             <PopoverContent className="w-auto p-0" align="center">
               <Calendar
                 mode="single"
-                selected={month}
                 onSelect={(newDate: Date | undefined) => newDate && setMonth(newDate)}
                 defaultMonth={month}
                 deadlineDates={deadlineDateObjects}

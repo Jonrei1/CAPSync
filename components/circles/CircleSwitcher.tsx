@@ -142,7 +142,7 @@ export default function CircleSwitcher() {
               <div
                 className={[
                   "group flex w-full items-center gap-1 rounded-md px-1 py-1 transition-colors border-l-2 -ml-1 pl-0.5",
-                  isActive ? "border-l-primary bg-primary/5" : "border-l-transparent hover:bg-zinc-100",
+                  isActive ? "border-l-primary/80 bg-primary/5" : "border-l-transparent hover:bg-zinc-100",
                 ].join(" ")}
               >
                 <button
@@ -197,7 +197,7 @@ export default function CircleSwitcher() {
                         className={[
                           "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors border-l-2 -ml-2 pl-[7px]",
                           isSubActive
-                            ? "border-l-primary bg-primary/5 font-medium text-primary"
+                            ? "border-l-primary/80 bg-primary/5 font-medium text-primary"
                             : "border-l-transparent text-zinc-600 hover:bg-white hover:text-zinc-900",
                         ].join(" ")}
                       >

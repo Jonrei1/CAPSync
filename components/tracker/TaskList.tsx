@@ -388,7 +388,7 @@ export default function TaskList({
             isSprintLocked(realSprints, index, methodology) ||
             normalizeSprintStatus(sprint.status) === "locked";
           const visibleTasks = sprint.tasks.filter((task) => getDueState(task) !== "overdue");
-          const open = openSprintIds.has(sprint.id) && !locked;
+          const open = openSprintIds.has(sprint.id);
           let status = normalizeSprintStatus(sprint.status);
           
           if (status === "upcoming" && sprint.start_date) {
@@ -423,7 +423,7 @@ export default function TaskList({
               <section
                 className={cn(
                   "overflow-hidden rounded-lg border bg-card shadow-xs",
-                  locked && "opacity-65",
+                  locked && "border-zinc-200 bg-zinc-50/40",
                   status === "active" && !locked && "border-primary/30 shadow-primary/10",
                   status === "done" && "border-green-200",
                 )}
@@ -432,7 +432,7 @@ export default function TaskList({
                   <button
                     type="button"
                     className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
-                    onClick={() => (locked ? undefined : toggleSprint(sprint.id))}
+                    onClick={() => toggleSprint(sprint.id)}
                   >
                     <span
                       className={cn(
@@ -472,7 +472,7 @@ export default function TaskList({
                       <button
                         type="button"
                         onClick={() => setDeletingSprintId(sprint.id)}
-                        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                        className="flex cursor-pointer items-center gap-1 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="size-3" />
                         Delete

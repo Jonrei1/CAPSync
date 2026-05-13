@@ -165,8 +165,8 @@ function AppShell({ children }: AppLayoutProps) {
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
                   className={[
-                    "flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors border-l-3 -ml-3 pl-[12px]",
-                    isActive ? "border-l-primary bg-primary/5 font-medium text-primary" : "border-l-transparent hover:bg-zinc-100 hover:text-zinc-900",
+                    "flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors border-l-2 -ml-3 pl-[12px]",
+                    isActive ? "border-l-primary/80 bg-primary/5 font-medium text-primary" : "border-l-transparent hover:bg-zinc-100 hover:text-zinc-900",
                   ].join(" ")}
                 >
                   {item.icon}
@@ -182,8 +182,8 @@ function AppShell({ children }: AppLayoutProps) {
                 setSidebarOpen(false);
               }}
               className={[
-                "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors border-l-3 -ml-3 pl-[12px] hover:bg-zinc-100 hover:text-zinc-900",
-                pathname === "/activity" ? "border-l-primary bg-primary/5 font-medium text-primary" : "border-l-transparent",
+                "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors border-l-2 -ml-3 pl-[12px] hover:bg-zinc-100 hover:text-zinc-900",
+                pathname === "/activity" ? "border-l-primary/80 bg-primary/5 font-medium text-primary" : "border-l-transparent",
               ].join(" ")}
             >
               <Bell className="h-3.75 w-3.75 opacity-70" />
