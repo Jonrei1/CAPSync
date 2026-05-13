@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { writeActivityNotification } from "@/lib/notifications/writeActivityNotification";
@@ -493,12 +495,10 @@ export default function EditMeetingDialog({
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="edit-meeting-date">Date</Label>
-                  <Input
+                  <DatePicker
                     id="edit-meeting-date"
-                    type="date"
                     value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    required
+                    onChange={(v) => setSelectedDate(v)}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -516,22 +516,18 @@ export default function EditMeetingDialog({
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="edit-meeting-start">Start time</Label>
-                  <Input
+                  <TimePicker
                     id="edit-meeting-start"
-                    type="time"
                     value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    required
+                    onChange={(v) => setStartTime(v)}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="edit-meeting-end">End time</Label>
-                  <Input
+                  <TimePicker
                     id="edit-meeting-end"
-                    type="time"
                     value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    required
+                    onChange={(v) => setEndTime(v)}
                   />
                 </div>
               </div>

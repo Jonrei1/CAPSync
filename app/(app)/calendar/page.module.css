@@ -1058,15 +1058,7 @@
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
-.modalTimeInput {
-  appearance: none;
-  background: #fff;
-}
 
-.modalTimeInput::-webkit-calendar-picker-indicator {
-  appearance: none;
-  display: none;
-}
 
 .modalGrid {
   display: grid;

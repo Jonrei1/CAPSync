@@ -36,7 +36,9 @@ function PopoverTrigger({
 function PopoverContent({
   className,
   align = "center",
+  side = "top",
   sideOffset = 8,
+  sticky = "always",
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (
@@ -44,12 +46,14 @@ function PopoverContent({
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}
+        side={side}
         sideOffset={sideOffset}
+        sticky={sticky}
         className={cn(
           "bg-popover text-popover-foreground z-80 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border p-4 shadow-md outline-hidden",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          "data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1",
+          "data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1",
           "data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1",
           className,
         )}

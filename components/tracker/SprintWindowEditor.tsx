@@ -5,6 +5,7 @@ import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/components/ui/use-toast";
 import type { TrackerSprint } from "@/types";
 import { designTokens } from "@/components/ui/design-standard";
@@ -110,12 +111,11 @@ export default function SprintWindowEditor({
           <Label htmlFor={`sprint-start-${sprint.id}`} className="text-xs font-medium">
             Start date
           </Label>
-          <Input
+          <DatePicker
             id={`sprint-start-${sprint.id}`}
-            type="date"
-            className={inputClassName}
             value={start}
-            onChange={(e) => setStart(e.target.value)}
+            onChange={(v) => setStart(v)}
+            className={inputClassName}
           />
         </div>
 
@@ -123,12 +123,11 @@ export default function SprintWindowEditor({
           <Label htmlFor={`sprint-end-${sprint.id}`} className="text-xs font-medium">
             End date
           </Label>
-          <Input
+          <DatePicker
             id={`sprint-end-${sprint.id}`}
-            type="date"
-            className={inputClassName}
             value={end}
-            onChange={(e) => setEnd(e.target.value)}
+            onChange={(v) => setEnd(v)}
+            className={inputClassName}
           />
         </div>
       </div>

@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
@@ -666,12 +667,11 @@ export default function TaskList({
                 <Label htmlFor="new-sprint-start" className="text-xs font-medium">
                   Start date
                 </Label>
-                <Input
+                <DatePicker
                   id="new-sprint-start"
-                  type="date"
-                  className={inputClassName}
                   value={newSprintStart}
-                  onChange={(e) => setNewSprintStart(e.target.value)}
+                  onChange={(v) => setNewSprintStart(v)}
+                  className={inputClassName}
                 />
               </div>
 
@@ -679,12 +679,11 @@ export default function TaskList({
                 <Label htmlFor="new-sprint-end" className="text-xs font-medium">
                   End date
                 </Label>
-                <Input
+                <DatePicker
                   id="new-sprint-end"
-                  type="date"
-                  className={inputClassName}
                   value={newSprintEnd}
-                  onChange={(e) => setNewSprintEnd(e.target.value)}
+                  onChange={(v) => setNewSprintEnd(v)}
+                  className={inputClassName}
                 />
               </div>
             </div>

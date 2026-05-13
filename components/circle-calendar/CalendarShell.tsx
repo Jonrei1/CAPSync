@@ -19,6 +19,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDesignStandard } from "@/components/ui/design-standard";
 import { toast } from "@/components/ui/use-toast";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { cn } from "@/lib/utils";
 import supabase from "@/lib/supabaseClient";
 import type { CalendarBlock, CalendarDeadline, CalendarMember, FreeWindow } from "@/types";
@@ -1339,16 +1341,13 @@ export default function CalendarShell({
                   <label htmlFor="routine-start" className={cn(ds.field.label)}>
                     Start time
                   </label>
-                  <input
+                  <TimePicker
                     id="routine-start"
-                    type="time"
-                    step={60}
                     value={newRoutineStart}
-                    onChange={(event) => handleRoutineStartChange(event.target.value)}
-                    className={cn(ds.field.input)}
+                    onChange={(v) => handleRoutineStartChange(v)}
                     min="00:00"
                     max="23:59"
-                    required
+                    className={cn(ds.field.input)}
                   />
                 </div>
 
@@ -1356,16 +1355,13 @@ export default function CalendarShell({
                   <label htmlFor="routine-end" className={cn(ds.field.label)}>
                     End time
                   </label>
-                  <input
+                  <TimePicker
                     id="routine-end"
-                    type="time"
                     value={newRoutineEnd}
-                    onChange={(event) => setNewRoutineEnd(event.target.value)}
-                    className={cn(ds.field.input)}
+                    onChange={(v) => setNewRoutineEnd(v)}
                     min="00:00"
                     max="23:59"
-                    step={60}
-                    required
+                    className={cn(ds.field.input)}
                   />
                 </div>
               </div>
@@ -1490,11 +1486,10 @@ export default function CalendarShell({
 
               <div className={cn(ds.field.wrapper)}>
                 <label htmlFor="cs-sched-date" className={cn(ds.field.label)}>Date</label>
-                <input
+                <DatePicker
                   id="cs-sched-date"
-                  type="date"
                   value={newScheduleDate}
-                  onChange={(e) => setNewScheduleDate(e.target.value)}
+                  onChange={(v) => setNewScheduleDate(v)}
                   className={cn(ds.field.input)}
                 />
               </div>
@@ -1502,32 +1497,30 @@ export default function CalendarShell({
               <div className="grid gap-3 md:grid-cols-2">
                 <div className={cn(ds.field.wrapper)}>
                   <label htmlFor="cs-sched-start" className={cn(ds.field.label)}>Start time</label>
-                  <input
+                  <TimePicker
                     id="cs-sched-start"
-                    type="time"
                     value={newScheduleStart}
-                    onChange={(e) => {
-                      setNewScheduleStart(e.target.value);
-                      const [sh, sm] = e.target.value.split(":").map(Number);
+                    onChange={(v) => {
+                      setNewScheduleStart(v);
+                      const [sh, sm] = v.split(":").map(Number);
                       const [eh, em] = newScheduleEnd.split(":").map(Number);
                       if ((eh ?? 0) * 60 + (em ?? 0) <= (sh ?? 0) * 60 + (sm ?? 0)) {
                         const next = (sh ?? 0) * 60 + (sm ?? 0) + 60;
                         setNewScheduleEnd(`${pad(Math.floor(next / 60))}:${pad(next % 60)}`);
                       }
                     }}
+                    min="00:00" max="23:59"
                     className={cn(ds.field.input)}
-                    min="00:00" max="23:59" step={60}
                   />
                 </div>
                 <div className={cn(ds.field.wrapper)}>
                   <label htmlFor="cs-sched-end" className={cn(ds.field.label)}>End time</label>
-                  <input
+                  <TimePicker
                     id="cs-sched-end"
-                    type="time"
                     value={newScheduleEnd}
-                    onChange={(e) => setNewScheduleEnd(e.target.value)}
+                    onChange={(v) => setNewScheduleEnd(v)}
+                    min="00:00" max="23:59"
                     className={cn(ds.field.input)}
-                    min="00:00" max="23:59" step={60}
                   />
                 </div>
               </div>

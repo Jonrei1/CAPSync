@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { designTokens } from "@/components/ui/design-standard";
@@ -192,12 +193,11 @@ export default function SprintScaffoldBanner({
               <Label htmlFor="preset-start-date" className="text-xs font-medium">
                 Semester start date
               </Label>
-              <Input
+              <DatePicker
                 id="preset-start-date"
-                type="date"
-                className={inputClassName}
                 value={presetStartDate}
-                onChange={(e) => setPresetStartDate(e.target.value)}
+                onChange={(v) => setPresetStartDate(v)}
+                className={inputClassName}
               />
             </div>
           </DialogBody>
@@ -277,12 +277,11 @@ export default function SprintScaffoldBanner({
                   <Label htmlFor={`sprint-start-${index}`} className="text-xs font-medium">
                     Start date
                   </Label>
-                  <Input
+                  <DatePicker
                     id={`sprint-start-${index}`}
-                    type="date"
-                    className={inputClassName}
                     value={sprint.start_date}
-                    onChange={(e) => updateCustomSprint(index, "start_date", e.target.value)}
+                    onChange={(v) => updateCustomSprint(index, "start_date", v)}
+                    className={inputClassName}
                   />
                 </div>
 
@@ -290,12 +289,11 @@ export default function SprintScaffoldBanner({
                   <Label htmlFor={`sprint-end-${index}`} className="text-xs font-medium">
                     End date
                   </Label>
-                  <Input
+                  <DatePicker
                     id={`sprint-end-${index}`}
-                    type="date"
-                    className={inputClassName}
                     value={sprint.end_date}
-                    onChange={(e) => updateCustomSprint(index, "end_date", e.target.value)}
+                    onChange={(v) => updateCustomSprint(index, "end_date", v)}
+                    className={inputClassName}
                   />
                 </div>
               </div>

@@ -8,6 +8,8 @@ import supabase from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDesignStandard } from "@/components/ui/design-standard";
 import { writeActivityNotification } from "@/lib/notifications/writeActivityNotification";
@@ -1632,16 +1634,13 @@ export default function MainCalendarPage() {
                   <label htmlFor="routine-start" className={styles.modalLabel}>
                     Start time
                   </label>
-                  <Input
-                    type="time"
+                  <TimePicker
                     id="routine-start"
-                    step={60}
                     value={newRoutineStart}
-                    onChange={(event) => handleRoutineStartChange(event.target.value)}
-                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    onChange={(v) => handleRoutineStartChange(v)}
                     min="00:00"
                     max="23:59"
-                    required
+                    className={styles.modalInput}
                   />
                 </div>
 
@@ -1649,16 +1648,13 @@ export default function MainCalendarPage() {
                   <label htmlFor="routine-end" className={styles.modalLabel}>
                     End time
                   </label>
-                  <Input
+                  <TimePicker
                     id="routine-end"
-                    type="time"
                     value={newRoutineEnd}
-                    onChange={(event) => setNewRoutineEnd(event.target.value)}
-                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    onChange={(v) => setNewRoutineEnd(v)}
                     min="00:00"
                     max="23:59"
-                    step={60}
-                    required
+                    className={styles.modalInput}
                   />
                 </div>
               </div>
@@ -1769,16 +1765,13 @@ export default function MainCalendarPage() {
                   <label htmlFor="edit-routine-start" className={styles.modalLabel}>
                     Start time
                   </label>
-                  <Input
-                    type="time"
+                  <TimePicker
                     id="edit-routine-start"
-                    step={60}
                     value={editStart}
-                    onChange={(event) => handleEditStartChange(event.target.value)}
-                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    onChange={(v) => handleEditStartChange(v)}
                     min="00:00"
                     max="23:59"
-                    required
+                    className={styles.modalInput}
                   />
                 </div>
 
@@ -1786,16 +1779,13 @@ export default function MainCalendarPage() {
                   <label htmlFor="edit-routine-end" className={styles.modalLabel}>
                     End time
                   </label>
-                  <Input
+                  <TimePicker
                     id="edit-routine-end"
-                    type="time"
                     value={editEnd}
-                    onChange={(event) => setEditEnd(event.target.value)}
-                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    onChange={(v) => setEditEnd(v)}
                     min="00:00"
                     max="23:59"
-                    step={60}
-                    required
+                    className={styles.modalInput}
                   />
                 </div>
               </div>
@@ -2114,11 +2104,10 @@ export default function MainCalendarPage() {
 
               <div className={styles.modalField}>
                 <label htmlFor="sched-date" className={styles.modalLabel}>Date</label>
-                <input
+                <DatePicker
                   id="sched-date"
-                  type="date"
                   value={newScheduleDate}
-                  onChange={(e) => setNewScheduleDate(e.target.value)}
+                  onChange={(v) => setNewScheduleDate(v)}
                   className={styles.modalInput}
                 />
               </div>
@@ -2126,36 +2115,30 @@ export default function MainCalendarPage() {
               <div className={styles.modalGrid}>
                 <div className={styles.modalField}>
                   <label htmlFor="sched-start" className={styles.modalLabel}>Start time</label>
-                  <Input
-                    type="time"
+                  <TimePicker
                     id="sched-start"
-                    step={60}
                     value={newScheduleStart}
-                    onChange={(e) => {
-                      setNewScheduleStart(e.target.value);
-                      const startMinutes = parseTimeMinutes(e.target.value);
+                    onChange={(v) => {
+                      setNewScheduleStart(v);
+                      const startMinutes = parseTimeMinutes(v);
                       if (parseTimeMinutes(newScheduleEnd) <= startMinutes) {
                         setNewScheduleEnd(toTimeInputValue(startMinutes + 60));
                       }
                     }}
-                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
                     min="00:00"
                     max="23:59"
-                    required
+                    className={styles.modalInput}
                   />
                 </div>
                 <div className={styles.modalField}>
                   <label htmlFor="sched-end" className={styles.modalLabel}>End time</label>
-                  <Input
+                  <TimePicker
                     id="sched-end"
-                    type="time"
                     value={newScheduleEnd}
-                    onChange={(e) => setNewScheduleEnd(e.target.value)}
-                    className={`${styles.modalInput} ${styles.modalTimeInput}`}
+                    onChange={(v) => setNewScheduleEnd(v)}
                     min="00:00"
                     max="23:59"
-                    step={60}
-                    required
+                    className={styles.modalInput}
                   />
                 </div>
               </div>

@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { writeActivityNotification } from "@/lib/notifications/writeActivityNotification";
@@ -338,15 +340,13 @@ export default function AddMeetingDialog({
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="meeting-date">Date</Label>
-                <Input
+                <DatePicker
                   id="meeting-date"
-                  type="date"
                   value={selectedDate}
-                  onChange={(e) => {
-                    if (!prefillDay) setSelectedDate(e.target.value);
+                  onChange={(v) => {
+                    if (!prefillDay) setSelectedDate(v);
                   }}
                   disabled={Boolean(prefillDay)}
-                  required
                 />
               </div>
               <div className="space-y-1.5">
@@ -363,41 +363,23 @@ export default function AddMeetingDialog({
             {/* Start + End times (clamped to free window) */}
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="meeting-start">
-                  Start time
-                  {prefillStart !== undefined && (
-                    <span className="ml-1 text-[10px] text-muted-foreground">
-                      (min {formatTimeForDisplay(minTimeStr)})
-                    </span>
-                  )}
-                </Label>
-                <Input
+                <Label htmlFor="meeting-start">Start time</Label>
+                <TimePicker
                   id="meeting-start"
-                  type="time"
                   value={startTime}
                   min={minTimeStr}
                   max={maxTimeStr}
-                  onChange={(e) => handleStartChange(e.target.value)}
-                  required
+                  onChange={handleStartChange}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="meeting-end">
-                  End time
-                  {prefillEnd !== undefined && (
-                    <span className="ml-1 text-[10px] text-muted-foreground">
-                      (max {formatTimeForDisplay(maxTimeStr)})
-                    </span>
-                  )}
-                </Label>
-                <Input
+                <Label htmlFor="meeting-end">End time</Label>
+                <TimePicker
                   id="meeting-end"
-                  type="time"
                   value={endTime}
                   min={minTimeStr}
                   max={maxTimeStr}
-                  onChange={(e) => handleEndChange(e.target.value)}
-                  required
+                  onChange={handleEndChange}
                 />
               </div>
             </div>

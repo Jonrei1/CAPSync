@@ -30,7 +30,7 @@ function Calendar({
       modifiers={modifiers}
       classNames={{
         months: "flex flex-col gap-4",
-        month: "space-y-4",
+        month: "space-y-4 min-h-[280px]",
         month_caption: "relative flex h-9 items-center justify-center px-10",
         caption_label: "text-sm font-medium text-foreground flex-1 text-center",
         dropdowns: "flex items-center justify-center gap-1.5 text-sm font-medium",

@@ -8,6 +8,7 @@ import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTi
 import { designStandard, designTokens } from "@/components/ui/design-standard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
@@ -377,12 +378,11 @@ export default function TaskForm({
                     <IconLabel htmlFor="task-due" icon={CalendarDays} colorClassName="text-amber-600">
                       Due date
                     </IconLabel>
-                    <Input
+                    <DatePicker
                       id="task-due"
-                      type="date"
-                      className={controlClassName}
                       value={form.dueDate}
-                      onChange={(event) => update("dueDate", event.target.value)}
+                      onChange={(v) => update("dueDate", v)}
+                      className={controlClassName}
                     />
                   </div>
                 </div>
