@@ -11,6 +11,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDesignStandard } from "@/components/ui/design-standard";
+import { toast } from "@/components/ui/use-toast";
 import { writeActivityNotification } from "@/lib/notifications/writeActivityNotification";
 import WeekCalendarGrid, {
   type CalendarGridEvent,
@@ -806,7 +807,7 @@ export default function MainCalendarPage() {
 
   async function saveRoutine() {
     if (!newRoutineLabel.trim()) {
-      alert("Please enter a routine name");
+      toast.warning("Please enter a routine name");
       return;
     }
 
@@ -1204,19 +1205,19 @@ export default function MainCalendarPage() {
 
   async function saveSchedule() {
     if (!newScheduleLabel.trim()) {
-      alert("Please enter an activity name.");
+      toast.warning("Please enter an activity name.");
       return;
     }
 
     if (!newScheduleDate) {
-      alert("Please select a date.");
+      toast.warning("Please select a date.");
       return;
     }
 
     const startMinutes = parseTimeMinutes(newScheduleStart);
     const endMinutes = parseTimeMinutes(newScheduleEnd);
     if (endMinutes <= startMinutes) {
-      alert("End time must be later than start time.");
+      toast.warning("End time must be later than start time.");
       return;
     }
 
@@ -1241,7 +1242,7 @@ export default function MainCalendarPage() {
         .eq("id", editingSchedule.id);
 
       if (error) {
-        alert("Failed to update schedule.");
+        toast.error("Failed to update schedule.");
         return;
       }
 
@@ -1296,7 +1297,7 @@ export default function MainCalendarPage() {
         .single();
 
       if (error || !inserted) {
-        alert("Failed to save schedule.");
+        toast.error("Failed to save schedule.");
         return;
       }
 

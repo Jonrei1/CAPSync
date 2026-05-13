@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-export type ToastVariant = "default" | "success" | "error";
+export type ToastVariant = "default" | "success" | "warning" | "error";
 
 export type ToastMessage = {
   id: string;
@@ -59,6 +59,9 @@ export const toast = Object.assign(
   {
     success(title: string, description?: string) {
       return pushToast({ title, description, variant: "success" });
+    },
+    warning(title: string, description?: string) {
+      return pushToast({ title, description, variant: "warning" });
     },
     error(title: string, description?: string) {
       return pushToast({ title, description, variant: "error" });
