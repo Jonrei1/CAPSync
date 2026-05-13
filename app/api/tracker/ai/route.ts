@@ -1,10 +1,79 @@
 import { NextResponse } from "next/server";
 import { errorResponse, getAuthenticatedSupabase, getMembership, isPlainObject } from "@/app/api/tracker/tracker-api-utils";
 
+// ─── rate limit store ───────────────────────────────────────────────────────
+const WINDOW_MS = 60_000;          // 1 minute
+const PER_IP_LIMIT = 10;           // requests per IP per window
+const GLOBAL_LIMIT = 60;           // total requests per window across all IPs
+
+type BucketEntry = { count: number; resetAt: number };
+const ipBuckets = new Map<string, BucketEntry>();
+let globalBucket: BucketEntry = { count: 0, resetAt: Date.now() + WINDOW_MS };
+
+function checkRateLimit(ip: string): { allowed: boolean; retryAfter: number } {
+  const now = Date.now();
+
+  // Global bucket
+  if (now > globalBucket.resetAt) {
+    globalBucket = { count: 0, resetAt: now + WINDOW_MS };
+  }
+  if (globalBucket.count >= GLOBAL_LIMIT) {
+    return { allowed: false, retryAfter: Math.ceil((globalBucket.resetAt - now) / 1000) };
+  }
+
+  // Per-IP bucket
+  let bucket = ipBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    bucket = { count: 0, resetAt: now + WINDOW_MS };
+    ipBuckets.set(ip, bucket);
+  }
+  if (bucket.count >= PER_IP_LIMIT) {
+    return { allowed: false, retryAfter: Math.ceil((bucket.resetAt - now) / 1000) };
+  }
+
+  // Increment both
+  bucket.count += 1;
+  globalBucket.count += 1;
+
+  // Prune stale IP entries periodically (every ~100 calls)
+  if (globalBucket.count % 100 === 0) {
+    for (const [key, entry] of ipBuckets.entries()) {
+      if (now > entry.resetAt) ipBuckets.delete(key);
+    }
+  }
+
+  return { allowed: true, retryAfter: 0 };
+}
+
+function getClientIp(req: Request): string {
+  // Vercel sets x-forwarded-for; fall back to a placeholder so the limiter
+  // still works in local dev where the header is absent.
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  return "unknown";
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 const SYSTEM_PROMPT =
   "You are a helpful capstone project tracker assistant integrated into Libré. Keep responses under 150 words, practical, and specific to student thesis/capstone work. Do not replace the team's workflow. Suggest next actions.";
 
 export async function POST(request: Request) {
+  // ── rate limit ──────────────────────────────────────────────────────────
+  const ip = getClientIp(request);
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait a moment before trying again." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(retryAfter) },
+      }
+    );
+  }
+  // ── end rate limit ───────────────────────────────────────────────────────
+
   const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
