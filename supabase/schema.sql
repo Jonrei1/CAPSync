@@ -73,6 +73,133 @@ create table if not exists group_fund (
   updated_at timestamptz default now()
 );
 
+create table if not exists login_attempts (
+  key_hash text primary key,
+  attempts integer not null default 0,
+  window_expires_at timestamptz not null,
+  blocked_until timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table login_attempts enable row level security;
+
+create index if not exists idx_login_attempts_blocked_until
+on login_attempts(blocked_until);
+
+create or replace function public.check_login_rate_limit(p_key_hash text)
+returns table (allowed boolean, retry_after_seconds integer)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  attempt_row public.login_attempts%rowtype;
+  now_ts timestamptz := now();
+begin
+  select *
+  into attempt_row
+  from public.login_attempts
+  where key_hash = p_key_hash;
+
+  if not found then
+    allowed := true;
+    retry_after_seconds := null;
+    return next;
+    return;
+  end if;
+
+  if attempt_row.blocked_until is not null and attempt_row.blocked_until > now_ts then
+    allowed := false;
+    retry_after_seconds := ceil(extract(epoch from attempt_row.blocked_until - now_ts))::integer;
+    return next;
+    return;
+  end if;
+
+  if attempt_row.window_expires_at <= now_ts then
+    delete from public.login_attempts
+    where key_hash = p_key_hash;
+
+    allowed := true;
+    retry_after_seconds := null;
+    return next;
+  end if;
+
+  allowed := true;
+  retry_after_seconds := null;
+  return next;
+end;
+$$;
+
+revoke all on function public.check_login_rate_limit(text) from public, anon, authenticated;
+grant execute on function public.check_login_rate_limit(text) to service_role;
+
+create or replace function public.record_login_failure(
+  p_key_hash text,
+  p_max_attempts integer,
+  p_block_seconds integer,
+  p_window_seconds integer
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  now_ts timestamptz := now();
+  current_attempts integer;
+  window_expires timestamptz;
+begin
+  select attempts, window_expires_at
+  into current_attempts, window_expires
+  from public.login_attempts
+  where key_hash = p_key_hash
+  for update;
+
+  if not found or window_expires <= now_ts then
+    insert into public.login_attempts (
+      key_hash,
+      attempts,
+      window_expires_at,
+      blocked_until,
+      updated_at
+    )
+    values (
+      p_key_hash,
+      1,
+      now_ts + make_interval(secs => p_window_seconds),
+      null,
+      now_ts
+    )
+    on conflict (key_hash) do update
+      set attempts = excluded.attempts,
+          window_expires_at = excluded.window_expires_at,
+          blocked_until = null,
+          updated_at = excluded.updated_at;
+
+    return;
+  end if;
+
+  current_attempts := current_attempts + 1;
+
+  if current_attempts >= p_max_attempts then
+    update public.login_attempts
+    set attempts = current_attempts,
+        window_expires_at = now_ts + make_interval(secs => p_block_seconds),
+        blocked_until = now_ts + make_interval(secs => p_block_seconds),
+        updated_at = now_ts
+    where key_hash = p_key_hash;
+  else
+    update public.login_attempts
+    set attempts = current_attempts,
+        updated_at = now_ts
+    where key_hash = p_key_hash;
+  end if;
+end;
+$$;
+
+revoke all on function public.record_login_failure(text, integer, integer, integer) from public, anon, authenticated;
+grant execute on function public.record_login_failure(text, integer, integer, integer) to service_role;
+
 -- ============================================================
 -- ACTIVITY_NOTIFICATIONS TABLE
 -- Stores per-user notification entries for calendar activity.

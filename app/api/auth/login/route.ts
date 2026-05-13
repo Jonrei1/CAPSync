@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  clearLoginAttempts,
+  getLoginRateLimitState,
+  recordFailedLoginAttempt,
+} from "@/lib/auth/login-rate-limit";
 
 type LoginRequest = {
   email?: string;
@@ -19,6 +24,23 @@ export async function POST(request: Request) {
     );
   }
 
+  const rateLimitState = await getLoginRateLimitState(request, email);
+
+  if (!rateLimitState.allowed) {
+    return NextResponse.json(
+      {
+        error: "Too many login attempts. Try again later.",
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimitState.retryAfterSeconds ?? 60),
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -26,11 +48,20 @@ export async function POST(request: Request) {
   });
 
   if (error || !data.user) {
+    await recordFailedLoginAttempt(rateLimitState.key);
+
     return NextResponse.json(
       { error: error?.message ?? "Invalid email or password." },
-      { status: 401 },
+      {
+        status: 401,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
     );
   }
+
+  await clearLoginAttempts(rateLimitState.key);
 
   // Ensure profile exists — admin client bypasses RLS safely.
   const { error: profileError } = await supabaseAdmin

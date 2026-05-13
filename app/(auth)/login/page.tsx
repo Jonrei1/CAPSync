@@ -10,6 +10,10 @@ import CalendarShell from "@/components/circle-calendar/CalendarShell";
 import type { CalendarMember, CalendarBlock, FreeWindow, CalendarDeadline } from "@/types";
 
 type LoadingState = "google" | "email" | null;
+type FeedbackState = {
+  message: string;
+  variant: "error" | "warning";
+};
 
 function Spinner() {
   return (
@@ -87,7 +91,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [loading, setLoading] = useState<LoadingState>(null);
 
   const [isClient, setIsClient] = useState(false);
@@ -99,7 +103,7 @@ export default function LoginPage() {
   const isBusy = loading !== null;
 
   async function handleGoogleSignIn() {
-    setError("");
+    setFeedback(null);
     setLoading("google");
 
     const response = await fetch("/api/auth/google", {
@@ -112,7 +116,10 @@ export default function LoginPage() {
     const payload = (await response.json()) as { error?: string; url?: string };
 
     if (!response.ok || !payload.url) {
-      setError(payload.error ?? "Unable to start Google sign-in.");
+      setFeedback({
+        message: payload.error ?? "Unable to start Google sign-in.",
+        variant: "error",
+      });
       setLoading(null);
       return;
     }
@@ -122,7 +129,7 @@ export default function LoginPage() {
 
   async function handleEmailSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
+    setFeedback(null);
     setLoading("email");
 
     const response = await fetch("/api/auth/login", {
@@ -139,7 +146,15 @@ export default function LoginPage() {
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "Unable to sign in.");
+      const retryAfter = response.status === 429 ? response.headers.get("Retry-After") : null;
+      const warningMessage = retryAfter
+        ? `Too many login attempts. Please wait ${retryAfter} seconds before trying again.`
+        : payload.error ?? "Unable to sign in.";
+
+      setFeedback({
+        message: warningMessage,
+        variant: response.status === 429 ? "warning" : "error",
+      });
       setLoading(null);
       return;
     }
@@ -237,7 +252,18 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            {error ? <p className="mt-4 text-center text-sm font-medium text-destructive">{error}</p> : null}
+            {feedback ? (
+              <p
+                className={
+                  feedback.variant === "warning"
+                    ? "mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-900"
+                    : "mt-4 text-center text-sm font-medium text-destructive"
+                }
+                role={feedback.variant === "warning" ? "status" : "alert"}
+              >
+                {feedback.message}
+              </p>
+            ) : null}
 
             <div className="relative mt-4 py-2">
               <div className="absolute inset-0 flex items-center">
