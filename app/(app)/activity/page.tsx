@@ -262,8 +262,13 @@ export default function ActivityRoutePage() {
           <div>
             {notifications.map((notification) => {
               let tone = getTone(notification.type);
-              const isAssigned = notification.title.toLowerCase().includes("assigned");
-              if (notification.type === "task" && isAssigned) {
+              const lowerTitle = notification.title.toLowerCase();
+              const isAssigned = lowerTitle.includes("assigned");
+              const isStatusChange = lowerTitle.includes("status updated") || lowerTitle.includes("status changed");
+
+              if (notification.type === "task" && isStatusChange) {
+                tone = { accent: designTokens.palette.success.hex, background: `${designTokens.palette.success.hex}1a`, icon: tone.icon };
+              } else if (notification.type === "task" && isAssigned) {
                 tone = { accent: designTokens.palette.app.status.danger, background: "#dc26261a", icon: tone.icon };
               }
               const isUnread = !notification.readAt;

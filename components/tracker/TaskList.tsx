@@ -37,6 +37,7 @@ type TaskListProps = {
   autoExpandSprintId?: string | null;
   autoOpenBacklog?: boolean;
   autoOpenTasks?: boolean;
+  highlightTaskId?: string | null;
 };
 
 const fieldClassName = cn(designTokens.spacing.field, "gap-2");
@@ -54,6 +55,7 @@ export default function TaskList({
   autoExpandSprintId,
   autoOpenBacklog,
   autoOpenTasks,
+  highlightTaskId,
 }: TaskListProps) {
   // Start with all sprint sections closed by default, unless we have an auto-expand ID
   const defaultOpen = useMemo(() => {
@@ -87,6 +89,7 @@ export default function TaskList({
       setTasksOpen(true);
     }
   }, [autoOpenTasks]);
+  
 
   useEffect(() => {
     if (!autoExpandSprintId) {
@@ -131,6 +134,29 @@ export default function TaskList({
     const realSprints = sprints.filter((s) => s.id !== "__backlog");
     return realSprints.length > 0 ? realSprints[realSprints.length - 1] : null;
   }, [sprints]);
+
+  // When an external selection (e.g. via URL) highlights a task, ensure its
+  // containing section is expanded so the task is visible.
+  useEffect(() => {
+    if (!highlightTaskId) return;
+
+    const task = allTasks.find((t) => t.id === highlightTaskId);
+    if (!task) return;
+
+    if (task.sprint_id) {
+      // open the sprint containing the task
+      setOpenSprintIds((current) => {
+        if (current.has(task.sprint_id!)) return current;
+        const next = new Set(current);
+        next.add(task.sprint_id!);
+        return next;
+      });
+    } else if (getDueState(task) === "overdue") {
+      setBacklogOpen(true);
+    } else {
+      setTasksOpen(true);
+    }
+  }, [highlightTaskId, allTasks]);
 
   const hasOverlap = useMemo(() => {
     if (!newSprintStart || !newSprintEnd) return false;

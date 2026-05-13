@@ -60,6 +60,7 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
   const stats = useMemo(() => getTrackerStats(tasks), [tasks]);
   const taskIdParam = searchParams.get("task");
   const taskFromUrl = useMemo(() => tasks.find((task) => task.id === taskIdParam) ?? null, [taskIdParam, tasks]);
+  const hideSprintSections = methodology === "simple" || methodology === "kanban";
   const taskArea = useMemo(() => {
     if (!taskFromUrl) {
       return null;
@@ -68,9 +69,14 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
     if (taskFromUrl.sprint_id) {
       return "sprint" as const;
     }
+    // In Scrum methodology, tasks without a sprint belong to Backlog regardless
+    // of due date. For other methodologies, treat overdue tasks as backlog.
+    if (methodology === "scrum") {
+      return "backlog" as const;
+    }
 
     return getDueState(taskFromUrl) === "overdue" ? "backlog" as const : "tasks" as const;
-  }, [taskFromUrl]);
+  }, [taskFromUrl, methodology]);
 
   useEffect(() => {
     if (!taskIdParam) {
@@ -83,6 +89,23 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
   const autoExpandSprintId = taskArea === "sprint" ? taskFromUrl?.sprint_id ?? null : null;
   const autoOpenBacklog = taskArea === "backlog";
   const autoOpenTasks = taskArea === "tasks";
+
+  // If sprint sections are hidden, tasks should reflect the visible buckets
+  // instead of stale sprint membership in their stored data.
+  const currentTaskForLocation = selectedTask ?? taskFromUrl;
+  const computedLocationLabel = currentTaskForLocation
+    ? hideSprintSections
+      ? getDueState(currentTaskForLocation) === "overdue"
+        ? "Backlog"
+        : "Tasks"
+      : currentTaskForLocation.sprint_id
+      ? sprints.find((s) => s.id === currentTaskForLocation.sprint_id)?.title ?? "Sprint"
+      : methodology === "scrum"
+      ? "Backlog"
+      : getDueState(currentTaskForLocation) === "overdue"
+      ? "Backlog"
+      : "Tasks"
+    : null;
 
   function refresh() {
     router.refresh();
@@ -203,7 +226,8 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
           onRefresh={refresh}
           autoExpandSprintId={autoExpandSprintId}
           autoOpenBacklog={autoOpenBacklog}
-          autoOpenTasks={autoOpenTasks}
+            autoOpenTasks={autoOpenTasks}
+            highlightTaskId={taskFromUrl?.id ?? null}
         />
       </div>
 
@@ -220,7 +244,15 @@ export default function TrackerWorkspace({ group, members, sprints, currentUserI
         methodology={methodology}
         onSaved={refresh}
       />
-      <TaskDetailSheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)} task={selectedTask} members={members} currentUserId={currentUserId} onSaved={refresh} />
+      <TaskDetailSheet
+        open={Boolean(selectedTask)}
+        onOpenChange={(open) => !open && setSelectedTask(null)}
+        task={selectedTask}
+        members={members}
+        currentUserId={currentUserId}
+        onSaved={refresh}
+        locationLabel={computedLocationLabel}
+      />
       <MethodologyDialog
         open={methodologyOpen}
         onOpenChange={setMethodologyOpen}

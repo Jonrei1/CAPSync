@@ -28,9 +28,10 @@ type TaskDetailSheetProps = {
   members: Profile[];
   currentUserId: string | null;
   onSaved: () => void;
+  locationLabel?: string | null;
 };
 
-export default function TaskDetailSheet({ open, onOpenChange, task, members, currentUserId, onSaved }: TaskDetailSheetProps) {
+export default function TaskDetailSheet({ open, onOpenChange, task, members, currentUserId, onSaved, locationLabel }: TaskDetailSheetProps) {
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [assignedTo, setAssignedTo] = useState("__unassigned");
   const [dueDate, setDueDate] = useState("");
@@ -286,6 +287,10 @@ export default function TaskDetailSheet({ open, onOpenChange, task, members, cur
                 <Badge variant="outline" className={STATUS_STYLES[normalizeTaskStatus(task.status)]}>
                   {STATUS_LABELS[normalizeTaskStatus(task.status)]}
                 </Badge>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Location</div>
+                <div className="mt-1">{locationLabel ?? "Unknown"}</div>
               </div>
             </div>
 
