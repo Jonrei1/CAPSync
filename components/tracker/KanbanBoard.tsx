@@ -62,6 +62,14 @@ export default function KanbanBoard({
     setFormOpen(true);
   }
 
+  function getDefaultCategory(status: TaskStatus) {
+    if (methodology === "kanban") {
+      return labels[status].replace(/\s*\(.+\)$/, "");
+    }
+
+    return labels[status];
+  }
+
   return (
     <>
       <div className="grid gap-3 xl:grid-cols-4 md:grid-cols-2">
@@ -104,6 +112,7 @@ export default function KanbanBoard({
 
       {groupId && currentUserId ? (
         <TaskForm
+          key={`${defaultStatus}:${getDefaultCategory(defaultStatus)}`}
           open={formOpen}
           onOpenChange={setFormOpen}
           groupId={groupId}
@@ -113,6 +122,7 @@ export default function KanbanBoard({
           canManage={canManage}
           methodology={methodology}
           defaultStatus={defaultStatus}
+          defaultCategory={getDefaultCategory(defaultStatus)}
           onSaved={onSaved}
         />
       ) : null}

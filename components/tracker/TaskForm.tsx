@@ -26,6 +26,7 @@ type TaskFormProps = {
   canManage: boolean;
   methodology: Methodology;
   defaultStatus?: TaskStatus;
+  defaultCategory?: string;
   defaultSprintId?: string | null;
   defaultDueDate?: string | null;
   onSaved: () => void;
@@ -179,11 +180,12 @@ export default function TaskForm({
   canManage,
   methodology,
   defaultStatus = "todo",
+  defaultCategory = "",
   defaultSprintId = null,
   defaultDueDate = null,
   onSaved,
 }: TaskFormProps) {
-  const [form, setForm] = useState<FormState>({ ...DEFAULT_FORM, status: defaultStatus });
+  const [form, setForm] = useState<FormState>({ ...DEFAULT_FORM, status: defaultStatus, category: defaultCategory });
   const [saving, setSaving] = useState(false);
   const cfg = METHOD_CFG[methodology];
 
@@ -192,11 +194,12 @@ export default function TaskForm({
       setForm({
         ...DEFAULT_FORM,
         status: defaultStatus,
+        category: defaultCategory,
         sprintId: defaultSprintId && defaultSprintId !== "__backlog" ? defaultSprintId : "__none",
         dueDate: defaultDueDate ?? "",
       });
     }
-  }, [defaultDueDate, defaultSprintId, defaultStatus, open]);
+  }, [defaultCategory, defaultDueDate, defaultSprintId, defaultStatus, open]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
