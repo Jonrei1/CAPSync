@@ -1237,11 +1237,10 @@ export default function CalendarShell({
                 />
                 <PopoverContent className={cn(ds.calendar.dateJumpPopover)} align="start">
                   <Calendar
-                    mode="single"
                     selected={activeDate}
                     defaultMonth={activeDate}
                     deadlineDates={deadlineDateObjects}
-                    onSelect={(nextDate) => {
+                    onSelect={(nextDate: Date | undefined) => {
                       if (!nextDate) {
                         return;
                       }

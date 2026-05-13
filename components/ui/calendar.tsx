@@ -7,11 +7,9 @@ import { DayPicker, type DayPickerProps } from "react-day-picker";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface CalendarProps extends Omit<DayPickerProps, "classNames"> {
+interface CalendarProps extends Omit<Extract<DayPickerProps, { mode: "single"; required?: false | undefined }>, "classNames" | "mode"> {
   classNames?: DayPickerProps["classNames"];
   deadlineDates?: Date[];
-  selected?: Date | Date[] | undefined;
-  onSelect?: (date: Date | undefined) => void;
 }
 
 function Calendar({
@@ -25,6 +23,8 @@ function Calendar({
 
   return (
     <DayPicker
+      mode="single"
+      required={false}
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       modifiers={modifiers}

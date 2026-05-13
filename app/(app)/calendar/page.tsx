@@ -1403,7 +1403,6 @@ export default function MainCalendarPage() {
                 />
                 <PopoverContent className={cn(styles.dateJumpPopover, ds.calendar.dateJumpPopover)} align="start">
                   <Calendar
-                    mode="single"
                     selected={activeDate}
                     defaultMonth={activeDate}
                     deadlineDates={deadlineDateObjects}
