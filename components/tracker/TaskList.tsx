@@ -254,7 +254,7 @@ export default function TaskList({
             <button
               type="button"
               onClick={() => setAddDialogOpen(true)}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-violet-200 py-2 text-sm text-violet-700 hover:bg-violet-50/40"
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-green-200 hover:border-green-400 py-2 text-sm text-green-500 hover:text-green-700 hover:bg-green-50/40 cursor-pointer"
             >
               <Plus className="size-4" />
               Add sprint
@@ -262,7 +262,7 @@ export default function TaskList({
             <button
               type="button"
               onClick={() => setResetDialogOpen(true)}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-red-200 py-2 text-sm text-red-700 hover:bg-red-50/40"
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-red-200 hover:border-red-400 py-2 text-sm text-red-500 hover:text-red-700 hover:bg-red-50/40 cursor-pointer"
             >
               Reset sprints
             </button>
@@ -608,16 +608,16 @@ export default function TaskList({
           </DialogHeader>
           <DialogBody className="gap-4">
             {lastSprint && (
-              <div className="mb-2 rounded-lg border border-violet-100 bg-violet-50/50 p-3">
-                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-violet-700 uppercase">
+              <div className="mb-2 rounded-lg border border-green-100 bg-green-50/50 p-3">
+                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-green-700 uppercase">
                   <History className="size-3" />
                   Follows previous sprint
                 </div>
                 <div className="mt-1.5 flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-violet-900">{lastSprint.title}</div>
+                    <div className="truncate text-sm font-medium text-green-900">{lastSprint.title}</div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2 text-xs text-violet-600">
+                  <div className="flex shrink-0 items-center gap-2 text-xs text-green-600">
                     <span>{lastSprint.start_date ? format(parseISO(lastSprint.start_date), "MMM d") : "?"}</span>
                     <ArrowRight className="size-3 opacity-50" />
                     <span>{lastSprint.end_date ? format(parseISO(lastSprint.end_date), "MMM d") : "?"}</span>
