@@ -141,8 +141,8 @@ export default function CircleSwitcher() {
             <div key={group.id}>
               <div
                 className={[
-                  "group flex w-full items-center gap-1 rounded-md px-1 py-1 transition-colors",
-                  isActive ? "bg-accent" : "hover:bg-zinc-100",
+                  "group flex w-full items-center gap-1 rounded-md px-1 py-1 transition-colors border-l-2 -ml-1 pl-0.5",
+                  isActive ? "border-l-primary bg-primary/5" : "border-l-transparent hover:bg-zinc-100",
                 ].join(" ")}
               >
                 <button
@@ -195,10 +195,10 @@ export default function CircleSwitcher() {
                         key={item.label}
                         href={item.href}
                         className={[
-                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors",
+                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors border-l-2 -ml-2 pl-[7px]",
                           isSubActive
-                            ? "bg-white font-medium text-zinc-900"
-                            : "text-zinc-600 hover:bg-white hover:text-zinc-900",
+                            ? "border-l-primary bg-primary/5 font-medium text-primary"
+                            : "border-l-transparent text-zinc-600 hover:bg-white hover:text-zinc-900",
                         ].join(" ")}
                       >
                         <item.icon className="h-3.5 w-3.5 shrink-0" />
