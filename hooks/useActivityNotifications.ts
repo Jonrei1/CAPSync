@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { designTokens } from "@/components/ui/design-standard";
 import supabase from "@/lib/supabaseClient";
+import { deleteExpiredActivityNotifications } from "@/lib/notifications/deleteExpiredActivityNotifications";
 
 export type ActivityType = "meeting" | "deadline" | "schedule" | "task";
 
@@ -41,6 +42,8 @@ export function useActivityNotifications() {
         setNotifications([]);
         return;
       }
+
+      await deleteExpiredActivityNotifications(supabase, user.id);
 
       const { data, error } = await supabase
         .from("activity_notifications")
