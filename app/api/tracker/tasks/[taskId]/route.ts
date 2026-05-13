@@ -131,7 +131,7 @@ export async function DELETE(request: Request, { params }: RouteProps) {
 
   const { data: task } = await auth.supabase
     .from("tasks")
-    .select("id, group_id, created_by, title")
+    .select("id, group_id, created_by, title, sprint_id")
     .eq("id", taskId)
     .maybeSingle();
 
