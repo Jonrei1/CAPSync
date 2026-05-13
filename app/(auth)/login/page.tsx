@@ -315,8 +315,8 @@ export default function LoginPage() {
           <div className="relative hidden w-0 flex-1 lg:flex flex-col justify-start bg-zinc-950 p-6 lg:p-12 xl:p-20 pt-12 lg:pt-24 overflow-hidden">
           <div className="absolute inset-0">
             <div className="absolute top-0 left-0 right-0 h-full bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
-            <div className="absolute bottom-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.15),transparent_50%)] translate-x-1/3 translate-y-1/3"></div>
-            <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.1),transparent_50%)] rounded-full blur-3xl mix-blend-screen"></div>
+            <div className="absolute bottom-0 right-0 w-200 h-200 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.15),transparent_50%)] translate-x-1/3 translate-y-1/3"></div>
+            <div className="absolute top-1/4 left-1/4 w-150 h-150 bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.1),transparent_50%)] rounded-full blur-3xl mix-blend-screen"></div>
           </div>
           
           <div className="relative z-10 mx-auto w-full max-w-5xl text-left">
@@ -330,10 +330,10 @@ export default function LoginPage() {
 
             {isClient && (
               <div 
-                className="relative mt-12 h-[520px] w-full overflow-hidden rounded-2xl bg-background p-4 shadow-2xl ring-1 ring-border/50 flex justify-center animate-in fade-in zoom-in-95 duration-1000 delay-300 fill-mode-both"
+                className="relative mt-12 h-130 w-full overflow-hidden rounded-2xl bg-background p-4 shadow-2xl ring-1 ring-border/50 flex justify-center animate-in fade-in zoom-in-95 duration-1000 delay-300 fill-mode-both"
                 style={lightThemeVars}
               >
-                <div className="pointer-events-none origin-top transform scale-[0.55] xl:scale-[0.65] w-[160%] h-[720px] shrink-0">
+                <div className="pointer-events-none origin-top transform scale-[0.55] xl:scale-[0.65] w-[160%] h-180 shrink-0">
                   <CalendarShell
                     members={dummyCalendarMembers}
                     blocks={dummyCalendarBlocks}

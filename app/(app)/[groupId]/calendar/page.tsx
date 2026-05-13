@@ -473,7 +473,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         fallback={
           <div className="flex flex-col gap-0 flex-1 min-h-0">
             <div className="grid border-b" style={{ gridTemplateColumns: "60px repeat(7, minmax(0,1fr))" }}>
-              <div className="h-[76px] border-r" />
+              <div className="h-19 border-r" />
               {Array.from({ length: 7 }).map((_, i) => (
                 <div key={i} className="border-l px-2 py-2 flex flex-col items-center gap-2">
                   <div className="h-2.5 w-6 rounded bg-zinc-100 animate-pulse" />
@@ -484,7 +484,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
             <div className="grid flex-1 overflow-hidden" style={{ gridTemplateColumns: "60px repeat(7, minmax(0,1fr))" }}>
               <div className="border-r">
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="h-[60px] flex items-start justify-end pr-2 pt-1 border-t">
+                  <div key={i} className="h-15 flex items-start justify-end pr-2 pt-1 border-t">
                     <div className="h-2.5 w-8 rounded bg-zinc-100 animate-pulse" />
                   </div>
                 ))}
@@ -492,7 +492,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
               {Array.from({ length: 7 }).map((_, colI) => (
                 <div key={colI} className="border-l relative">
                   {Array.from({ length: 8 }).map((_, rowI) => (
-                    <div key={rowI} className="h-[60px] border-t" />
+                    <div key={rowI} className="h-15 border-t" />
                   ))}
                   {colI % 2 === 0 && (
                     <div

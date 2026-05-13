@@ -66,9 +66,7 @@ export function computeFreeWindows(
     let activeMembers: string[] = [];
 
     for (let hour = WINDOW_START_HOUR; hour < WINDOW_END_HOUR; hour += 0.5) {
-      const freeMembers = visibleMembers.filter(
-        (memberId) => !dayBlocks.some((block) => covers(block, day, hour)),
-      );
+      const freeMembers = visibleMembers.filter(() => !dayBlocks.some((block) => covers(block, day, hour)));
       const freeSubset = freeMembers.sort();
 
       const sameSubset =

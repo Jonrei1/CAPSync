@@ -97,13 +97,6 @@ function displayWindowEnd(end: number) {
   return end === 24 ? 23 + 59 / 60 : end;
 }
 
-function startOfWeek(date: Date) {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  next.setDate(next.getDate() - next.getDay());
-  return next;
-}
-
 function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
@@ -181,7 +174,6 @@ export default function CalendarShell({
   groupName,
   groupColor,
   groupSubject,
-  weekOffset: _weekOffset,
   selectedDate,
   startHour: propStartHour,
   endHour: propEndHour,
@@ -225,6 +217,7 @@ export default function CalendarShell({
   const tooltipRafRef = useRef<number | null>(null);
   const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const tooltipVisibleRef = useRef(false);
+  const visibleRafRef = useRef<number | null>(null);
 
   const activeDate = useMemo(() => parseDateParam(selectedDate) ?? new Date(), [selectedDate]);
   const weekDates = useMemo(() => getWeekDates(activeDate), [activeDate]);
@@ -276,10 +269,19 @@ export default function CalendarShell({
   );
 
   useEffect(() => {
-    setVisibleMemberIds((current) => {
-      const next = members.map((member) => member.id).filter((memberId) => current.includes(memberId));
-      return next.length > 0 ? next : members.map((member) => member.id);
+    if (visibleRafRef.current) cancelAnimationFrame(visibleRafRef.current);
+    visibleRafRef.current = window.requestAnimationFrame(() => {
+      setVisibleMemberIds((current) => {
+        const next = members.map((member) => member.id).filter((memberId) => current.includes(memberId));
+        return next.length > 0 ? next : members.map((member) => member.id);
+      });
     });
+    return () => {
+      if (visibleRafRef.current) {
+        cancelAnimationFrame(visibleRafRef.current);
+        visibleRafRef.current = null;
+      }
+    };
   }, [members]);
 
   useEffect(() => {
@@ -583,7 +585,7 @@ export default function CalendarShell({
       .filter((date): date is Date => Boolean(date));
   }, [deadlines, weekDates]);
 
-  const weekView = useMemo(() => {
+  const weekView = (() => {
     const dayIndexByKey = new Map<string, number>(DAY_KEYS.map((key, index) => [key, index]));
     const foregroundEvents: CalendarGridEvent[] = [];
     const backgroundEvents: CalendarGridEvent[] = [];
@@ -733,7 +735,6 @@ export default function CalendarShell({
         },
         onClick: () => {
           // Open modal with all deadlines for this day
-          const dayKey = DAY_KEYS[dayIndex];
           const weekDate = weekDates[dayIndex];
           if (weekDate) {
             setSelectedDeadlineDate(weekDate);
@@ -766,7 +767,7 @@ export default function CalendarShell({
                     type="button"
                     onClick={() => toggleMember(member.id)}
                     className={cn(
-                      "group flex items-center gap-[7px] rounded-[7px] border-[1.5px] min-h-[34px] px-[10px] py-[5px] pl-[8px] text-left transition-all duration-150 select-none",
+                      "group flex items-center gap-1.75 rounded-[7px] border-[1.5px] min-h-8.5 px-2.5 py-1.25 pl-2 text-left transition-all duration-150 select-none",
                       visible
                         ? "bg-background shadow-sm hover:-translate-y-0.5 hover:shadow-md"
                         : "border-border/70 bg-muted/60 opacity-45",
@@ -787,7 +788,7 @@ export default function CalendarShell({
                     </div>
                     <div
                       className={cn(
-                        "ml-[2px] flex h-3 w-3 shrink-0 items-center justify-center rounded-full border-[1.5px] text-[8px] font-bold transition-colors",
+                        "ml-0.5 flex h-3 w-3 shrink-0 items-center justify-center rounded-full border-[1.5px] text-[8px] font-bold transition-colors",
                         visible ? "text-white" : "border-border/70 bg-transparent text-muted-foreground",
                       )}
                       style={visible ? { borderColor: member.bg, backgroundColor: member.bg } : undefined}
@@ -1159,24 +1160,7 @@ export default function CalendarShell({
         </div>
       </div>
     );
-  }, [
-    blocks,
-    deadlines,
-    ds,
-    layout,
-    memberBlockCounts,
-    memberMap,
-    members,
-    nowTick,
-    sharedFreeWindowCount,
-    visibleBlocks,
-    visibleCount,
-    visibleFreeWindows,
-    visibleMembers,
-    visibleMemberSet,
-    weekDates,
-    weekLabel,
-  ]);
+  })();
 
   return (
     <div className={cn(ds.layout.page, "max-w-none flex h-full flex-col gap-1 py-0")}>

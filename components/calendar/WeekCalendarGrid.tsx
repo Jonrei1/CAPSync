@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import FloatingTooltip, { type FloatingTooltipContent } from "@/components/calendar/FloatingTooltip";
 import { cn } from "@/lib/utils";
-import { toast } from "@/components/ui/use-toast";
 import styles from "@/app/(app)/calendar/page.module.css";
 
 const SLOT = 60;
@@ -241,6 +240,7 @@ export default function WeekCalendarGrid({
   const [hoverTooltip, setHoverTooltip] = useState<FloatingTooltipContent | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const mountRafRef = useRef<number | null>(null);
   const tooltipElementRef = useRef<HTMLDivElement | null>(null);
   const tooltipRafRef = useRef<number | null>(null);
   const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -268,8 +268,12 @@ export default function WeekCalendarGrid({
   const badgesByDay = useMemo(() => groupBadgesByDay(badges), [badges]);
 
   useEffect(() => {
-    setMounted(true);
+    mountRafRef.current = window.requestAnimationFrame(() => setMounted(true));
     return () => {
+      if (mountRafRef.current) {
+        cancelAnimationFrame(mountRafRef.current);
+        mountRafRef.current = null;
+      }
       if (tooltipRafRef.current) {
         cancelAnimationFrame(tooltipRafRef.current);
       }
@@ -418,12 +422,6 @@ export default function WeekCalendarGrid({
                 className={cn(styles.dayHeader, isSelected && styles.selectedCol, hasBadge && "cursor-pointer")}
                 onClick={hasBadge && badge?.onClick ? badge.onClick : undefined}
                 onMouseEnter={hasBadge && badge?.tooltip ? (mouseEvent) => {
-                  const tooltipEvent = new MouseEvent('mouseenter', {
-                    bubbles: true,
-                    cancelable: true,
-                    clientX: mouseEvent.clientX,
-                    clientY: mouseEvent.clientY,
-                  });
                   openTooltip(mouseEvent, badge.tooltip!);
                 } : undefined}
                 onMouseMove={hasBadge && badge?.tooltip ? trackTooltip : undefined}
@@ -467,8 +465,6 @@ export default function WeekCalendarGrid({
               ...(backgroundByDay.get(dayIndex) ?? []),
               ...(foregroundByDay.get(dayIndex) ?? [])
             ], startHour);
-            const dayBadges = badgesByDay.get(dayIndex) ?? [];
-
             return (
               <div
                 key={`${date.toISOString()}-day`}
@@ -526,14 +522,14 @@ export default function WeekCalendarGrid({
                       onMouseLeave={tooltip ? closeTooltip : undefined}
                     >
                       {!isWindow && eventMenu(event)}
-                      <div
-                        className={styles.eventInner}
-                        onClick={(e) => {
-                          if (event.onClick) {
-                            event.onClick();
-                          }
-                        }}
-                      >
+                        <div
+                          className={styles.eventInner}
+                          onClick={() => {
+                            if (event.onClick) {
+                              event.onClick();
+                            }
+                          }}
+                        >
                         <div className={styles.eventTitle}>{event.title}</div>
                         {!event.compact && event.subtitle ? (
                           <div className={styles.eventSub}>{event.subtitle}</div>

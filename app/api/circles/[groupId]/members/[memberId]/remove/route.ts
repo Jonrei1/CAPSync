@@ -14,28 +14,28 @@ export async function POST(_: Request, { params }: { params: Promise<{ groupId: 
   }
 
   // Verify requester is a pm/owner/admin
-  const { data: membership } = await client
+  const membershipRes = await client
     .from("group_members")
     .select("role")
     .eq("group_id", groupId)
     .eq("member_id", userId)
     .maybeSingle();
 
-  const role = (membership as any)?.role ?? null;
+  const role = (membershipRes?.data as { role?: string } | null)?.role ?? null;
 
   if (!role || !["pm", "copm", "owner", "admin"].includes(role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   // Prevent removing the owner
-  const { data: targetMembership } = await supabaseAdmin
+  const targetMembershipRes = await supabaseAdmin
     .from("group_members")
     .select("role")
     .eq("group_id", groupId)
     .eq("member_id", memberId)
     .maybeSingle();
 
-  const targetRole = (targetMembership as any)?.role ?? null;
+  const targetRole = (targetMembershipRes?.data as { role?: string } | null)?.role ?? null;
   if (targetRole === "owner") {
     return NextResponse.json({ error: "cannot_remove_owner" }, { status: 403 });
   }
@@ -58,8 +58,8 @@ export async function POST(_: Request, { params }: { params: Promise<{ groupId: 
     .eq("group_id", groupId);
 
   const recipientIds = (memberRows ?? [])
-    .map((r: any) => r.member_id)
-    .filter(Boolean);
+    .map((r) => (r as { member_id?: string }).member_id)
+    .filter(Boolean) as string[];
 
   const { data: groupRow } = await supabaseAdmin
     .from("groups")

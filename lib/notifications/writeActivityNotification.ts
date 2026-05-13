@@ -43,11 +43,19 @@ export async function writeActivityNotification(input: WriteActivityNotification
     const message = insertWithEndHour.error.message.toLowerCase();
 
     if (message.includes("event_end_hour") && message.includes("schema cache")) {
-      const rowsWithoutEndHour = rows.map((row) => {
-        const nextRow = { ...row };
-        delete (nextRow as any).event_end_hour;
-        return nextRow;
-      });
+      const rowsWithoutEndHour = rows.map((row) => ({
+        user_id: row.user_id,
+        group_id: row.group_id,
+        group_name: row.group_name,
+        group_color: row.group_color,
+        type: row.type,
+        title: row.title,
+        event_date: row.event_date,
+        event_start_hour: row.event_start_hour,
+        link: row.link,
+        created_by_name: row.created_by_name,
+        read_at: row.read_at,
+      }));
       const retry = await input.supabase.from("activity_notifications").insert(rowsWithoutEndHour);
 
       if (retry.error) {

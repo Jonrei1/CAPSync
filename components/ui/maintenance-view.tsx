@@ -2,7 +2,6 @@
 
 import { Construction, Wallet, ArrowLeft, Layers, TrendingUp, ShieldCheck } from "lucide-react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
 
 import { buttonVariants } from "@/components/ui/button"
 import { designStandard, designTokens } from "@/components/ui/design-standard"
@@ -17,9 +16,6 @@ export function MaintenanceView({
   title, 
   description = "We're currently building something great. This feature will be available soon." 
 }: MaintenanceViewProps) {
-  const params = useParams()
-  const groupId = params?.groupId as string
-
   const features = [
     {
       icon: <Wallet className="h-5 w-5 text-indigo-500" />,

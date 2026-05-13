@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,8 +22,9 @@ import { writeActivityNotification } from "@/lib/notifications/writeActivityNoti
 import supabase from "@/lib/supabaseClient";
 import type { CalendarMember } from "@/types";
 
-const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
-const DAY_INDEX: Record<(typeof DAY_KEYS)[number], number> = {
+type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
+
+const DAY_INDEX: Record<DayKey, number> = {
   sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6,
 };
 
@@ -32,7 +33,7 @@ function pad(value: number) {
 }
 
 function dayKeyToDate(day: string, weekStart: Date) {
-  const normalized = day.slice(0, 3).toLowerCase() as (typeof DAY_KEYS)[number];
+  const normalized = day.slice(0, 3).toLowerCase() as DayKey;
   const next = new Date(weekStart);
   next.setDate(next.getDate() + (DAY_INDEX[normalized] ?? 0));
   return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
@@ -115,6 +116,7 @@ export default function AddMeetingDialog({
     members.map((m) => m.id),
   );
   const [saving, setSaving] = useState(false);
+  const resetRafRef = useRef<number | null>(null);
 
   const memberMap = useMemo(
     () => new Map(members.map((m) => [m.id, m])),
@@ -123,18 +125,28 @@ export default function AddMeetingDialog({
 
   useEffect(() => {
     if (!open) return;
-    setTitle("");
-    setSelectedDate(
-      prefillDay ? dayKeyToDate(prefillDay, weekStart) : dateToInput(weekStart),
-    );
-    setStartTime(hourToInput(prefillStart ?? 9));
-    setEndTime(
-      hourToInput(prefillEnd ?? Math.max((prefillStart ?? 9) + 1, 10)),
-    );
-    setLocation("");
-    setDescription("");
-    setSelectedMemberIds(members.map((m) => m.id));
-    setSaving(false);
+    if (resetRafRef.current) cancelAnimationFrame(resetRafRef.current);
+    resetRafRef.current = window.requestAnimationFrame(() => {
+      setTitle("");
+      setSelectedDate(
+        prefillDay ? dayKeyToDate(prefillDay, weekStart) : dateToInput(weekStart),
+      );
+      setStartTime(hourToInput(prefillStart ?? 9));
+      setEndTime(
+        hourToInput(prefillEnd ?? Math.max((prefillStart ?? 9) + 1, 10)),
+      );
+      setLocation("");
+      setDescription("");
+      setSelectedMemberIds(members.map((m) => m.id));
+      setSaving(false);
+    });
+
+    return () => {
+      if (resetRafRef.current) {
+        cancelAnimationFrame(resetRafRef.current);
+        resetRafRef.current = null;
+      }
+    };
   }, [members, open, prefillDay, prefillEnd, prefillStart, weekStart]);
 
   function handleStartChange(value: string) {

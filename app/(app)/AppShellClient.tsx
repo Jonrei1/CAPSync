@@ -45,7 +45,7 @@ function AppShell({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { activeCircle, dialogOpen, setDialogOpen, dialogTab } = useCircle();
-  const { notifications, unreadCount, markRead, markAllRead, deleteAll } = useActivityNotifications();
+  const { notifications, unreadCount, markRead } = useActivityNotifications();
   const isPersonalCalendarRoute = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const isActivityRoute = pathname === "/activity" || pathname.startsWith("/activity/");
   const isAnyCalendarRoute =
@@ -165,7 +165,7 @@ function AppShell({ children }: AppLayoutProps) {
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
                   className={[
-                    "flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors border-l-2 -ml-3 pl-[12px]",
+                    "flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors border-l-2 -ml-3 pl-3",
                     isActive ? "border-l-primary/80 bg-primary/5 font-medium text-primary" : "border-l-transparent hover:bg-zinc-100 hover:text-zinc-900",
                   ].join(" ")}
                 >
@@ -182,7 +182,7 @@ function AppShell({ children }: AppLayoutProps) {
                 setSidebarOpen(false);
               }}
               className={[
-                "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors border-l-2 -ml-3 pl-[12px] hover:bg-zinc-100 hover:text-zinc-900",
+                "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-zinc-500 transition-colors border-l-2 -ml-3 pl-3 hover:bg-zinc-100 hover:text-zinc-900",
                 pathname === "/activity" ? "border-l-primary/80 bg-primary/5 font-medium text-primary" : "border-l-transparent",
               ].join(" ")}
             >

@@ -14,14 +14,14 @@ export async function POST(_: Request, { params }: { params: Promise<{ groupId: 
   }
 
   // Verify requester is a pm/owner/admin (co-pm is explicitly not allowed to delete)
-  const { data: membership } = await client
+  const membershipRes = await client
     .from("group_members")
     .select("role")
     .eq("group_id", groupId)
     .eq("member_id", userId)
     .maybeSingle();
 
-  const role = (membership as any)?.role ?? null;
+  const role = (membershipRes?.data as { role?: string } | null)?.role ?? null;
 
   if (!role || !["pm", "owner", "admin"].includes(role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -36,7 +36,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ groupId: 
 
   const { data: memberRows } = await supabaseAdmin.from("group_members").select("member_id").eq("group_id", groupId);
 
-  const recipientIds = (memberRows ?? []).map((r: any) => r.member_id).filter(Boolean);
+  const recipientIds = (memberRows ?? []).map((r) => (r as { member_id?: string }).member_id).filter(Boolean) as string[];
 
   if (recipientIds.length > 0) {
     const rows = recipientIds.map((userId: string) => ({

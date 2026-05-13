@@ -7,7 +7,6 @@ import { ChevronDownIcon } from "lucide-react";
 import supabase from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -716,7 +715,7 @@ export default function MainCalendarPage() {
     });
 
     return badges;
-  }, [circleMap, dayIndexByKey, density, visibleTasks]);
+  }, [dayIndexByKey, density, visibleTasks]);
 
   const scheduleEvents = useMemo<CalendarGridEvent[]>(() => {
     const events: CalendarGridEvent[] = [];

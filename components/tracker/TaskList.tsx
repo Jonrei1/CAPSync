@@ -23,7 +23,7 @@ import type { Methodology, Profile, TrackerSprint, TrackerTask } from "@/types";
 import SprintHeader from "./SprintHeader";
 import SprintWindowEditor from "./SprintWindowEditor";
 import TaskCard from "./TaskCard";
-import { getDueState, getSprintProgress, isSprintLocked, METHODOLOGIES, normalizeSprintStatus } from "./tracker-utils";
+import { getDueState, getSprintProgress, isSprintLocked, normalizeSprintStatus } from "./tracker-utils";
 
 type TaskListProps = {
   sprints: TrackerSprint[];
@@ -108,7 +108,6 @@ export default function TaskList({
   }, [autoExpandSprintId]);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const method = METHODOLOGIES[methodology];
   const hideSprintSections = methodology === "simple" || methodology === "kanban";
   const showBacklogAssignments = methodology === "scrum" || methodology === "agile";
   const realSprints = useMemo(

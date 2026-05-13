@@ -86,19 +86,23 @@ export default function TrackerCalendar({ group, members, sprints, tasks, curren
       return;
     }
 
-    setSelectedDate(dateParam);
+    const raf = window.requestAnimationFrame(() => {
+      setSelectedDate(dateParam);
 
-    if (!taskId) {
-      setSelectedTask(null);
-      return;
-    }
+      if (!taskId) {
+        setSelectedTask(null);
+        return;
+      }
 
-    const task = tasks.find((entry) => entry.id === taskId);
-    if (!task) {
-      return;
-    }
+      const task = tasks.find((entry) => entry.id === taskId);
+      if (!task) {
+        return;
+      }
 
-    setSelectedTask(task);
+      setSelectedTask(task);
+    });
+
+    return () => cancelAnimationFrame(raf);
   }, [searchParams, tasks]);
 
   function refresh() {

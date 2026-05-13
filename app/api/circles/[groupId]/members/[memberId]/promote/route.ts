@@ -14,14 +14,14 @@ export async function POST(_: Request, { params }: { params: Promise<{ groupId: 
   }
 
   // Verify requester is a pm/owner/admin
-  const { data: membership } = await client
+  const membershipRes = await client
     .from("group_members")
     .select("role")
     .eq("group_id", groupId)
     .eq("member_id", userId)
     .maybeSingle();
 
-  const role = (membership as any)?.role ?? null;
+  const role = (membershipRes?.data as { role?: string } | null)?.role ?? null;
 
   if (!role || !["pm", "copm", "owner", "admin"].includes(role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });

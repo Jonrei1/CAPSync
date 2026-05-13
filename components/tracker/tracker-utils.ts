@@ -1,5 +1,5 @@
 import { addDays, endOfWeek, format, isBefore, isSameDay, isWithinInterval, parseISO, startOfDay, startOfWeek } from "date-fns";
-import { Kanban, LayoutList, ListChecks, RefreshCcw, Waves } from "lucide-react";
+import { Kanban, LayoutList, ListChecks, RefreshCcw } from "lucide-react";
 import type { Methodology, Profile, SprintStatus, TaskStatus, TrackerSprint, TrackerTask } from "@/types";
 
 export const MEMBER_FALLBACK_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea"] as const;
