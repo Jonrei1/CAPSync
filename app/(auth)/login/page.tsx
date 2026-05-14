@@ -344,6 +344,8 @@ export default function LoginPage() {
                     groupColor="#4f46e5"
                     weekOffset={0}
                     selectedDate={new Date().toISOString().split("T")[0]}
+                    currentUserId="dummy"
+                    occurrenceOverrides={[]}
                     startHour={8}
                     endHour={15}
                   />
