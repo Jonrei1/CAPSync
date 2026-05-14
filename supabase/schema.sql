@@ -747,6 +747,210 @@ for all
 using (user_id = auth.uid())
 with check (user_id = auth.uid());
 
+-- Circle-scoped overrides for personal routines.
+create table if not exists circle_routine_overrides (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  personal_routine_id uuid not null references personal_routines(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  hidden boolean not null default false,
+  label text,
+  details text,
+  color text,
+  days_of_week integer[],
+  start_time text,
+  end_time text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (group_id, personal_routine_id, user_id)
+);
+
+alter table circle_routine_overrides enable row level security;
+
+drop policy if exists "Members manage own overrides" on circle_routine_overrides;
+drop policy if exists "Members read all overrides in their groups" on circle_routine_overrides;
+
+create policy "Members manage own overrides"
+on circle_routine_overrides
+for all
+using (
+  user_id = auth.uid()
+  and public.is_group_member(group_id, auth.uid())
+)
+with check (
+  user_id = auth.uid()
+  and public.is_group_member(group_id, auth.uid())
+);
+
+create policy "Members read all overrides in their groups"
+on circle_routine_overrides
+for select
+using (public.is_group_member(group_id, auth.uid()));
+
+-- Circle-scoped occurrence overrides (exceptions) for personal routines.
+create table if not exists circle_routine_occurrence_overrides (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  routine_id uuid not null references personal_routines(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  override_date date not null,
+  is_deleted boolean not null default false,
+  label text,
+  details text,
+  color text,
+  start_time text,
+  end_time text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (group_id, routine_id, override_date)
+);
+
+alter table circle_routine_occurrence_overrides enable row level security;
+
+create policy "Members manage own circle occurrence overrides"
+on circle_routine_occurrence_overrides
+for all
+using (
+  user_id = auth.uid()
+  and public.is_group_member(group_id, auth.uid())
+)
+with check (
+  user_id = auth.uid()
+  and public.is_group_member(group_id, auth.uid())
+);
+
+create policy "Members read all circle occurrence overrides in their groups"
+on circle_routine_occurrence_overrides
+for select
+using (public.is_group_member(group_id, auth.uid()));
+
+-- ============================================================
+-- CIRCLE_MEMBER_ROUTINES
+-- Per-member, per-circle recurring routines.
+-- Entirely separate from personal_routines so main calendar is unaffected.
+-- ============================================================
+create table if not exists circle_member_routines (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  label text not null,
+  details text,
+  color text default '#374151',
+  days_of_week smallint[] not null,
+  start_time time not null,
+  end_time time not null,
+  is_active boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table circle_member_routines enable row level security;
+
+drop policy if exists "group members can view circle routines" on circle_member_routines;
+drop policy if exists "users can create own circle routines" on circle_member_routines;
+drop policy if exists "users can update own circle routines" on circle_member_routines;
+drop policy if exists "users can delete own circle routines" on circle_member_routines;
+
+create policy "group members can view circle routines"
+on circle_member_routines for select
+using (public.is_group_member(group_id, auth.uid()));
+
+create policy "users can create own circle routines"
+on circle_member_routines for insert
+with check (user_id = auth.uid() and public.is_group_member(group_id, auth.uid()));
+
+create policy "users can update own circle routines"
+on circle_member_routines for update
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+create policy "users can delete own circle routines"
+on circle_member_routines for delete
+using (user_id = auth.uid());
+
+-- ============================================================
+-- CIRCLE_SCHEDULED_BLOCKS
+-- Per-member, per-circle one-off activity blocks.
+-- Entirely separate from scheduled_blocks so main calendar is unaffected.
+-- ============================================================
+create table if not exists circle_scheduled_blocks (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  label text not null,
+  details text,
+  color text default '#374151',
+  scheduled_date date not null,
+  start_time time not null,
+  end_time time not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table circle_scheduled_blocks enable row level security;
+
+drop policy if exists "group members can view circle scheduled blocks" on circle_scheduled_blocks;
+drop policy if exists "users can create own circle scheduled blocks" on circle_scheduled_blocks;
+drop policy if exists "users can update own circle scheduled blocks" on circle_scheduled_blocks;
+drop policy if exists "users can delete own circle scheduled blocks" on circle_scheduled_blocks;
+
+create policy "group members can view circle scheduled blocks"
+on circle_scheduled_blocks for select
+using (public.is_group_member(group_id, auth.uid()));
+
+create policy "users can create own circle scheduled blocks"
+on circle_scheduled_blocks for insert
+with check (user_id = auth.uid() and public.is_group_member(group_id, auth.uid()));
+
+create policy "users can update own circle scheduled blocks"
+on circle_scheduled_blocks for update
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+create policy "users can delete own circle scheduled blocks"
+on circle_scheduled_blocks for delete
+using (user_id = auth.uid());
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_publication
+    where pubname = 'supabase_realtime'
+  ) then
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'circle_member_routines'
+    ) then
+      execute 'alter publication supabase_realtime add table public.circle_member_routines';
+    end if;
+
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'circle_scheduled_blocks'
+    ) then
+      execute 'alter publication supabase_realtime add table public.circle_scheduled_blocks';
+    end if;
+
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'circle_routine_overrides'
+    ) then
+      execute 'alter publication supabase_realtime add table public.circle_routine_overrides';
+    end if;
+  end if;
+end;
+$$;
+
 -- ============================================================
 -- SCHEDULES TABLE (group meetings/manual blocks)
 -- ============================================================

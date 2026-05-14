@@ -119,6 +119,11 @@ export type CalendarBlock = {
 	lbl: string;
 	sub: string;
 	routine: boolean;
+	color?: string;
+	kind?: "meeting" | "circle-routine" | "circle-schedule";
+	source?: "personal" | "circle-routine" | "circle-schedule" | "meeting";
+	personalRoutineId?: string;
+	scheduledDate?: string;
 	// optional: schedule id for meetings
 	id?: string;
 	// creator user id for permissions

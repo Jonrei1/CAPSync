@@ -24,6 +24,7 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { cn } from "@/lib/utils";
 import supabase from "@/lib/supabaseClient";
 import type { CalendarBlock, CalendarDeadline, CalendarMember, FreeWindow } from "@/types";
+import calendarStyles from "@/app/(app)/calendar/page.module.css";
 
 type CalendarShellProps = {
   members: CalendarMember[];
@@ -34,10 +35,23 @@ type CalendarShellProps = {
   groupName: string;
   groupColor: string;
   groupSubject?: string | null;
+  currentUserId: string;
   weekOffset: number;
   selectedDate: string;
   startHour?: number;
   endHour?: number;
+  occurrenceOverrides?: Array<{
+    id: string;
+    routine_id: string;
+    user_id: string;
+    override_date: string;
+    is_deleted: boolean;
+    label: string | null;
+    details: string | null;
+    color: string | null;
+    start_time: string | null;
+    end_time: string | null;
+  }>;
 };
 
 type Layout = "week" | "heat" | "dots" | "free";
@@ -51,6 +65,53 @@ type MeetingPrefill = {
   day?: string;
   start?: number;
   end?: number;
+};
+
+type CircleRoutineEditorState = {
+  id: string;
+  label: string;
+  details: string;
+  color: string;
+  days: number[];
+  startTime: string;
+  endTime: string;
+};
+
+type CircleScheduleEditorState = {
+  id: string;
+  label: string;
+  details: string;
+  color: string;
+  scheduledDate: string;
+  startTime: string;
+  endTime: string;
+};
+
+type PersonalRoutineEditorState = {
+  id: string;
+  personalRoutineId: string;
+  label: string;
+  details: string;
+  color: string;
+  days: number[];
+  startTime: string;
+  endTime: string;
+};
+
+type PersonalRoutineActionState =
+  | {
+      action: "edit" | "delete" | "view";
+      block: CalendarBlock;
+    }
+  | null;
+
+type RoutineScopeChoice = "occurrence" | "all";
+
+type RoutineScopeTarget = {
+  action: "edit" | "delete";
+  block: CalendarBlock;
+  routineId: string;
+  occurrenceDate: string;
 };
 
 const ROUTINE_END_MINUTES = 23 * 60 + 59;
@@ -120,6 +181,30 @@ function formatRange(start: Date, end: Date) {
   return `${start.toLocaleDateString("en-PH", options)} - ${end.toLocaleDateString("en-PH", options)}`;
 }
 
+function parseHour(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    if (value.includes(":")) {
+      const [hoursPart = "0", minutesPart = "0"] = value.split(":");
+      const hours = Number.parseInt(hoursPart, 10);
+      const minutes = Number.parseInt(minutesPart, 10);
+      if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+        return hours + minutes / 60;
+      }
+    }
+
+    const numeric = Number.parseFloat(value);
+    if (!Number.isNaN(numeric)) {
+      return numeric;
+    }
+  }
+
+  return 0;
+}
+
 function getDayKey(date: Date) {
   return DAY_KEYS[date.getDay()];
 }
@@ -174,9 +259,12 @@ export default function CalendarShell({
   groupName,
   groupColor,
   groupSubject,
+  currentUserId,
+  weekOffset,
   selectedDate,
   startHour: propStartHour,
   endHour: propEndHour,
+  occurrenceOverrides = [],
 }: CalendarShellProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -190,9 +278,10 @@ export default function CalendarShell({
   const [editMeetingId, setEditMeetingId] = useState<string | null>(null);
   const [editMeetingMode, setEditMeetingMode] = useState<"edit" | "delete" | "view">("edit");
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
+  const [isSavingNewRoutine, setIsSavingNewRoutine] = useState(false);
   const [currentUserName, setCurrentUserName] = useState("Unknown");
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [isSavingNewSchedule, setIsSavingNewSchedule] = useState(false);
   const [newScheduleLabel, setNewScheduleLabel] = useState("");
   const [newScheduleDate, setNewScheduleDate] = useState(() => {
     const now = new Date();
@@ -207,6 +296,18 @@ export default function CalendarShell({
   const [newRoutineEnd, setNewRoutineEnd] = useState("10:00");
   const [newRoutineDays, setNewRoutineDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [newRoutineColor, setNewRoutineColor] = useState(ROUTINE_COLORS[0]);
+  const [editingCircleRoutine, setEditingCircleRoutine] = useState<CircleRoutineEditorState | null>(null);
+  const [editingCircleSchedule, setEditingCircleSchedule] = useState<CircleScheduleEditorState | null>(null);
+  const [isSavingEditedSchedule, setIsSavingEditedSchedule] = useState(false);
+  const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<CalendarBlock | null>(null);
+  const [personalRoutineAction, setPersonalRoutineAction] = useState<PersonalRoutineActionState>(null);
+  const [personalRoutineEditor, setPersonalRoutineEditor] = useState<PersonalRoutineEditorState | null>(null);
+  const [personalRoutineEditScope, setPersonalRoutineEditScope] = useState<RoutineScopeChoice>("occurrence");
+  const [personalRoutineOccurrenceDate, setPersonalRoutineOccurrenceDate] = useState<string | null>(null);
+  const [showRoutineScopeModal, setShowRoutineScopeModal] = useState(false);
+  const [routineScopeTarget, setRoutineScopeTarget] = useState<RoutineScopeTarget | null>(null);
+  const [routineScopeChoice, setRoutineScopeChoice] = useState<RoutineScopeChoice>("occurrence");
+  const [showRoutineDeleteModal, setShowRoutineDeleteModal] = useState(false);
   const [nowTick, setNowTick] = useState(() => new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [hoverTooltip, setHoverTooltip] = useState<FloatingTooltipContent | null>(null);
@@ -218,6 +319,12 @@ export default function CalendarShell({
   const tooltipPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const tooltipVisibleRef = useRef(false);
   const visibleRafRef = useRef<number | null>(null);
+  const createRoutineDialogRef = useRef<HTMLDivElement | null>(null);
+  const createRoutinePointerDownInsideRef = useRef(false);
+  const addScheduleDialogRef = useRef<HTMLDivElement | null>(null);
+  const addSchedulePointerDownInsideRef = useRef(false);
+  const editScheduleDialogRef = useRef<HTMLDivElement | null>(null);
+  const editSchedulePointerDownInsideRef = useRef(false);
 
   const activeDate = useMemo(() => parseDateParam(selectedDate) ?? new Date(), [selectedDate]);
   const weekDates = useMemo(() => getWeekDates(activeDate), [activeDate]);
@@ -229,7 +336,15 @@ export default function CalendarShell({
     () => new Map(members.map((member) => [member.id, member] as const)),
     [members],
   );
-  const memberIds = useMemo(() => members.map((member) => member.id), [members]);
+  const blockById = useMemo(
+    () =>
+      new Map(
+        blocks
+          .filter((block): block is CalendarBlock & { id: string } => Boolean(block.id))
+          .map((block) => [block.id, block] as const),
+      ),
+    [blocks],
+  );
 
   const visibleMembers = useMemo(
     () => members.filter((member) => visibleMemberSet.has(member.id)),
@@ -287,13 +402,11 @@ export default function CalendarShell({
   useEffect(() => {
     let mounted = true;
     async function loadUserName() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !mounted) return;
-      setCurrentUserId(user.id);
+      if (!currentUserId || !mounted) return;
       const { data } = await supabase
         .from("profiles")
         .select("full_name, email")
-        .eq("id", user.id)
+        .eq("id", currentUserId)
         .single();
       if (mounted) {
         setCurrentUserName(
@@ -303,7 +416,7 @@ export default function CalendarShell({
     }
     void loadUserName();
     return () => { mounted = false; };
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -326,18 +439,26 @@ export default function CalendarShell({
   useEffect(() => {
     let channel = supabase.channel(`circle-calendar:${groupId}`);
 
-    for (const memberId of memberIds) {
-      channel = channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "personal_routines",
-          filter: `user_id=eq.${memberId}`,
-        },
-        () => router.refresh(),
-      );
-    }
+    channel = channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "personal_routines",
+      },
+      () => router.refresh(),
+    );
+
+    channel = channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "circle_routine_overrides",
+        filter: `group_id=eq.${groupId}`,
+      },
+      () => router.refresh(),
+    );
 
     channel = channel.on(
       "postgres_changes",
@@ -350,12 +471,34 @@ export default function CalendarShell({
       () => router.refresh(),
     );
 
+    channel = channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "circle_member_routines",
+        filter: `group_id=eq.${groupId}`,
+      },
+      () => router.refresh(),
+    );
+
+    channel = channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "circle_scheduled_blocks",
+        filter: `group_id=eq.${groupId}`,
+      },
+      () => router.refresh(),
+    );
+
     channel.subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [groupId, memberIds, router]);
+  }, [groupId, router, currentUserId]);
 
   function navigateToDate(nextDate: Date) {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -417,7 +560,373 @@ export default function CalendarShell({
     setAddMeetingOpen(true);
   }
 
+  function closePersonalRoutineEditor() {
+    setPersonalRoutineAction(null);
+    setPersonalRoutineEditor(null);
+    setPersonalRoutineEditScope("occurrence");
+    setPersonalRoutineOccurrenceDate(null);
+  }
+
+  function closeRoutineScopeModal() {
+    setShowRoutineScopeModal(false);
+    setShowRoutineDeleteModal(false);
+    setRoutineScopeTarget(null);
+    setRoutineScopeChoice("occurrence");
+  }
+
+  async function deletePersonalRoutineOccurrence(routineId: string, occurrenceDate: string) {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) {
+      toast({ title: "You must be signed in to delete a routine occurrence." });
+      return false;
+    }
+
+    const { error } = await supabase
+      .from("circle_routine_occurrence_overrides")
+      .upsert(
+        {
+          group_id: groupId,
+          routine_id: routineId,
+          user_id: userId,
+          override_date: occurrenceDate,
+          is_deleted: true,
+        },
+        { onConflict: "group_id,routine_id,override_date" },
+      );
+
+    if (error) {
+      toast({ title: "Failed to delete this occurrence." });
+      return false;
+    }
+
+    return true;
+  }
+
+  async function deletePersonalRoutineAll(routineId: string) {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) {
+      toast({ title: "You must be signed in to delete a routine." });
+      return false;
+    }
+
+    const { error } = await supabase
+      .from("circle_routine_overrides")
+      .upsert(
+        {
+          group_id: groupId,
+          personal_routine_id: routineId,
+          user_id: userId,
+          hidden: true,
+        },
+        { onConflict: "group_id,personal_routine_id,user_id" },
+      );
+
+    if (error) {
+      toast({ title: "Failed to delete this routine." });
+      return false;
+    }
+
+    return true;
+  }
+
+  function openPersonalRoutineEditor(
+    block: CalendarBlock,
+    scope: RoutineScopeChoice,
+    occurrenceDate: string,
+  ) {
+    const personalRoutineId = block.personalRoutineId ?? block.id;
+    if (!personalRoutineId) {
+      return;
+    }
+
+    setPersonalRoutineAction({ action: "edit", block });
+    setPersonalRoutineEditScope(scope);
+    setPersonalRoutineOccurrenceDate(scope === "occurrence" ? occurrenceDate : null);
+
+    setPersonalRoutineEditor({
+      id: block.id ?? personalRoutineId,
+      personalRoutineId,
+      label: block.lbl,
+      details: block.sub,
+      color: block.color ?? ROUTINE_COLORS[0],
+      days: block.days
+        .map((dayKey) => DAY_KEYS.indexOf(dayKey as typeof DAY_KEYS[number]))
+        .filter((dayIndex) => dayIndex >= 0),
+      startTime: `${pad(Math.floor(block.s))}:${pad(Math.round((block.s % 1) * 60))}`,
+      endTime: `${pad(Math.floor(block.e))}:${pad(Math.round((block.e % 1) * 60))}`,
+    });
+  }
+
+  function openRoutineScopeModal(block: CalendarBlock, action: "edit" | "delete", occurrenceDate: string) {
+    const routineId = block.personalRoutineId ?? block.id;
+    if (!routineId) {
+      return;
+    }
+
+    setRoutineScopeTarget({
+      action,
+      block,
+      routineId,
+      occurrenceDate,
+    });
+    setRoutineScopeChoice("occurrence");
+    setShowRoutineScopeModal(true);
+  }
+
+  function handleRoutineScopeConfirm() {
+    if (!routineScopeTarget) {
+      return;
+    }
+
+    setShowRoutineScopeModal(false);
+
+    if (routineScopeTarget.action === "edit") {
+      openPersonalRoutineEditor(routineScopeTarget.block, routineScopeChoice, routineScopeTarget.occurrenceDate);
+      return;
+    }
+
+    setShowRoutineDeleteModal(true);
+  }
+
+  function closeRoutineDialog() {
+    if (isSavingNewRoutine) {
+      return;
+    }
+    setShowRoutineDialog(false);
+  }
+
+  function closeScheduleDialog() {
+    if (isSavingNewSchedule) {
+      return;
+    }
+    setShowScheduleDialog(false);
+    resetScheduleForm();
+  }
+
+  function closeCircleRoutineEditor() {
+    setEditingCircleRoutine(null);
+  }
+
+  function closeCircleScheduleEditor() {
+    if (isSavingEditedSchedule) {
+      return;
+    }
+    setEditingCircleSchedule(null);
+  }
+
+  function closeCircleScheduleDeleteModal() {
+    setScheduleDeleteTarget(null);
+  }
+
+  function openCircleRoutineEditor(block: CalendarBlock) {
+    if (!block.id) {
+      return;
+    }
+
+    setEditingCircleRoutine({
+      id: block.id,
+      label: block.lbl,
+      details: block.sub,
+      color: block.color ?? ROUTINE_COLORS[0],
+      days: block.days
+        .map((dayKey) => DAY_KEYS.indexOf(dayKey as typeof DAY_KEYS[number]))
+        .filter((dayIndex) => dayIndex >= 0),
+      startTime: `${pad(Math.floor(block.s))}:${pad(Math.round((block.s % 1) * 60))}`,
+      endTime: `${pad(Math.floor(block.e))}:${pad(Math.round((block.e % 1) * 60))}`,
+    });
+  }
+
+  function openCircleScheduleEditor(block: CalendarBlock) {
+    if (!block.id) {
+      return;
+    }
+
+    setEditingCircleSchedule({
+      id: block.id,
+      label: block.lbl,
+      details: block.sub,
+      color: block.color ?? ROUTINE_COLORS[0],
+      scheduledDate: block.scheduledDate ?? block.days[0] ?? toDateParam(new Date()),
+      startTime: `${pad(Math.floor(block.s))}:${pad(Math.round((block.s % 1) * 60))}`,
+      endTime: `${pad(Math.floor(block.e))}:${pad(Math.round((block.e % 1) * 60))}`,
+    });
+  }
+
+  async function deleteCircleRoutine(routineId: string) {
+    const response = await fetch(`/api/circles/${groupId}/routines/${routineId}`, { method: "DELETE" });
+    if (!response.ok) {
+      toast({ title: "Failed to delete routine." });
+      return;
+    }
+
+    toast.success("Routine deleted");
+    router.refresh();
+  }
+
+  async function deleteCircleSchedule(scheduleId: string) {
+    const response = await fetch(`/api/circles/${groupId}/scheduled-blocks/${scheduleId}`, { method: "DELETE" });
+    if (!response.ok) {
+      toast({ title: "Failed to delete schedule." });
+      return false;
+    }
+
+    toast.success("Schedule deleted");
+    return true;
+  }
+
+  async function confirmDeleteCircleSchedule() {
+    if (!scheduleDeleteTarget?.id) {
+      return;
+    }
+
+    const deleted = await deleteCircleSchedule(scheduleDeleteTarget.id);
+    if (!deleted) {
+      return;
+    }
+
+    closeCircleScheduleDeleteModal();
+    router.refresh();
+  }
+
+  async function overridePersonalRoutineForCircle() {
+    if (!personalRoutineEditor) {
+      return;
+    }
+
+    if (!personalRoutineEditor.label.trim()) {
+      toast({ title: "Please enter a routine name." });
+      return;
+    }
+
+    if (personalRoutineEditScope === "all" && personalRoutineEditor.days.length === 0) {
+      toast({ title: "Please select at least one day." });
+      return;
+    }
+
+    const startHour = parseHour(personalRoutineEditor.startTime);
+    const endHour = parseHour(personalRoutineEditor.endTime);
+
+    if (endHour <= startHour) {
+      toast({ title: "End time must be later than start time." });
+      return;
+    }
+
+    if (personalRoutineEditScope === "all") {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) {
+        toast({ title: "You must be signed in to update a routine." });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("circle_routine_overrides")
+        .upsert(
+          {
+            group_id: groupId,
+            personal_routine_id: personalRoutineEditor.personalRoutineId,
+            user_id: userId,
+            label: personalRoutineEditor.label.trim(),
+            details: personalRoutineEditor.details.trim() || null,
+            color: null, // Always use member color in group context
+            days_of_week: personalRoutineEditor.days,
+            start_time: personalRoutineEditor.startTime,
+            end_time: personalRoutineEditor.endTime,
+            hidden: false,
+          },
+          { onConflict: "group_id,personal_routine_id,user_id" },
+        );
+
+      if (error) {
+        toast({ title: "Failed to update routine." });
+        return;
+      }
+
+      const { error: clearError } = await supabase
+        .from("circle_routine_occurrence_overrides")
+        .delete()
+        .eq("group_id", groupId)
+        .eq("routine_id", personalRoutineEditor.personalRoutineId);
+
+      if (clearError) {
+        console.warn("[override] failed to clear group occurrence overrides", clearError);
+      }
+    } else {
+      if (!personalRoutineOccurrenceDate) {
+        toast({ title: "Missing occurrence date." });
+        return;
+      }
+
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) {
+        toast({ title: "You must be signed in to update an occurrence." });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("circle_routine_occurrence_overrides")
+        .upsert(
+          {
+            group_id: groupId,
+            routine_id: personalRoutineEditor.personalRoutineId,
+            user_id: userId,
+            override_date: personalRoutineOccurrenceDate,
+            label: personalRoutineEditor.label.trim(),
+            color: null, // Always use member color in group context
+            start_time: personalRoutineEditor.startTime,
+            end_time: personalRoutineEditor.endTime,
+            is_deleted: false,
+          },
+          { onConflict: "group_id,routine_id,override_date" },
+        );
+
+      if (error) {
+        toast({ title: "Failed to update occurrence." });
+        return;
+      }
+    }
+
+    closePersonalRoutineEditor();
+    closeRoutineScopeModal();
+    router.refresh();
+  }
+
+  function handleRoutineAction(routineId: string, action: "edit" | "delete", occurrenceDate: string, _dayIndex?: number) {
+    const block = blockById.get(routineId);
+    if (!block) {
+      return;
+    }
+
+    if (block.source === "personal") {
+      openRoutineScopeModal(block, action, occurrenceDate);
+      return;
+    }
+
+    if (block.source === "circle-routine") {
+      if (action === "delete") {
+        void deleteCircleRoutine(routineId);
+        return;
+      }
+
+      openCircleRoutineEditor(block);
+    }
+  }
+
   function handleScheduleAction(scheduleId: string, action: "edit" | "delete" | "view") {
+    const block = blockById.get(scheduleId);
+    if (block?.source === "circle-schedule") {
+      if (action === "delete") {
+        setScheduleDeleteTarget(block);
+        return;
+      }
+
+      openCircleScheduleEditor(block);
+      return;
+    }
+
     setEditMeetingId(scheduleId);
     setEditMeetingMode(action);
     setEditMeetingOpen(true);
@@ -454,6 +963,12 @@ export default function CalendarShell({
   }
 
   async function saveSchedule() {
+    if (isSavingNewSchedule) {
+      return;
+    }
+
+    setIsSavingNewSchedule(true);
+    try {
     if (!newScheduleLabel.trim()) {
       toast({ title: "Please enter an activity name." });
       return;
@@ -466,21 +981,22 @@ export default function CalendarShell({
       toast({ title: "End time must be after start time." });
       return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
-    const { error } = await supabase.from("scheduled_blocks").insert({
-      user_id: user.id,
-      label: newScheduleLabel.trim(),
-      details: newScheduleDetails.trim() || null,
-      color: newScheduleColor,
-      scheduled_date: newScheduleDate,
-      start_time: newScheduleStart,
-      end_time: newScheduleEnd,
+    const response = await fetch(`/api/circles/${groupId}/scheduled-blocks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: newScheduleLabel.trim(),
+        details: newScheduleDetails.trim() || null,
+        color: null, // Always use member color in group context
+        scheduled_date: newScheduleDate,
+        start_time: newScheduleStart,
+        end_time: newScheduleEnd,
+      }),
     });
 
-    if (error) {
-      toast({ title: "Failed to save schedule.", description: error.message });
+    if (!response.ok) {
+      toast({ title: "Failed to save schedule." });
       return;
     }
 
@@ -488,9 +1004,18 @@ export default function CalendarShell({
     setShowScheduleDialog(false);
     resetScheduleForm();
     router.refresh();
+    } finally {
+      setIsSavingNewSchedule(false);
+    }
   }
 
   async function saveRoutine() {
+    if (isSavingNewRoutine) {
+      return;
+    }
+
+    setIsSavingNewRoutine(true);
+    try {
     if (!newRoutineLabel.trim()) {
       toast({ title: "Please enter a routine name" });
       return;
@@ -498,12 +1023,6 @@ export default function CalendarShell({
 
     if (newRoutineDays.length === 0) {
       toast({ title: "Please select at least one day" });
-      return;
-    }
-
-    const { data: authData } = await supabase.auth.getUser();
-    const userId = authData.user?.id;
-    if (!userId) {
       return;
     }
 
@@ -517,23 +1036,21 @@ export default function CalendarShell({
       return;
     }
 
-    const { data: insertedRoutine, error } = await supabase
-      .from("personal_routines")
-      .insert({
-        user_id: userId,
+    const response = await fetch(`/api/circles/${groupId}/routines`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         label: newRoutineLabel.trim(),
         details: "Personal",
-        color: newRoutineColor,
+        color: null, // Always use member color in group context
         days_of_week: newRoutineDays,
         start_time: newRoutineStart,
         end_time: newRoutineEnd,
-        is_active: true,
-      })
-      .select("id")
-      .single();
+      }),
+    });
 
-    if (error || !insertedRoutine) {
-      toast({ title: "Failed to save routine", description: error?.message ?? "Insert did not return a row." });
+    if (!response.ok) {
+      toast({ title: "Failed to save routine" });
       return;
     }
 
@@ -544,6 +1061,108 @@ export default function CalendarShell({
     setNewRoutineDays([1, 2, 3, 4, 5]);
     setNewRoutineColor(ROUTINE_COLORS[0]);
     router.refresh();
+    } finally {
+      setIsSavingNewRoutine(false);
+    }
+  }
+
+  async function saveCircleRoutineEdit() {
+    if (!editingCircleRoutine) {
+      return;
+    }
+
+    if (!editingCircleRoutine.label.trim()) {
+      toast({ title: "Please enter a routine name" });
+      return;
+    }
+
+    if (editingCircleRoutine.days.length === 0) {
+      toast({ title: "Please select at least one day" });
+      return;
+    }
+
+    const [startHours, startMinutes] = editingCircleRoutine.startTime.split(":").map((part) => Number.parseInt(part, 10));
+    const [endHours, endMinutes] = editingCircleRoutine.endTime.split(":").map((part) => Number.parseInt(part, 10));
+    const startHour = (startHours ?? 0) + (startMinutes ?? 0) / 60;
+    const endHour = (endHours ?? 0) + (endMinutes ?? 0) / 60;
+
+    if (endHour <= startHour) {
+      toast({ title: "End time must be later than start time" });
+      return;
+    }
+
+    const response = await fetch(`/api/circles/${groupId}/routines/${editingCircleRoutine.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: editingCircleRoutine.label.trim(),
+        details: editingCircleRoutine.details.trim() || null,
+        color: null, // Always use member color in group context
+        days_of_week: editingCircleRoutine.days,
+        start_time: editingCircleRoutine.startTime,
+        end_time: editingCircleRoutine.endTime,
+      }),
+    });
+
+    if (!response.ok) {
+      toast({ title: "Failed to update routine." });
+      return;
+    }
+
+    toast.success("Routine updated");
+    setEditingCircleRoutine(null);
+    router.refresh();
+  }
+
+  async function saveCircleScheduleEdit() {
+    if (isSavingEditedSchedule) {
+      return;
+    }
+
+    setIsSavingEditedSchedule(true);
+    try {
+    if (!editingCircleSchedule) {
+      return;
+    }
+
+    if (!editingCircleSchedule.label.trim()) {
+      toast({ title: "Please enter an activity name." });
+      return;
+    }
+
+    const [sh, sm] = editingCircleSchedule.startTime.split(":").map(Number);
+    const [eh, em] = editingCircleSchedule.endTime.split(":").map(Number);
+    const startHour = (sh ?? 0) + (sm ?? 0) / 60;
+    const endHour = (eh ?? 0) + (em ?? 0) / 60;
+
+    if (endHour <= startHour) {
+      toast({ title: "End time must be after start time." });
+      return;
+    }
+
+    const { error } = await supabase
+        .from("circle_scheduled_blocks")
+        .update({
+          label: editingCircleSchedule.label.trim(),
+          details: editingCircleSchedule.details.trim() || null,
+          color: null, // Always use member color in group context
+          scheduled_date: editingCircleSchedule.scheduledDate,
+          start_time: editingCircleSchedule.startTime,
+          end_time: editingCircleSchedule.endTime,
+        })
+        .eq("id", editingCircleSchedule.id);
+
+    if (error) {
+      toast({ title: "Failed to update schedule." });
+      return;
+    }
+
+    toast.success("Schedule updated");
+    setEditingCircleSchedule(null);
+    router.refresh();
+    } finally {
+      setIsSavingEditedSchedule(false);
+    }
   }
 
   function handleRoutineStartChange(nextValue: string) {
@@ -597,14 +1216,34 @@ export default function CalendarShell({
         continue;
       }
 
+      const isPersonalRoutine = block.source === "personal";
+      const isCircleRoutine = block.source === "circle-routine";
+      const isCircleSchedule = block.source === "circle-schedule";
+      const isOwner = block.memberId === currentUserId;
+
       for (const dayKey of block.days) {
         const dayIndex = dayIndexByKey.get(dayKey);
         if (dayIndex === undefined) {
           continue;
         }
 
-        const durationHours = Math.floor(block.e - block.s);
-        const durationMinutes = Math.round((block.e - block.s - durationHours) * 60);
+        const occurrenceDateStr = toDateParam(weekDates[dayIndex]);
+        const occurrenceOverride = occurrenceOverrides.find(
+          (ov) => ov.routine_id === (block.personalRoutineId ?? block.id) && ov.override_date === occurrenceDateStr && ov.user_id === block.memberId,
+        );
+
+        if (occurrenceOverride?.is_deleted) {
+          continue;
+        }
+
+        const startHour = occurrenceOverride?.start_time ? parseHour(occurrenceOverride.start_time) : block.s;
+        const endHour = occurrenceOverride?.end_time ? parseHour(occurrenceOverride.end_time) : block.e;
+        const label = occurrenceOverride?.label ?? block.lbl;
+        const color = occurrenceOverride?.color ?? block.color;
+        const details = occurrenceOverride?.details ?? block.sub;
+
+        const durationHours = Math.floor(endHour - startHour);
+        const durationMinutes = Math.round((endHour - startHour - durationHours) * 60);
         const durationStr = durationHours > 0
           ? `${durationHours} hr${durationHours > 1 ? "s" : ""}${durationMinutes > 0 ? ` ${durationMinutes} min` : ""}`
           : `${durationMinutes} min`;
@@ -614,35 +1253,68 @@ export default function CalendarShell({
           { text: `${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}` },
           { text: durationStr },
           ...(block.sub ? [{ text: block.sub }] : []),
-          { text: block.routine ? "Recurring routine" : "Scheduled meeting" },
+          {
+            text: isPersonalRoutine
+              ? block.id && block.personalRoutineId && block.id !== block.personalRoutineId
+                ? "From your personal calendar · edited for this circle"
+                : "From your personal calendar · edits only affect this circle"
+              : isCircleRoutine
+                ? "Circle routine"
+                : isCircleSchedule
+                  ? "Circle schedule"
+                  : "Scheduled meeting",
+          },
           ...(block.lastEditedByName ? [{ text: `Edited by ${block.lastEditedByName}`, italic: true }] : []),
         ];
 
         // Build enhanced subtitle with time and meeting indicator for schedules
         const subtitleParts = [];
-        if (!block.routine) {
+        if (!block.routine && !isCircleSchedule) {
           subtitleParts.push("📅 Meeting");
+        } else if (isCircleSchedule) {
+          subtitleParts.push("🗓 Circle schedule");
+        } else if (isPersonalRoutine) {
+          subtitleParts.push("🗓 Personal routine");
+        } else if (isCircleRoutine) {
+          subtitleParts.push("🗓 Circle routine");
         }
-        subtitleParts.push(`${formatTooltipTime(block.s)} - ${formatTooltipTime(block.e)}`);
+        subtitleParts.push(`${formatTooltipTime(startHour)} - ${formatTooltipTime(endHour)}`);
         const enhancedSubtitle = subtitleParts.join(" ");
 
         foregroundEvents.push({
-          id: `${block.memberId}-${dayKey}-${block.s}-${block.e}-${block.lbl}`,
+          id: `${block.id}-${dayKey}`,
           dayIndex,
-          startHour: block.s,
-          endHour: block.e,
-          title: block.lbl,
+          startHour,
+          endHour,
+          title: label,
           subtitle: enhancedSubtitle,
           tag: member.name,
           tag2: durationStr,
-          color: member.bg,
-          variant: block.routine ? "pattern" : "solid",
+          color: color ?? member.bg,
+          variant: block.routine ? "pattern" : isCircleSchedule ? "window" : "solid",
           isSchedule: !block.routine,
+          isRoutine: block.routine,
+          routineId: block.routine ? block.id : undefined,
+          occurrenceDate: block.routine ? toDateParam(weekDates[dayIndex]) : undefined,
           createdById: block.creatorId,
-          scheduleId: block.id ?? undefined,
+          scheduleId: !block.routine ? block.id ?? undefined : undefined,
           link: (block.sub && block.sub !== "Personal" && block.sub !== "Routine" && block.sub !== "Personal routine") ? block.sub : undefined,
-          onClick: block.id ? () => handleScheduleAction(block.id!, "view") : undefined,
-          tooltip: block.routine ? { title: block.lbl, rows: tooltipRows } : undefined,
+          readOnly: !isOwner,
+          onClick: block.id
+            ? () => {
+                if (!isOwner) {
+                  return;
+                }
+
+                if (block.routine) {
+                  handleRoutineAction(block.id!, "edit", toDateParam(weekDates[dayIndex]), dayIndex);
+                  return;
+                }
+
+                handleScheduleAction(block.id!, "view");
+              }
+            : undefined,
+          tooltip: (block.routine || isCircleSchedule) ? { title: block.lbl, rows: tooltipRows } : undefined,
         });
       }
     }
@@ -828,13 +1500,14 @@ export default function CalendarShell({
                 tooltipTitleClassName={ds.calendar.tooltipTitle}
                 tooltipRowClassName={ds.calendar.tooltipRow}
                 tooltipDotClassName={ds.calendar.tooltipDot}
-                currentUserId={currentUserId ?? undefined}
+                currentUserId={currentUserId}
+                onRoutineAction={handleRoutineAction}
                 onScheduleAction={handleScheduleAction}
               />
             ) : null}
 
             {layout === "heat" ? (
-            <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 [scrollbar-gutter:stable]">
+            <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 scrollbar-gutter-stable">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Color shows how many visible members are busy each hour. Green means everyone is free.
               </p>
@@ -966,7 +1639,7 @@ export default function CalendarShell({
           ) : null}
 
             {layout === "dots" ? (
-            <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 [scrollbar-gutter:stable]">
+            <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 scrollbar-gutter-stable">
               <div className="overflow-x-auto">
                 <div className="min-w-205 space-y-5">
                   <div className="flex pl-24 pb-1 text-[8px] uppercase tracking-[0.08em] text-muted-foreground">
@@ -1053,7 +1726,7 @@ export default function CalendarShell({
           ) : null}
 
             {layout === "free" ? (
-            <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 [scrollbar-gutter:stable]">
+            <div className="max-h-142 overflow-y-auto space-y-4 p-4 sm:p-5 scrollbar-gutter-stable">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Busy blocks are hidden. Only shared free windows are shown here.
               </p>
@@ -1285,12 +1958,24 @@ export default function CalendarShell({
       )}
 
       {showRoutineDialog ? (
-        <div className={cn(ds.modal.overlay)} onClick={() => setShowRoutineDialog(false)}>
-          <div className={cn(ds.modal.card)} onClick={(event) => event.stopPropagation()}>
+        <div
+          className={cn(ds.modal.overlay)}
+          onPointerDown={(event) => {
+            createRoutinePointerDownInsideRef.current = !!createRoutineDialogRef.current?.contains(event.target as Node);
+          }}
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !createRoutinePointerDownInsideRef.current) {
+              closeRoutineDialog();
+            }
+            createRoutinePointerDownInsideRef.current = false;
+          }}
+        >
+          <div ref={createRoutineDialogRef} className={cn(ds.modal.card)} onClick={(event) => event.stopPropagation()}>
             <button
               type="button"
               className={cn(ds.modal.closeButton)}
-              onClick={() => setShowRoutineDialog(false)}
+              onClick={closeRoutineDialog}
+              disabled={isSavingNewRoutine}
               aria-label="Close dialog"
             >
               ×
@@ -1379,42 +2064,22 @@ export default function CalendarShell({
                 </div>
               </div>
 
-              <div className={cn(ds.field.wrapper)}>
-                <label htmlFor="routine-color" className={cn(ds.field.label)}>
-                  Routine color
-                </label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    id="routine-color"
-                    type="color"
-                    value={newRoutineColor}
-                    onChange={(event) => setNewRoutineColor(event.target.value)}
-                    className="h-9 w-11 cursor-pointer rounded-md border border-border/70 bg-background p-1 transition-colors hover:border-border"
-                    aria-label="Choose routine color"
-                  />
-                  {ROUTINE_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setNewRoutineColor(color)}
-                      className={cn(
-                        "h-7 w-7 rounded-full border border-border/70 transition-all hover:-translate-y-0.5 hover:shadow-sm",
-                        newRoutineColor === color && "ring-2 ring-ring ring-offset-2 ring-offset-background",
-                      )}
-                      style={{ backgroundColor: color }}
-                      aria-label={`Pick routine color ${color}`}
-                    />
-                  ))}
-                </div>
+              <div className="hidden">
+                <input
+                  id="routine-color"
+                  type="color"
+                  value={newRoutineColor}
+                  onChange={(event) => setNewRoutineColor(event.target.value)}
+                />
               </div>
             </div>
 
             <div className={cn(ds.modal.actions, "px-4 pb-4 sm:px-6")}>
-              <Button type="button" variant="outline" onClick={() => setShowRoutineDialog(false)}>
+              <Button type="button" variant="outline" onClick={closeRoutineDialog} disabled={isSavingNewRoutine}>
                 Cancel
               </Button>
-              <Button type="button" onClick={() => void saveRoutine()}>
-                Save routine
+              <Button type="button" onClick={() => void saveRoutine()} disabled={isSavingNewRoutine}>
+                {isSavingNewRoutine ? "Saving..." : "Save routine"}
               </Button>
             </div>
           </div>
@@ -1424,13 +2089,22 @@ export default function CalendarShell({
       {showScheduleDialog && (
         <div
           className={cn(ds.modal.overlay)}
-          onClick={() => { setShowScheduleDialog(false); resetScheduleForm(); }}
+          onPointerDown={(event) => {
+            addSchedulePointerDownInsideRef.current = !!addScheduleDialogRef.current?.contains(event.target as Node);
+          }}
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !addSchedulePointerDownInsideRef.current) {
+              closeScheduleDialog();
+            }
+            addSchedulePointerDownInsideRef.current = false;
+          }}
         >
-          <div className={cn(ds.modal.card)} onClick={(e) => e.stopPropagation()}>
+          <div ref={addScheduleDialogRef} className={cn(ds.modal.card)} onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               className={cn(ds.modal.closeButton)}
-              onClick={() => { setShowScheduleDialog(false); resetScheduleForm(); }}
+              onClick={closeScheduleDialog}
+              disabled={isSavingNewSchedule}
               aria-label="Close"
             >×</button>
 
@@ -1508,30 +2182,13 @@ export default function CalendarShell({
                 </div>
               </div>
 
-              <div className={cn(ds.field.wrapper)}>
-                <label htmlFor="cs-sched-color" className={cn(ds.field.label)}>Color</label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    id="cs-sched-color"
-                    type="color"
-                    value={newScheduleColor}
-                    onChange={(e) => setNewScheduleColor(e.target.value)}
-                    className="h-9 w-11 cursor-pointer rounded-md border border-border/70 bg-background p-1"
-                  />
-                  {ROUTINE_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setNewScheduleColor(color)}
-                      className={cn(
-                        "h-7 w-7 rounded-full border border-border/70 transition-all hover:-translate-y-0.5",
-                        newScheduleColor === color && "ring-2 ring-ring ring-offset-2 ring-offset-background",
-                      )}
-                      style={{ backgroundColor: color }}
-                      aria-label={`Pick color ${color}`}
-                    />
-                  ))}
-                </div>
+              <div className="hidden">
+                <input
+                  id="cs-sched-color"
+                  type="color"
+                  value={newScheduleColor}
+                  onChange={(e) => setNewScheduleColor(e.target.value)}
+                />
               </div>
             </div>
 
@@ -1539,15 +2196,608 @@ export default function CalendarShell({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => { setShowScheduleDialog(false); resetScheduleForm(); }}
+                onClick={closeScheduleDialog}
+                disabled={isSavingNewSchedule}
               >Cancel</Button>
-              <Button type="button" onClick={() => void saveSchedule()}>
-                Add to calendar
+              <Button type="button" onClick={() => void saveSchedule()} disabled={isSavingNewSchedule}>
+                {isSavingNewSchedule ? "Adding..." : "Add to calendar"}
               </Button>
             </div>
           </div>
         </div>
       )}
+
+      {editingCircleRoutine ? (
+        <div className={cn(ds.modal.overlay)} onClick={closeCircleRoutineEditor}>
+          <div className={cn(ds.modal.card)} onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className={cn(ds.modal.closeButton)}
+              onClick={closeCircleRoutineEditor}
+              aria-label="Close dialog"
+            >
+              ×
+            </button>
+
+            <div className={cn(ds.modal.header)}>
+              <div className={cn(ds.modal.badge)}>Routine Edit</div>
+              <h2 className={cn(ds.modal.title)}>Edit routine</h2>
+              <p className={cn(ds.modal.description)}>
+                Update this circle-scoped routine without changing your personal calendar.
+              </p>
+            </div>
+
+            <div className={cn(ds.modal.body, "px-4 pb-4 sm:px-6")}>
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="circle-routine-label" className={cn(ds.field.label)}>
+                  Routine name
+                </label>
+                <input
+                  id="circle-routine-label"
+                  type="text"
+                  value={editingCircleRoutine.label}
+                  onChange={(event) => setEditingCircleRoutine((current) => current ? ({ ...current, label: event.target.value }) : current)}
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="circle-routine-details" className={cn(ds.field.label)}>
+                  Details
+                </label>
+                <input
+                  id="circle-routine-details"
+                  type="text"
+                  value={editingCircleRoutine.details}
+                  onChange={(event) => setEditingCircleRoutine((current) => current ? ({ ...current, details: event.target.value }) : current)}
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="circle-routine-start" className={cn(ds.field.label)}>
+                    Start time
+                  </label>
+                  <TimePicker
+                    id="circle-routine-start"
+                    value={editingCircleRoutine.startTime}
+                    onChange={(value) => setEditingCircleRoutine((current) => current ? ({ ...current, startTime: value }) : current)}
+                    min="00:00"
+                    max="23:59"
+                    className={cn(ds.field.input)}
+                  />
+                </div>
+
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="circle-routine-end" className={cn(ds.field.label)}>
+                    End time
+                  </label>
+                  <TimePicker
+                    id="circle-routine-end"
+                    value={editingCircleRoutine.endTime}
+                    onChange={(value) => setEditingCircleRoutine((current) => current ? ({ ...current, endTime: value }) : current)}
+                    min="00:00"
+                    max="23:59"
+                    className={cn(ds.field.input)}
+                  />
+                </div>
+              </div>
+
+              <div className={cn(ds.field.wrapper)}>
+                <label className={cn(ds.field.label)}>Days</label>
+                <div className="flex flex-wrap gap-2">
+                  {DAY_LABELS.map((day, index) => {
+                    const active = editingCircleRoutine.days.includes(index);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => setEditingCircleRoutine((current) => current ? ({
+                          ...current,
+                          days: current.days.includes(index)
+                            ? current.days.filter((selectedDay) => selectedDay !== index)
+                            : [...current.days, index],
+                        }) : current)}
+                        className={cn(
+                          "h-8 rounded-md border px-3 text-xs font-medium transition-all",
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border/70 bg-background text-muted-foreground hover:border-border hover:text-foreground",
+                        )}
+                      >
+                        {day.slice(0, 3)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="hidden">
+                <input
+                  id="circle-routine-color"
+                  type="color"
+                  value={editingCircleRoutine.color}
+                  onChange={(event) => setEditingCircleRoutine((current) => current ? ({ ...current, color: event.target.value }) : current)}
+                />
+              </div>
+            </div>
+
+            <div className={cn(ds.modal.actions, "px-4 pb-4 sm:px-6")}>
+              <Button type="button" variant="outline" onClick={closeCircleRoutineEditor}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void saveCircleRoutineEdit()}>
+                Save routine
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editingCircleSchedule ? (
+        <div
+          className={cn(ds.modal.overlay)}
+          onPointerDown={(event) => {
+            editSchedulePointerDownInsideRef.current = !!editScheduleDialogRef.current?.contains(event.target as Node);
+          }}
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !editSchedulePointerDownInsideRef.current) {
+              closeCircleScheduleEditor();
+            }
+            editSchedulePointerDownInsideRef.current = false;
+          }}
+        >
+          <div ref={editScheduleDialogRef} className={cn(ds.modal.card)} onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className={cn(ds.modal.closeButton)}
+              onClick={closeCircleScheduleEditor}
+              disabled={isSavingEditedSchedule}
+              aria-label="Close dialog"
+            >
+              ×
+            </button>
+
+            <div className={cn(ds.modal.header)}>
+              <div className={cn(ds.modal.badge)}>Schedule Edit</div>
+              <h2 className={cn(ds.modal.title)}>Edit schedule</h2>
+              <p className={cn(ds.modal.description)}>
+                Update this circle-scoped schedule without affecting your main calendar.
+              </p>
+            </div>
+
+            <div className={cn(ds.modal.body, "px-4 pb-4 sm:px-6")}>
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="circle-schedule-label" className={cn(ds.field.label)}>
+                  Activity name
+                </label>
+                <input
+                  id="circle-schedule-label"
+                  type="text"
+                  value={editingCircleSchedule.label}
+                  onChange={(event) => setEditingCircleSchedule((current) => current ? ({ ...current, label: event.target.value }) : current)}
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="circle-schedule-details" className={cn(ds.field.label)}>
+                  Details
+                </label>
+                <input
+                  id="circle-schedule-details"
+                  type="text"
+                  value={editingCircleSchedule.details}
+                  onChange={(event) => setEditingCircleSchedule((current) => current ? ({ ...current, details: event.target.value }) : current)}
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="circle-schedule-date" className={cn(ds.field.label)}>
+                  Date
+                </label>
+                <DatePicker
+                  id="circle-schedule-date"
+                  value={editingCircleSchedule.scheduledDate}
+                  onChange={(value) => setEditingCircleSchedule((current) => current ? ({ ...current, scheduledDate: value }) : current)}
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="circle-schedule-start" className={cn(ds.field.label)}>
+                    Start time
+                  </label>
+                  <TimePicker
+                    id="circle-schedule-start"
+                    value={editingCircleSchedule.startTime}
+                    onChange={(value) => setEditingCircleSchedule((current) => current ? ({ ...current, startTime: value }) : current)}
+                    min="00:00"
+                    max="23:59"
+                    className={cn(ds.field.input)}
+                  />
+                </div>
+
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="circle-schedule-end" className={cn(ds.field.label)}>
+                    End time
+                  </label>
+                  <TimePicker
+                    id="circle-schedule-end"
+                    value={editingCircleSchedule.endTime}
+                    onChange={(value) => setEditingCircleSchedule((current) => current ? ({ ...current, endTime: value }) : current)}
+                    min="00:00"
+                    max="23:59"
+                    className={cn(ds.field.input)}
+                  />
+                </div>
+              </div>
+
+              <div className="hidden">
+                <input
+                  id="circle-schedule-color"
+                  type="color"
+                  value={editingCircleSchedule.color}
+                  onChange={(event) => setEditingCircleSchedule((current) => current ? ({ ...current, color: event.target.value }) : current)}
+                />
+              </div>
+            </div>
+
+            <div className={cn(ds.modal.actions, "px-4 pb-4 sm:px-6")}>
+              <Button type="button" variant="outline" onClick={closeCircleScheduleEditor} disabled={isSavingEditedSchedule}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void saveCircleScheduleEdit()} disabled={isSavingEditedSchedule}>
+                {isSavingEditedSchedule ? "Saving..." : "Save schedule"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {scheduleDeleteTarget ? (
+        <div className={calendarStyles.modalOverlay} onClick={closeCircleScheduleDeleteModal}>
+          <div className={calendarStyles.modalCard} style={{ maxWidth: 420 }} onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className={calendarStyles.modalClose}
+              onClick={closeCircleScheduleDeleteModal}
+            >
+              ×
+            </button>
+
+            <div className={calendarStyles.modalHeader}>
+              <div className={calendarStyles.modalBadge}>Confirm delete</div>
+              <h2 className={calendarStyles.modalTitle}>Delete this schedule?</h2>
+              <p className={calendarStyles.modalDesc}>
+                This will permanently remove this schedule from the group calendar.
+              </p>
+            </div>
+
+            <div className={calendarStyles.modalBody}>
+              <div className={calendarStyles.scopeRadioGroup}>
+                <div className={cn(calendarStyles.scopeOptionCard, calendarStyles.scopeOptionCardDanger)} style={{ cursor: "default" }}>
+                  <span className={calendarStyles.scopeOptionBody}>
+                    <span className={calendarStyles.scopeOptionTitle}>{scheduleDeleteTarget.lbl}</span>
+                    <span className={calendarStyles.scopeOptionSub}>
+                      {`${scheduleDeleteTarget.scheduledDate ?? scheduleDeleteTarget.days[0]} • ${formatTooltipTime(scheduleDeleteTarget.s)} - ${formatTooltipTime(scheduleDeleteTarget.e)}`}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className={calendarStyles.modalActions}>
+              <button type="button" className={calendarStyles.scopeCancelBtn} onClick={closeCircleScheduleDeleteModal}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={calendarStyles.scopeConfirmBtn}
+                onClick={() => void confirmDeleteCircleSchedule()}
+              >
+                Delete schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showRoutineScopeModal && routineScopeTarget ? (
+        <div
+          className={calendarStyles.modalOverlay}
+          onClick={closeRoutineScopeModal}
+        >
+          <div className={calendarStyles.modalCard} style={{ maxWidth: 420 }} onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className={calendarStyles.modalClose}
+              onClick={closeRoutineScopeModal}
+            >
+              ×
+            </button>
+
+            <div className={calendarStyles.modalHeader}>
+              <div className={calendarStyles.modalBadge}>
+                {routineScopeTarget.action === "edit" ? "Edit Routine" : "Delete Routine"}
+              </div>
+              <h2 className={calendarStyles.modalTitle}>
+                {routineScopeTarget.action === "edit" ? "Choose what to edit" : "Choose what to delete"}
+              </h2>
+              <p className={calendarStyles.modalDesc}>Pick a scope before continuing.</p>
+            </div>
+
+            <div className={calendarStyles.modalBody}>
+              <div className={calendarStyles.scopeRadioGroup} role="radiogroup" aria-label="Choose scope">
+                <label
+                  className={cn(
+                    calendarStyles.scopeOptionCard,
+                    routineScopeChoice === "occurrence" && calendarStyles.scopeOptionCardSelected,
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="routine-scope-choice"
+                    className={calendarStyles.scopeOptionInput}
+                    checked={routineScopeChoice === "occurrence"}
+                    onChange={() => setRoutineScopeChoice("occurrence")}
+                  />
+                  <span className={calendarStyles.scopeOptionBody}>
+                    <span className={calendarStyles.scopeOptionTitle}>This occurrence only</span>
+                    <span className={calendarStyles.scopeOptionSub}>{routineScopeTarget.occurrenceDate}</span>
+                  </span>
+                  <span className={calendarStyles.scopeRadio} aria-hidden="true">
+                    <span className={calendarStyles.scopeRadioDot} />
+                  </span>
+                </label>
+
+                <label
+                  className={cn(
+                    calendarStyles.scopeOptionCard,
+                    calendarStyles.scopeOptionCardDark,
+                    routineScopeTarget.action === "delete" && calendarStyles.scopeOptionCardDanger,
+                    routineScopeChoice === "all" && calendarStyles.scopeOptionCardSelected,
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="routine-scope-choice"
+                    className={calendarStyles.scopeOptionInput}
+                    checked={routineScopeChoice === "all"}
+                    onChange={() => setRoutineScopeChoice("all")}
+                  />
+                  <span className={calendarStyles.scopeOptionBody}>
+                    <span className={calendarStyles.scopeOptionTitle}>All occurrences</span>
+                    <span className={calendarStyles.scopeOptionSub}>Entire recurring routine</span>
+                  </span>
+                  <span className={cn(calendarStyles.scopeRadio, calendarStyles.scopeRadioDark)} aria-hidden="true">
+                    <span className={calendarStyles.scopeRadioDot} />
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className={calendarStyles.modalActions}>
+              <button
+                type="button"
+                className={calendarStyles.scopeCancelBtn}
+                onClick={closeRoutineScopeModal}
+              >
+                Cancel
+              </button>
+              <button type="button" className={calendarStyles.scopeConfirmBtn} onClick={handleRoutineScopeConfirm}>
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showRoutineDeleteModal && routineScopeTarget?.action === "delete" ? (
+        <div className={calendarStyles.modalOverlay} onClick={closeRoutineScopeModal}>
+          <div className={calendarStyles.modalCard} style={{ maxWidth: 420 }} onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className={calendarStyles.modalClose}
+              onClick={closeRoutineScopeModal}
+            >
+              ×
+            </button>
+
+            <div className={calendarStyles.modalHeader}>
+              <div className={calendarStyles.modalBadge}>Confirm delete</div>
+              <h2 className={calendarStyles.modalTitle}>
+                {routineScopeChoice === "occurrence" ? "Delete this occurrence?" : "Delete this routine?"}
+              </h2>
+              <p className={calendarStyles.modalDesc}>
+                {routineScopeChoice === "occurrence"
+                  ? "This will permanently remove only this occurrence."
+                  : "This will permanently delete the entire recurring routine and all of its future occurrences."}
+              </p>
+            </div>
+
+            <div className={calendarStyles.modalBody}>
+              <div className={calendarStyles.scopeRadioGroup}>
+                <div className={cn(calendarStyles.scopeOptionCard, calendarStyles.scopeOptionCardDanger)} style={{ cursor: "default" }}>
+                  <span className={calendarStyles.scopeOptionBody}>
+                    <span className={calendarStyles.scopeOptionTitle}>
+                      {routineScopeChoice === "occurrence" ? "Occurrence to delete" : "Routine to delete"}
+                    </span>
+                    <span className={calendarStyles.scopeOptionSub}>
+                      {routineScopeChoice === "occurrence"
+                        ? routineScopeTarget.occurrenceDate
+                        : `${routineScopeTarget.occurrenceDate} and all future repeats`}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className={calendarStyles.modalActions}>
+              <button type="button" className={calendarStyles.scopeCancelBtn} onClick={closeRoutineScopeModal}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={calendarStyles.scopeConfirmBtn}
+                onClick={async () => {
+                  const deleted = routineScopeChoice === "occurrence"
+                    ? await deletePersonalRoutineOccurrence(routineScopeTarget.routineId, routineScopeTarget.occurrenceDate)
+                    : await deletePersonalRoutineAll(routineScopeTarget.routineId);
+                  if (!deleted) {
+                    return;
+                  }
+
+                  closeRoutineScopeModal();
+                  closePersonalRoutineEditor();
+                  router.refresh();
+                }}
+              >
+                {routineScopeChoice === "occurrence" ? "Delete occurrence" : "Delete routine"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {personalRoutineAction?.action === "edit" && personalRoutineEditor ? (
+        <div className={cn(ds.modal.overlay)} onClick={closePersonalRoutineEditor}>
+          <div className={cn(ds.modal.card)} onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className={cn(ds.modal.closeButton)}
+              onClick={closePersonalRoutineEditor}
+              aria-label="Close dialog"
+            >
+              ×
+            </button>
+
+            <div className={cn(ds.modal.header)}>
+              <div className={cn(ds.modal.badge)}>Personal Routine</div>
+              <h2 className={cn(ds.modal.title)}>
+                {personalRoutineEditScope === "occurrence" ? "Edit routine occurrence" : "Edit routine"}
+              </h2>
+              <p className={cn(ds.modal.description)}>
+                {personalRoutineEditScope === "occurrence"
+                  ? `Changes apply only to ${personalRoutineOccurrenceDate ?? "this date"}.`
+                  : "Changes apply to the entire recurring routine."}
+              </p>
+            </div>
+
+            <div className={cn(ds.modal.body, "px-4 pb-4 sm:px-6")}>
+              <div className={cn(ds.field.wrapper)}>
+                <label htmlFor="personal-routine-label" className={cn(ds.field.label)}>
+                  Routine name
+                </label>
+                <input
+                  id="personal-routine-label"
+                  type="text"
+                  value={personalRoutineEditor.label}
+                  onChange={(event) => setPersonalRoutineEditor((current) => current ? ({ ...current, label: event.target.value }) : current)}
+                  className={cn(ds.field.input)}
+                />
+              </div>
+
+              {personalRoutineEditScope === "all" ? (
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="personal-routine-details" className={cn(ds.field.label)}>
+                    Details
+                  </label>
+                  <input
+                    id="personal-routine-details"
+                    type="text"
+                    value={personalRoutineEditor.details}
+                    onChange={(event) => setPersonalRoutineEditor((current) => current ? ({ ...current, details: event.target.value }) : current)}
+                    className={cn(ds.field.input)}
+                  />
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="personal-routine-start" className={cn(ds.field.label)}>
+                    Start time
+                  </label>
+                  <TimePicker
+                    id="personal-routine-start"
+                    value={personalRoutineEditor.startTime}
+                    onChange={(value) => setPersonalRoutineEditor((current) => current ? ({ ...current, startTime: value }) : current)}
+                    min="00:00"
+                    max="23:59"
+                    className={cn(ds.field.input)}
+                  />
+                </div>
+
+                <div className={cn(ds.field.wrapper)}>
+                  <label htmlFor="personal-routine-end" className={cn(ds.field.label)}>
+                    End time
+                  </label>
+                  <TimePicker
+                    id="personal-routine-end"
+                    value={personalRoutineEditor.endTime}
+                    onChange={(value) => setPersonalRoutineEditor((current) => current ? ({ ...current, endTime: value }) : current)}
+                    min="00:00"
+                    max="23:59"
+                    className={cn(ds.field.input)}
+                  />
+                </div>
+              </div>
+
+              {personalRoutineEditScope === "all" ? (
+                <div className={cn(ds.field.wrapper)}>
+                  <label className={cn(ds.field.label)}>Days</label>
+                  <div className="flex flex-wrap gap-2">
+                    {DAY_LABELS.map((day, index) => {
+                      const active = personalRoutineEditor.days.includes(index);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => setPersonalRoutineEditor((current) => current ? ({
+                            ...current,
+                            days: current.days.includes(index)
+                              ? current.days.filter((selectedDay) => selectedDay !== index)
+                              : [...current.days, index],
+                          }) : current)}
+                          className={cn(
+                            "h-8 rounded-md border px-3 text-xs font-medium transition-all",
+                            active
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border/70 bg-background text-muted-foreground hover:border-border hover:text-foreground",
+                          )}
+                        >
+                          {day.slice(0, 3)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="hidden">
+                <input
+                  id="personal-routine-color"
+                  type="color"
+                  value={personalRoutineEditor.color}
+                  onChange={(event) => setPersonalRoutineEditor((current) => current ? ({ ...current, color: event.target.value }) : current)}
+                />
+              </div>
+            </div>
+
+            <div className={cn(ds.modal.actions, "px-4 pb-4 sm:px-6")}>
+              <Button type="button" variant="outline" onClick={closePersonalRoutineEditor}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void overridePersonalRoutineForCircle()}>
+                {personalRoutineEditScope === "occurrence" ? "Save occurrence" : "Save routine"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <AddMeetingDialog
         open={addMeetingOpen}

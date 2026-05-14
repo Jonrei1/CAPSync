@@ -12,7 +12,17 @@ export function mergeBlocks(...groups: CalendarBlock[][]): CalendarBlock[] {
   const seen = new Set<string>();
 
   const deduped = merged.filter((block) => {
-    const key = [block.memberId, block.days.join("."), block.s, block.e, block.lbl, block.sub, block.routine ? "r" : "m"].join("|");
+    const key = [
+      block.memberId,
+      block.days.join("."),
+      block.s,
+      block.e,
+      block.lbl,
+      block.sub,
+      block.routine ? "r" : "m",
+      block.kind ?? "",
+      block.id ?? "",
+    ].join("|");
     if (seen.has(key)) {
       return false;
     }

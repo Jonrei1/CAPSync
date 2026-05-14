@@ -26,10 +26,12 @@ export type CalendarGridEvent = {
   isRoutine?: boolean;
   isSchedule?: boolean;
   routineId?: string;
+  personalRoutineId?: string;
   occurrenceDate?: string;
   createdById?: string;
   scheduleId?: string;
   readOnly?: boolean;
+  source?: "personal" | "circle-routine" | "circle-schedule" | "meeting";
   link?: string;
 };
 
@@ -521,9 +523,10 @@ export default function WeekCalendarGrid({
                       onMouseMove={tooltip ? trackTooltip : undefined}
                       onMouseLeave={tooltip ? closeTooltip : undefined}
                     >
-                      {!isWindow && eventMenu(event)}
+                      {eventMenu(event)}
                         <div
                           className={styles.eventInner}
+                          style={isWindow ? { color: '#374151' } : undefined}
                           onClick={() => {
                             if (event.onClick) {
                               event.onClick();
@@ -534,11 +537,7 @@ export default function WeekCalendarGrid({
                         {!event.compact && event.subtitle ? (
                           <div className={styles.eventSub}>{event.subtitle}</div>
                         ) : null}
-                        {!event.compact && event.link ? (
-                          <div className={cn(styles.eventSub, "truncate text-blue-100 underline opacity-90")}>
-                            {event.link}
-                          </div>
-                        ) : null}
+                    
                         {!event.compact && (event.tag || event.tag2) ? (
                           <div className="flex flex-wrap gap-1">
                             {event.tag && <div className={styles.eventTag}>{event.tag}</div>}

@@ -50,6 +50,20 @@ type DeadlineRow = {
   name?: string | null;
 };
 
+type CircleOccurrenceOverrideRow = {
+  id: string;
+  group_id: string;
+  routine_id: string;
+  user_id: string;
+  override_date: string;
+  is_deleted: boolean;
+  label: string | null;
+  details: string | null;
+  color: string | null;
+  start_time: string | null;
+  end_time: string | null;
+};
+
 type PersonalRoutineRow = {
   id: string;
   user_id: string;
@@ -60,6 +74,66 @@ type PersonalRoutineRow = {
   start_time?: string | null;
   end_time?: string | null;
 };
+
+type CircleRoutineOverrideRow = {
+  id: string;
+  personal_routine_id: string;
+  user_id: string;
+  hidden: boolean;
+  label?: string | null;
+  details?: string | null;
+  color?: string | null;
+  days_of_week?: number[] | null;
+  start_time?: string | null;
+  end_time?: string | null;
+};
+
+type CircleRoutineRow = {
+  id: string;
+  user_id: string;
+  label?: string | null;
+  details?: string | null;
+  color?: string | null;
+  days_of_week?: number[] | null;
+  start_time?: string | null;
+  end_time?: string | null;
+};
+
+type CircleScheduledBlockRow = {
+  id: string;
+  user_id: string;
+  label?: string | null;
+  details?: string | null;
+  color?: string | null;
+  scheduled_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+};
+
+type QueryErrorLike = {
+  message?: string | null;
+  code?: string | null;
+};
+
+function logQueryLoadError(label: string, groupId: string, error: QueryErrorLike | null | undefined) {
+  const message = error?.message?.trim();
+  if (!message) {
+    return;
+  }
+
+  if (error?.code === "PGRST116") {
+    return;
+  }
+
+  if (message.toLowerCase().includes("abort")) {
+    return;
+  }
+
+  console.error(label, {
+    groupId,
+    error: message,
+  });
+}
 
 const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const MEMBER_FALLBACK_COLORS = ["#4f46e5", "#16a34a", "#ea580c", "#9333ea", "#2563eb", "#ca8a04"] as const;
@@ -226,6 +300,8 @@ function mapSchedule(row: ScheduleRow): CalendarBlock | null {
     creatorName: row.created_by_name ?? undefined,
     lastEditedByName: row.last_edited_by_name ?? undefined,
     routine: false,
+    kind: "meeting",
+    source: "meeting",
   };
 }
 
@@ -350,7 +426,14 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
 
   const memberIds = membersData.map((row) => row.member_id).filter((memberId): memberId is string => Boolean(memberId));
 
-  const [personalRoutinesResult, schedulesResult, deadlinesResult, tasksResult] = await Promise.all([
+  const [circleRoutineOverridesResult, personalRoutinesResult, circleRoutinesResult, circleScheduledBlocksResult, schedulesResult, deadlinesResult, tasksResult, occurrenceOverridesResult] = await Promise.all([
+    memberIds.length > 0
+      ? supabase
+          .from("circle_routine_overrides")
+          .select("id, personal_routine_id, user_id, hidden, label, details, color, days_of_week, start_time, end_time")
+          .eq("group_id", groupId)
+          .in("user_id", memberIds)
+      : Promise.resolve({ data: [], error: null }),
     memberIds.length > 0
       ? supabase
           .from("personal_routines")
@@ -358,6 +441,17 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
           .in("user_id", memberIds)
           .eq("is_active", true)
       : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("circle_member_routines")
+      .select("id, user_id, label, details, color, days_of_week, start_time, end_time")
+      .eq("group_id", groupId)
+      .eq("is_active", true),
+    supabase
+      .from("circle_scheduled_blocks")
+      .select("id, user_id, label, details, color, scheduled_date, start_time, end_time")
+      .eq("group_id", groupId)
+      .gte("scheduled_date", weekStart.toISOString().slice(0, 10))
+      .lte("scheduled_date", weekEnd.toISOString().slice(0, 10)),
     supabase
       .from("schedules")
       .select("*")
@@ -368,34 +462,95 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
       .from("deadlines")
       .select("*")
       .eq("group_id", groupId)
-      .gte("due_date", weekStart.toISOString())
-      .lte("due_date", weekEnd.toISOString()),
+      .gte("due_date", weekStart.toISOString().slice(0, 10))
+      .lte("due_date", weekEnd.toISOString().slice(0, 10)),
+    memberIds.length > 0
+      ? supabase
+          .from("tasks")
+          .select("id, title, due_date, status, group_id, sprint_id, starts_at, ends_at")
+          .in("group_id", [groupId])
+          .gte("due_date", weekStart.toISOString().slice(0, 10))
+          .lte("due_date", weekEnd.toISOString().slice(0, 10))
+      : Promise.resolve({ data: [], error: null }),
     supabase
-      .from("tasks")
-      .select("id, title, due_date, status, group_id, sprint_id, starts_at, ends_at")
+      .from("circle_routine_occurrence_overrides")
+      .select("*")
       .eq("group_id", groupId)
-      .gte("due_date", weekStart.toISOString())
-      .lte("due_date", weekEnd.toISOString()),
+      .gte("override_date", weekStart.toISOString().slice(0, 10))
+      .lte("override_date", weekEnd.toISOString().slice(0, 10)),
   ]);
 
-  if (personalRoutinesResult.error) {
-    console.error("[group-calendar] failed to load personal routines", {
-      groupId,
-      memberCount: memberIds.length,
-      error: personalRoutinesResult.error.message,
-    });
-  }
+  logQueryLoadError("[group-calendar] failed to load circle routine overrides", groupId, circleRoutineOverridesResult.error);
+
+  logQueryLoadError("[group-calendar] failed to load personal routines", groupId, personalRoutinesResult.error);
+
+  logQueryLoadError("[group-calendar] failed to load circle routines", groupId, circleRoutinesResult.error);
+
+  logQueryLoadError("[group-calendar] failed to load circle scheduled blocks", groupId, circleScheduledBlocksResult.error);
 
   const members = membersData.map((row, index) => mapMember(row, index));
   const personalRoutines = (personalRoutinesResult.data ?? []) as PersonalRoutineRow[];
+  const circleRoutineOverrides = (circleRoutineOverridesResult.data ?? []) as CircleRoutineOverrideRow[];
+  const circleRoutines = (circleRoutinesResult.data ?? []) as CircleRoutineRow[];
+  const circleScheduledBlocks = (circleScheduledBlocksResult.data ?? []) as CircleScheduledBlockRow[];
   const schedules = (schedulesResult.data ?? []) as ScheduleRow[];
   const deadlines = (deadlinesResult.data ?? []) as DeadlineRow[];
   const tasks = (tasksResult.data ?? []) as Array<{ id: string; title: string; due_date: string; status: string; group_id: string; sprint_id: string | null; starts_at: string | null; ends_at: string | null }>;
+  const occurrenceOverrides = (occurrenceOverridesResult.data ?? []) as CircleOccurrenceOverrideRow[];
 
   const DAY_KEY_BY_INDEX = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
   type DayKey = (typeof DAY_KEY_BY_INDEX)[number];
 
-  const routineBlocks: CalendarBlock[] = personalRoutines.flatMap((routine) => {
+  const overridesByRoutineId = new Map(circleRoutineOverrides.map((override) => [override.personal_routine_id, override] as const));
+
+  const personalRoutineBlocks: CalendarBlock[] = personalRoutines.flatMap((routine) => {
+    const override = overridesByRoutineId.get(routine.id);
+    if (override?.hidden) {
+      return [];
+    }
+
+    const label = override?.label ?? routine.label ?? "Routine";
+    const details = override?.details ?? routine.details ?? "";
+    const daysOfWeek = override?.days_of_week ?? routine.days_of_week ?? [];
+    const startTime = override?.start_time ?? routine.start_time ?? "0:00";
+    const endTime = override?.end_time ?? routine.end_time ?? "0:00";
+
+    const startParts = startTime.split(":").map((part) => Number.parseInt(part, 10));
+    const endParts = endTime.split(":").map((part) => Number.parseInt(part, 10));
+    const startHour = (startParts[0] ?? 0) + (startParts[1] ?? 0) / 60;
+    const endHour = (endParts[0] ?? 0) + (endParts[1] ?? 0) / 60;
+
+    if (!(endHour > startHour)) {
+      return [];
+    }
+
+    const days = daysOfWeek
+      .map((dayOfWeek): DayKey | null => DAY_KEY_BY_INDEX[dayOfWeek] ?? null)
+      .filter((dayKey): dayKey is DayKey => dayKey !== null);
+
+    if (days.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        memberId: routine.user_id,
+        days,
+        s: startHour,
+        e: endHour,
+        lbl: label,
+        sub: details === "Personal routine" || details === "Personal" ? "" : details,
+        routine: true,
+        kind: "circle-routine",
+        id: override?.id ?? routine.id,
+        personalRoutineId: routine.id,
+        creatorId: routine.user_id,
+        source: "personal",
+      },
+    ];
+  });
+
+  const circleRoutineBlocks: CalendarBlock[] = circleRoutines.flatMap((routine) => {
     const startParts = (routine.start_time ?? "0:00").split(":").map((part) => Number.parseInt(part, 10));
     const endParts = (routine.end_time ?? "0:00").split(":").map((part) => Number.parseInt(part, 10));
     const startHour = (startParts[0] ?? 0) + (startParts[1] ?? 0) / 60;
@@ -422,6 +577,43 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         lbl: routine.label ?? "Routine",
         sub: routine.details === "Personal routine" || routine.details === "Personal" ? "" : (routine.details ?? ""),
         routine: true,
+        kind: "circle-routine",
+        id: routine.id,
+        creatorId: routine.user_id,
+        source: "circle-routine",
+      },
+    ];
+  });
+
+  const circleScheduledBlockBlocks: CalendarBlock[] = circleScheduledBlocks.flatMap((block) => {
+    const day = dayFromDateString(block.scheduled_date);
+    if (!day) {
+      return [];
+    }
+
+    const startParts = (block.start_time ?? "0:00").split(":").map((part) => Number.parseInt(part, 10));
+    const endParts = (block.end_time ?? "0:00").split(":").map((part) => Number.parseInt(part, 10));
+    const startHour = (startParts[0] ?? 0) + (startParts[1] ?? 0) / 60;
+    const endHour = (endParts[0] ?? 0) + (endParts[1] ?? 0) / 60;
+
+    if (!(endHour > startHour)) {
+      return [];
+    }
+
+    return [
+      {
+        memberId: block.user_id,
+        days: [day],
+        s: startHour,
+        e: endHour,
+        lbl: block.label ?? "Schedule",
+        sub: block.details ?? "",
+        routine: false,
+        kind: "circle-schedule",
+        id: block.id,
+        creatorId: block.user_id,
+        scheduledDate: block.scheduled_date ?? undefined,
+        source: "circle-schedule",
       },
     ];
   });
@@ -449,7 +641,7 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
     })
     .filter((block): block is CalendarBlock => Boolean(block));
 
-  const blocks = mergeBlocks(routineBlocks, [...scheduleBlocks, ...taskBlocks]);
+  const blocks = mergeBlocks(personalRoutineBlocks, circleRoutineBlocks, circleScheduledBlockBlocks, [...scheduleBlocks, ...taskBlocks]);
   const freeWindows = computeFreeWindows(members, blocks, weekStart);
   
   const explicitDeadlines = deadlines.map(mapDeadline).filter((deadline): deadline is CalendarDeadline => Boolean(deadline));
@@ -511,10 +703,12 @@ export default async function CircleCalendarPage({ params, searchParams }: PageP
         blocks={blocks}
         freeWindows={freeWindows}
         deadlines={deadlineData}
+        occurrenceOverrides={occurrenceOverrides}
         groupId={groupId}
         groupName={group?.name ?? "Circle"}
         groupColor={group?.color ?? "#4f46e5"}
         groupSubject={group?.subject ?? null}
+        currentUserId={user.id}
         weekOffset={safeWeekOffset}
         selectedDate={toDateParam(selectedDate)}
         startHour={safeStartHour}
