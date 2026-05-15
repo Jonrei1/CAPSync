@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link2, Pencil, Trash2, Plus, Check, X } from "lucide-react";
+import { Link2, Pencil, Trash2, Plus, Check, X, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from "@/components/ui/dialog";
@@ -31,6 +31,7 @@ export default function ImportantLinks({ groupId, currentUserId }: ImportantLink
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   useEffect(() => {
     let mounted = true;
@@ -172,8 +173,32 @@ export default function ImportantLinks({ groupId, currentUserId }: ImportantLink
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {links.map((link) => (
+          <div className="flex flex-col gap-4">
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search links by title or URL..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col gap-3">
+            {links.filter(link => 
+              link.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              link.url.toLowerCase().includes(searchQuery.toLowerCase())
+            ).map((link) => (
               <div key={link.id} className={cn("flex items-start gap-3 rounded-lg border border-border/70 bg-muted/30 px-4 py-3")}> 
                 <div className="mt-0.5 text-zinc-700"><Link2 className="h-5 w-5" /></div>
                 <div className="flex-1 min-w-0">
@@ -185,7 +210,7 @@ export default function ImportantLinks({ groupId, currentUserId }: ImportantLink
                 <div className="flex flex-col items-end gap-2">
                   {currentUserId && currentUserId === link.created_by ? (
                     <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => openEditDialog(link)} className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50">
+                      <button type="button" onClick={() => openEditDialog(link)} className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 cursor-pointer">
                         <Pencil className="h-4 w-4" />
                       </button>
 
@@ -204,7 +229,7 @@ export default function ImportantLinks({ groupId, currentUserId }: ImportantLink
                           </button>
                         </div>
                       ) : (
-                        <button type="button" onClick={() => setConfirmingId(link.id)} className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50">
+                        <button type="button" onClick={() => setConfirmingId(link.id)} className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50 cursor-pointer">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       )}
@@ -213,6 +238,7 @@ export default function ImportantLinks({ groupId, currentUserId }: ImportantLink
                 </div>
               </div>
             ))}
+            </div>
           </div>
         )}
       </CardContent>
