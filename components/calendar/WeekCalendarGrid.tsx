@@ -501,7 +501,11 @@ export default function WeekCalendarGrid({
 
                   return (
                     <div
-                      key={event.id}
+                      key={
+                        event.id && event.id !== "undefined"
+                          ? event.id
+                          : `${event.dayIndex}-${event.startHour}-${event.endHour}-${String(event.title ?? "").slice(0,10)}`
+                      }
                       className={cn(
                         styles.eventBlock,
                         isPattern && styles.routinePattern,

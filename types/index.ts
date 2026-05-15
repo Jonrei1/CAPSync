@@ -151,3 +151,15 @@ export type CalendarDeadline = {
 	taskId?: string;
 	sprintId?: string | null;
 };
+
+export type CircleLink = {
+	id: string;
+	group_id: string;
+	created_by: string | null;
+	title: string;
+	url: string;
+	description: string | null;
+	created_at: string;
+	updated_at: string;
+	profiles?: { full_name: string | null } | null;
+};

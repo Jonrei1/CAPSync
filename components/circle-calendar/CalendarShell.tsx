@@ -209,6 +209,11 @@ function getDayKey(date: Date) {
   return DAY_KEYS[date.getDay()];
 }
 
+function safeKey(value: unknown) {
+  if (value === undefined || value === null) return "unknown";
+  return String(value);
+}
+
 function getTooltipPoint(clientX: number, clientY: number) {
   return {
     x: Math.min(clientX + 14, window.innerWidth - 240),
@@ -1282,7 +1287,7 @@ export default function CalendarShell({
         const enhancedSubtitle = subtitleParts.join(" ");
 
         foregroundEvents.push({
-          id: `${block.id}-${dayKey}`,
+          id: block.id ? `${block.id}-${dayKey}` : `anon-${block.memberId}-${startHour}-${endHour}-${dayKey}`,
           dayIndex,
           startHour,
           endHour,
@@ -1539,7 +1544,7 @@ export default function CalendarShell({
 
                         return (
                           <button
-                            key={`${dayKey}-${hour}`}
+                            key={`${safeKey(dayKey)}-${safeKey(hour)}`}
                             type="button"
                             className="flex h-5.5 items-center justify-center rounded-[3px] border transition-colors duration-150 hover:brightness-95"
                             style={{ backgroundColor: colors[bucket], borderColor: borders[bucket] }}
@@ -1625,7 +1630,7 @@ export default function CalendarShell({
                 <div className="flex flex-wrap gap-2">
                   {visibleFreeWindows.map((window) => (
                     <button
-                      key={`${window.days.join("-")}-${window.s}-${window.e}`}
+                      key={`${safeKey(window.days.join("-"))}-${safeKey(window.s)}-${safeKey(window.e)}`}
                       type="button"
                       className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-500 hover:text-white"
                       onClick={() => openAddMeeting(window.days[0] ?? "sun", window.s, window.e)}
@@ -1654,15 +1659,15 @@ export default function CalendarShell({
                     const dayKey = getDayKey(date);
                     const dayWindows = visibleFreeWindows.filter((window) => window.days.includes(dayKey));
 
-                    return (
-                      <section key={dayKey} className="space-y-2">
+                      return (
+                        <section key={safeKey(dayKey)} className="space-y-2">
                         <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                           <span>{DAY_LABELS[date.getDay()]}</span>
                           <div className="h-px flex-1 bg-border/70" />
                         </div>
 
                         {visibleMembers.map((member) => (
-                          <div key={`${dayKey}-${member.id}`} className="flex items-center gap-3">
+                          <div key={`${safeKey(dayKey)}-${safeKey(member.id)}`} className="flex items-center gap-3">
                             <div className="flex w-24 shrink-0 items-center gap-2">
                               <div className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-semibold text-white" style={{ backgroundColor: member.bg }}>
                                 {member.ini}
@@ -1678,7 +1683,7 @@ export default function CalendarShell({
 
                                 return (
                                   <button
-                                    key={`${member.id}-${dayKey}-${hour}`}
+                                    key={`${safeKey(member.id)}-${safeKey(dayKey)}-${safeKey(hour)}`}
                                     type="button"
                                     className={cn(
                                       "flex h-5 flex-1 items-center justify-center rounded-[3px] border transition-colors duration-150 hover:brightness-95",
@@ -1707,7 +1712,7 @@ export default function CalendarShell({
                           <div className="flex flex-wrap gap-2 pl-24">
                             {dayWindows.map((window) => (
                               <button
-                                key={`${dayKey}-${window.s}-${window.e}`}
+                                key={`${safeKey(dayKey)}-${safeKey(window.s)}-${safeKey(window.e)}`}
                                 type="button"
                                 className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[9px] font-medium text-emerald-700 transition-colors hover:bg-emerald-500 hover:text-white"
                                 onClick={() => openAddMeeting(window.days[0] ?? dayKey, window.s, window.e)}
@@ -1736,8 +1741,8 @@ export default function CalendarShell({
                   const dayKey = getDayKey(date);
                   const dayWindows = visibleFreeWindows.filter((window) => window.days.includes(dayKey));
 
-                  return (
-                    <div key={dayKey} className="overflow-hidden rounded-xl border border-border/70 bg-background">
+                        return (
+                          <div key={safeKey(dayKey)} className="overflow-hidden rounded-xl border border-border/70 bg-background">
                       <div className="flex items-center justify-between border-b border-border/70 bg-muted/30 px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className={cn("text-sm font-semibold", date.toDateString() === new Date().toDateString() ? "text-primary" : "text-foreground")}>{DAY_LABELS[date.getDay()]}</span>
@@ -1752,7 +1757,7 @@ export default function CalendarShell({
                         <div className="px-4 py-4 text-sm text-muted-foreground">No shared free windows on this day.</div>
                       ) : (
                         <div className="divide-y divide-border/70">
-                          {dayWindows.map((window) => {
+                            {dayWindows.map((window) => {
                             const freeMemberIds = window.memberIds.filter((memberId) => visibleMemberSet.has(memberId));
                             const freeMembers = freeMemberIds
                               .map((memberId) => memberMap.get(memberId))
@@ -1760,8 +1765,8 @@ export default function CalendarShell({
                             const unavailableMembers = visibleMembers.filter((member) => !freeMemberIds.includes(member.id));
                             const isAllFree = freeMemberIds.length >= visibleCount;
 
-                            return (
-                              <div key={`${dayKey}-${window.s}-${window.e}`} className="flex flex-wrap items-center gap-4 px-4 py-4">
+                              return (
+                              <div key={`${safeKey(dayKey)}-${safeKey(window.s)}-${safeKey(window.e)}`} className="flex flex-wrap items-center gap-4 px-4 py-4">
                                 <div className="min-w-27 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-center">
                                   <div className="text-lg font-bold text-emerald-700">{formatTooltipTime(window.s)}</div>
                                   <div className="text-[10px] text-emerald-600">to {formatTooltipTime(window.e)}</div>

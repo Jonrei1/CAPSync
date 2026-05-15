@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Copy, FolderKanban, Users, WalletCards, CalendarDays, Eye, EyeOff, MoreVertical, Shield, Trash2 } from "lucide-react";
 import MemberManagementModal from "@/components/circles/MemberManagementModal";
+import ImportantLinks from "@/components/circles/ImportantLinks";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -719,6 +720,10 @@ export default function DashboardPage() {
             </Link>
           </CardContent>
         </Card>
+      </section>
+
+      <section>
+        <ImportantLinks groupId={activeCircle.id} currentUserId={userId} />
       </section>
 
       <MemberManagementModal

@@ -1062,3 +1062,64 @@ BEGIN
         ALTER TABLE schedules ADD COLUMN description text DEFAULT '';
     END IF;
 END $$;
+
+-- ============================================================
+-- Circle Links: shared important links per group/circle
+-- ============================================================
+create table if not exists circle_links (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  created_by uuid references profiles(id) on delete set null,
+  title text not null,
+  url text not null,
+  description text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table circle_links enable row level security;
+
+drop policy if exists "group members can view circle links" on circle_links;
+drop policy if exists "group members can insert circle links" on circle_links;
+drop policy if exists "creators can update circle links" on circle_links;
+drop policy if exists "creators can delete circle links" on circle_links;
+
+create policy "group members can view circle links"
+on circle_links for select
+using (public.is_group_member(group_id, auth.uid()));
+
+create policy "group members can insert circle links"
+on circle_links for insert
+with check (
+  created_by = auth.uid()
+  and public.is_group_member(group_id, auth.uid())
+);
+
+create policy "creators can update circle links"
+on circle_links for update
+using (created_by = auth.uid())
+with check (created_by = auth.uid());
+
+create policy "creators can delete circle links"
+on circle_links for delete
+using (created_by = auth.uid());
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_publication
+    where pubname = 'supabase_realtime'
+  ) then
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'circle_links'
+    ) then
+      execute 'alter publication supabase_realtime add table public.circle_links';
+    end if;
+  end if;
+end;
+$$;
